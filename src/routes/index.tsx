@@ -7,6 +7,7 @@ import sennaS from "@/assets/brand/senna-s.png.asset.json";
 import helmetImg from "@/assets/brand/helmet.png.asset.json";
 import f1Car from "@/assets/brand/f1-car.png.asset.json";
 import f1Logo from "@/assets/brand/f1-logo.png.asset.json";
+import sennaBg from "@/assets/brand/senna-bg.mp4.asset.json";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -215,6 +216,12 @@ const NAV = [
 function Index() {
   const [activeId, setActiveId] = useState("inicio");
   const [done, setDone] = useState<Record<string, boolean>>({});
+  const [booted, setBooted] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setBooted(true), 2600);
+    return () => clearTimeout(t);
+  }, []);
 
   useEffect(() => {
     try {
@@ -277,6 +284,28 @@ function Index() {
 
   return (
     <div className="shell">
+      <video
+        className="bg-video"
+        src={sennaBg.url}
+        autoPlay
+        muted
+        loop
+        playsInline
+        aria-hidden="true"
+      />
+      <div className={`boot-splash ${booted ? "is-gone" : ""}`} aria-hidden="true">
+        <video
+          className="boot-splash-video"
+          src={sennaBg.url}
+          autoPlay
+          muted
+          playsInline
+        />
+        <div className="boot-splash-mark">
+          <img src={sennaS.url} alt="" width={64} height={64} />
+          <span>pitstop<i>.dev.br</i></span>
+        </div>
+      </div>
       <div className="track-rail" aria-hidden="true">
         <div className="track-car">
           <span className="track-car-glow" />
