@@ -3,6 +3,10 @@ import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { ExternalLink, Flag, Info, Terminal } from "lucide-react";
 import { LESSONS, PLATFORMS, type Command, type Example, type Lesson } from "@/data/lessons";
 import { Icon } from "@/components/Icon";
+import sennaS from "@/assets/brand/senna-s.png.asset.json";
+import helmetImg from "@/assets/brand/helmet.png.asset.json";
+import f1Car from "@/assets/brand/f1-car.png.asset.json";
+import f1Logo from "@/assets/brand/f1-logo.png.asset.json";
 
 export const Route = createFileRoute("/")({
   component: Index,
@@ -211,7 +215,6 @@ const NAV = [
 function Index() {
   const [activeId, setActiveId] = useState("inicio");
   const [done, setDone] = useState<Record<string, boolean>>({});
-  const [carPos, setCarPos] = useState(0);
 
   useEffect(() => {
     try {
@@ -263,9 +266,6 @@ function Index() {
         if (el && el.offsetTop <= pos) cur = id;
       }
       setActiveId(cur);
-      const max = document.documentElement.scrollHeight - window.innerHeight;
-      const pct = max > 0 ? Math.min(100, Math.max(0, (window.scrollY / max) * 100)) : 0;
-      setCarPos(pct);
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     onScroll();
@@ -277,20 +277,20 @@ function Index() {
 
   return (
     <div className="shell">
-      <div
-        className="track-rail"
-        aria-hidden="true"
-        style={{ ["--car-pos" as string]: carPos }}
-      >
+      <div className="track-rail" aria-hidden="true">
         <div className="track-car">
-          <Icon name="f1Car" size={78} />
+          <span className="track-car-glow" />
+          <img src={f1Car.url} alt="" className="track-car-img" />
+          <span className="track-car-flame" />
+          <span className="track-car-wheel track-car-wheel--front" />
+          <span className="track-car-wheel track-car-wheel--rear" />
         </div>
         <div className="track-finish" />
       </div>
       <aside className="rail">
         <div className="brand">
           <span className="brand-mark">
-            <Icon name="helmet" size={24} />
+            <img src={sennaS.url} alt="" width={30} height={30} />
           </span>
           <div>
             <b>
@@ -303,11 +303,15 @@ function Index() {
           {NAV.map((n) => (
             <a key={n.id} href={`#${n.id}`} className={activeId === n.id ? "active" : ""}>
               <span className="n">{n.num}</span> {n.title}
-              {done[n.id] && (
+              {done[n.id] ? (
                 <span className="done-mark">
                   <Icon name="checkeredFlag" size={12} label="etapa concluída" />
                 </span>
-              )}
+              ) : activeId === n.id ? (
+                <span className="active-mark" aria-hidden="true">
+                  <img src={helmetImg.url} alt="" width={18} height={18} />
+                </span>
+              ) : null}
             </a>
           ))}
         </nav>
@@ -367,9 +371,12 @@ function Index() {
           <PlatformsSection />
 
           <footer>
-            <span>
-              <b>pitstop.dev.br</b> — guia Kubernetes etapa por etapa, baseado nas aulas 1–8
-              (Thiago Adriano, FIAP).
+            <span className="foot-brand">
+              <img src={f1Logo.url} alt="" width={38} height={19} />
+              <span>
+                <b>pitstop.dev.br</b> — guia Kubernetes etapa por etapa, baseado nas aulas
+                1–8 (Thiago Adriano, FIAP).
+              </span>
             </span>
             <span className="foot-note">100% estático · progresso salvo em localStorage</span>
           </footer>
