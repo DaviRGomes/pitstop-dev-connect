@@ -1,9 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, Cloud, Server, Wrench } from "lucide-react";
-import sennaS from "@/assets/brand/senna-s.png.asset.json";
-import f1Car from "@/assets/brand/f1-car.png.asset.json";
-import f1Logo from "@/assets/brand/f1-logo.png.asset.json";
-import sennaBg from "@/assets/brand/senna-bg.mp4.asset.json";
+import { f1Car, f1Logo, sennaBg } from "@/assets/brand/paths";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -68,7 +65,7 @@ function Home() {
     <div className="home">
       <video
         className="bg-video"
-        src={sennaBg.url}
+        src={sennaBg}
         autoPlay
         muted
         loop
@@ -107,7 +104,7 @@ function Home() {
           </div>
         </div>
         <div className="home-hero-art" aria-hidden="true">
-          <img src={f1Car.url} alt="" className="home-hero-car" />
+          <img src={f1Car} alt="" className="home-hero-car" />
           <div className="home-hero-halo" />
         </div>
       </section>
@@ -191,7 +188,7 @@ function Home() {
 
       <footer className="home-foot">
         <span className="foot-brand">
-          <img src={f1Logo.url} alt="" width={38} height={19} />
+          <img src={f1Logo} alt="" width={38} height={19} />
           <span>
             <b>pitstop.dev.br</b> — estudos em ritmo de F1 · devops · cloud · backend
           </span>
