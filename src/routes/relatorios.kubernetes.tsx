@@ -309,16 +309,6 @@ function Index() {
           <cite>— Ayrton Senna</cite>
         </blockquote>
       </div>
-      <div className="track-rail" aria-hidden="true">
-        <div className="track-car">
-          <span className="track-car-glow" />
-          <img src={f1Car.url} alt="" className="track-car-img" />
-          <span className="track-car-flame" />
-          <span className="track-car-wheel track-car-wheel--front" />
-          <span className="track-car-wheel track-car-wheel--rear" />
-        </div>
-        <div className="track-finish" />
-      </div>
       <aside className="rail">
         <div className="brand">
           <span className="brand-mark">
