@@ -1,3 +1,6 @@
+
+- **f1-car** — game-icons:f1-car (Lorc / game-icons.net). CC-BY 3.0.
+  https://icon-sets.iconify.design/game-icons/f1-car/
 # Licenças dos ícones
 
 Nenhum ícone deste projeto foi desenhado à mão. Todos vêm de bibliotecas abertas

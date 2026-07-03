@@ -360,6 +360,165 @@ footer { border-top: 1px solid var(--line); margin-top: 60px; padding: 34px 0 80
   .progress-fill, .sectors span, .nav a, .tab, .btn-done { transition: none; }
 }
 
+/* ============================================================
+   F1 — pista vertical fixa na direita com carro descendo
+   ============================================================ */
+.track-rail {
+  position: fixed;
+  top: 0;
+  right: 14px;
+  width: 46px;
+  height: 100vh;
+  z-index: 5;
+  pointer-events: none;
+  display: flex;
+  justify-content: center;
+  /* asfalto */
+  background:
+    linear-gradient(90deg, transparent 0, transparent 6px,
+      color-mix(in srgb, var(--senna-yellow) 55%, transparent) 6px,
+      color-mix(in srgb, var(--senna-yellow) 55%, transparent) 8px,
+      transparent 8px, transparent 38px,
+      color-mix(in srgb, var(--senna-yellow) 55%, transparent) 38px,
+      color-mix(in srgb, var(--senna-yellow) 55%, transparent) 40px,
+      transparent 40px),
+    linear-gradient(180deg, #10131b, #060810);
+  border-left: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+  overflow: hidden;
+}
+/* linhas centrais tracejadas descendo (efeito velocidade) */
+.track-rail::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: -80px;
+  width: 4px;
+  height: calc(100% + 160px);
+  background: repeating-linear-gradient(
+    180deg,
+    var(--text) 0 18px,
+    transparent 18px 42px
+  );
+  opacity: .55;
+  animation: dash-run 0.7s linear infinite;
+}
+@keyframes dash-run {
+  from { transform: translate(-50%, 0); }
+  to   { transform: translate(-50%, 42px); }
+}
+/* posição do carro controlada por --car-pos (0-100 pelo JS) */
+.track-car {
+  position: absolute;
+  top: calc(6% + (100vh - 12% - 88px) * (var(--car-pos, 0) / 100));
+  left: 50%;
+  transform: translateX(-50%) rotate(90deg); /* nariz p/ baixo, traseira em cima */
+  width: 44px;
+  height: 88px;
+  display: grid;
+  place-items: center;
+  color: var(--mclaren-red);
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,.6))
+          drop-shadow(0 0 8px color-mix(in srgb, var(--mclaren-red) 40%, transparent));
+  transition: top .18s cubic-bezier(.22,.61,.36,1);
+}
+.track-car svg {
+  width: 78px;
+  height: 78px;
+  transform: rotate(180deg); /* SVG original aponta pra direita; +90° já leva pra baixo, +180 leva a traseira p/ cima */
+}
+/* rastro do carro (chama do escapamento) */
+.track-car::after {
+  content: "";
+  position: absolute;
+  right: -14px; /* após rotate(90deg) fica acima da traseira */
+  top: 50%;
+  width: 10px;
+  height: 22px;
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--senna-yellow) 80%, transparent),
+    color-mix(in srgb, var(--mclaren-red) 60%, transparent),
+    transparent);
+  border-radius: 40% 40% 60% 60%;
+  transform: translateY(-50%);
+  filter: blur(1px);
+  animation: flame 0.12s steps(2) infinite;
+  opacity: .85;
+}
+@keyframes flame {
+  0%   { transform: translateY(-50%) scaleY(1);    opacity: .9; }
+  100% { transform: translateY(-50%) scaleY(1.25); opacity: .65; }
+}
+/* linha de chegada no fim */
+.track-finish {
+  position: absolute;
+  bottom: 5%;
+  left: 6px;
+  right: 6px;
+  height: 10px;
+  background-image:
+    linear-gradient(45deg, var(--text) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--text) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--text) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--text) 75%);
+  background-size: 10px 10px;
+  background-position: 0 0, 0 5px, 5px -5px, -5px 0;
+  background-color: #0a0d14;
+  border-top: 1px solid var(--text);
+  border-bottom: 1px solid var(--text);
+}
+
+/* speed lines na barra de progresso */
+.progress-fill {
+  position: relative;
+  overflow: hidden;
+}
+.progress-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    -30deg,
+    transparent 0 8px,
+    rgba(255,255,255,.18) 8px 12px
+  );
+  animation: speedlines 0.55s linear infinite;
+}
+@keyframes speedlines {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-20px); }
+}
+
+/* bandeira quadriculada balança quando etapa concluída */
+.done-mark svg { animation: wave-flag 1.4s ease-in-out infinite; transform-origin: left center; }
+@keyframes wave-flag {
+  0%,100% { transform: rotate(-4deg); }
+  50%     { transform: rotate(6deg); }
+}
+
+/* botão concluída — piscar de largada */
+.btn-done.on { animation: light-on .9s ease-out; }
+@keyframes light-on {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 70%, transparent); }
+  70%  { box-shadow: 0 0 0 14px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .track-rail::before,
+  .track-car::after,
+  .progress-fill::after,
+  .done-mark svg,
+  .btn-done.on { animation: none !important; }
+  .track-car { transition: none; }
+}
+
+/* esconde a pista em telas estreitas */
+@media (max-width: 1080px) {
+  .track-rail { display: none; }
+}
+
 @media (max-width: 880px) {
   .shell { flex-direction: column; }
   .rail { width: 100%; flex-basis: auto; height: auto; position: sticky; z-index: 20; flex-direction: row; align-items: center; gap: 16px; padding: 12px 16px; border-right: none; border-bottom: 1px solid var(--line); }

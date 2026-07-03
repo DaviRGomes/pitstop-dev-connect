@@ -211,6 +211,7 @@ const NAV = [
 function Index() {
   const [activeId, setActiveId] = useState("inicio");
   const [done, setDone] = useState<Record<string, boolean>>({});
+  const [carPos, setCarPos] = useState(0);
 
   useEffect(() => {
     try {
@@ -262,6 +263,9 @@ function Index() {
         if (el && el.offsetTop <= pos) cur = id;
       }
       setActiveId(cur);
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      const pct = max > 0 ? Math.min(100, Math.max(0, (window.scrollY / max) * 100)) : 0;
+      setCarPos(pct);
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     onScroll();
@@ -273,6 +277,16 @@ function Index() {
 
   return (
     <div className="shell">
+      <div
+        className="track-rail"
+        aria-hidden="true"
+        style={{ ["--car-pos" as string]: carPos }}
+      >
+        <div className="track-car">
+          <Icon name="f1Car" size={78} />
+        </div>
+        <div className="track-finish" />
+      </div>
       <aside className="rail">
         <div className="brand">
           <span className="brand-mark">
