@@ -5,7 +5,6 @@ import { LESSONS, PLATFORMS, type Command, type Example, type Lesson } from "@/d
 import { Icon } from "@/components/Icon";
 import sennaS from "@/assets/brand/senna-s.png.asset.json";
 import helmetImg from "@/assets/brand/helmet.png.asset.json";
-import f1Car from "@/assets/brand/f1-car.png.asset.json";
 import f1Logo from "@/assets/brand/f1-logo.png.asset.json";
 import sennaBg from "@/assets/brand/senna-bg.mp4.asset.json";
 
