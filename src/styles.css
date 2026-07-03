@@ -199,8 +199,18 @@ a:hover { text-decoration: underline; }
   backdrop-filter: blur(6px);
   display: flex; flex-direction: column; gap: 24px; overflow-y: auto;
 }
-.brand { display: flex; align-items: center; gap: 10px; color: var(--text); }
-.brand .brand-mark { color: var(--k8s); display: grid; place-items: center; flex: 0 0 auto; }
+.brand { display: flex; align-items: center; gap: 12px; color: var(--text); }
+.brand .brand-mark {
+  color: var(--k8s);
+  display: grid; place-items: center; flex: 0 0 auto;
+  width: 40px; height: 40px; border-radius: 10px;
+  background: color-mix(in srgb, var(--senna-yellow) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--senna-yellow) 32%, transparent);
+}
+.brand .brand-mark img {
+  filter: brightness(0) saturate(100%) invert(82%) sepia(75%) saturate(1600%) hue-rotate(1deg);
+  display: block;
+}
 .brand b {
   font-family: var(--display); font-weight: 700; font-size: 1.3rem;
   letter-spacing: .04em; line-height: 1; text-transform: uppercase; display: block;
@@ -220,6 +230,8 @@ a:hover { text-decoration: underline; }
 }
 .nav a .n { font-family: var(--mono); font-size: .64rem; color: var(--dim); width: 18px; flex: 0 0 auto; }
 .nav a .done-mark { margin-left: auto; align-self: center; color: var(--text); display: inline-flex; }
+.nav a .active-mark { margin-left: auto; align-self: center; display: inline-flex; opacity: .85; }
+.nav a .active-mark img { filter: brightness(0) invert(1); }
 .rail-foot { margin-top: auto; font-size: .64rem; color: var(--dim); font-family: var(--mono); line-height: 1.6; }
 
 main { flex: 1; min-width: 0; padding: 0 clamp(20px, 5vw, 72px); }
@@ -409,46 +421,88 @@ footer { border-top: 1px solid var(--line); margin-top: 60px; padding: 34px 0 80
   to   { transform: translate(-50%, 42px); }
 }
 /* posição do carro controlada por --car-pos (0-100 pelo JS) */
+/* Carro estático no meio da pista, com detalhes animados */
 .track-car {
   position: absolute;
-  top: calc(6% + (100vh - 12% - 88px) * (var(--car-pos, 0) / 100));
-  left: 50%;
-  transform: translateX(-50%) rotate(90deg); /* nariz p/ baixo, traseira em cima */
-  width: 44px;
-  height: 88px;
-  display: grid;
-  place-items: center;
-  color: var(--mclaren-red);
-  filter: drop-shadow(0 4px 6px rgba(0,0,0,.6))
-          drop-shadow(0 0 8px color-mix(in srgb, var(--mclaren-red) 40%, transparent));
-  transition: top .18s cubic-bezier(.22,.61,.36,1);
-}
-.track-car svg {
-  width: 78px;
-  height: 78px;
-  transform: rotate(180deg); /* SVG original aponta pra direita; +90° já leva pra baixo, +180 leva a traseira p/ cima */
-}
-/* rastro do carro (chama do escapamento) */
-.track-car::after {
-  content: "";
-  position: absolute;
-  right: -14px; /* após rotate(90deg) fica acima da traseira */
   top: 50%;
-  width: 10px;
-  height: 22px;
-  background: linear-gradient(180deg,
-    color-mix(in srgb, var(--senna-yellow) 80%, transparent),
-    color-mix(in srgb, var(--mclaren-red) 60%, transparent),
-    transparent);
-  border-radius: 40% 40% 60% 60%;
-  transform: translateY(-50%);
-  filter: blur(1px);
-  animation: flame 0.12s steps(2) infinite;
-  opacity: .85;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 68px;
+  height: 120px;
+  display: block;
 }
-@keyframes flame {
-  0%   { transform: translateY(-50%) scaleY(1);    opacity: .9; }
-  100% { transform: translateY(-50%) scaleY(1.25); opacity: .65; }
+.track-car-img {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 120px; height: 120px;
+  /* PNG lateral -> nariz apontado pra cima, traseira embaixo */
+  transform: translate(-50%, -50%) rotate(-90deg);
+  filter: drop-shadow(0 6px 10px rgba(0,0,0,.7))
+          drop-shadow(0 0 10px color-mix(in srgb, var(--mclaren-red) 45%, transparent));
+  z-index: 2;
+  pointer-events: none;
+  animation: car-hover 2.4s ease-in-out infinite;
+}
+@keyframes car-hover {
+  0%,100% { transform: translate(-50%, -50%) rotate(-90deg); }
+  50%     { transform: translate(-50%, calc(-50% - 3px)) rotate(-90deg); }
+}
+/* Halo de calor pulsando ao redor do carro */
+.track-car-glow {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 90px; height: 90px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle,
+    color-mix(in srgb, var(--senna-yellow) 45%, transparent) 0%,
+    transparent 70%);
+  filter: blur(6px);
+  z-index: 1;
+  animation: heat-pulse 1.8s ease-in-out infinite;
+}
+@keyframes heat-pulse {
+  0%,100% { opacity: .55; transform: translate(-50%,-50%) scale(1); }
+  50%     { opacity: .95; transform: translate(-50%,-50%) scale(1.15); }
+}
+/* Chama do escapamento — sai por baixo (traseira) */
+.track-car-flame {
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: 14px; height: 32px;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--senna-yellow) 90%, transparent) 0%,
+    color-mix(in srgb, var(--mclaren-red) 75%, transparent) 55%,
+    transparent 100%);
+  border-radius: 40% 40% 60% 60% / 30% 30% 70% 70%;
+  filter: blur(1.5px);
+  z-index: 3;
+  animation: flame-flicker .09s steps(2) infinite;
+  transform-origin: top center;
+}
+@keyframes flame-flicker {
+  0%   { transform: translateX(-50%) scaleY(1)    scaleX(1); opacity: .95; }
+  100% { transform: translateX(-50%) scaleY(1.35) scaleX(.85); opacity: .7; }
+}
+/* Rodas girando — discos amarelos atrás do PNG */
+.track-car-wheel {
+  position: absolute;
+  left: 50%;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background:
+    conic-gradient(var(--text) 0 25%, transparent 25% 50%, var(--text) 50% 75%, transparent 75% 100%);
+  border: 2px solid #0a0d14;
+  z-index: 3;
+  animation: wheel-spin .18s linear infinite;
+}
+.track-car-wheel--front { top: 18px; transform: translateX(-50%); }
+.track-car-wheel--rear  { bottom: 24px; transform: translateX(-50%); }
+@keyframes wheel-spin {
+  from { transform: translateX(-50%) rotate(0deg); }
+  to   { transform: translateX(-50%) rotate(360deg); }
 }
 /* linha de chegada no fim */
 .track-finish {
@@ -507,12 +561,18 @@ footer { border-top: 1px solid var(--line); margin-top: 60px; padding: 34px 0 80
 
 @media (prefers-reduced-motion: reduce) {
   .track-rail::before,
-  .track-car::after,
+  .track-car-img,
+  .track-car-glow,
+  .track-car-flame,
+  .track-car-wheel,
   .progress-fill::after,
   .done-mark svg,
   .btn-done.on { animation: none !important; }
-  .track-car { transition: none; }
 }
+
+/* Rodapé com logo F1 */
+.foot-brand { display: inline-flex; align-items: center; gap: 12px; max-width: 620px; }
+.foot-brand img { flex: 0 0 auto; opacity: .9; }
 
 /* esconde a pista em telas estreitas */
 @media (max-width: 1080px) {
