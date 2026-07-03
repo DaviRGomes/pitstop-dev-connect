@@ -437,8 +437,10 @@ footer { border-top: 1px solid var(--line); margin-top: 60px; padding: 34px 0 80
   width: 120px; height: 120px;
   /* PNG lateral -> nariz apontado pra cima, traseira embaixo */
   transform: translate(-50%, -50%) rotate(-90deg);
-  filter: drop-shadow(0 6px 10px rgba(0,0,0,.7))
-          drop-shadow(0 0 10px color-mix(in srgb, var(--mclaren-red) 45%, transparent));
+  /* PNG original é preto -> inverte pra branco pra contrastar com asfalto */
+  filter: brightness(0) invert(1)
+          drop-shadow(0 6px 10px rgba(0,0,0,.7))
+          drop-shadow(0 0 8px color-mix(in srgb, var(--senna-yellow) 60%, transparent));
   z-index: 2;
   pointer-events: none;
   animation: car-hover 2.4s ease-in-out infinite;
