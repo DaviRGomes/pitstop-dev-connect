@@ -301,10 +301,13 @@ function Index() {
           muted
           playsInline
         />
-        <div className="boot-splash-mark">
-          <img src={sennaS.url} alt="" width={64} height={64} />
-          <span>pitstop<i>.dev.br</i></span>
-        </div>
+        <blockquote className="boot-splash-quote">
+          <p>
+            "Tenha sempre como meta muita força, muita determinação e sempre faça
+            tudo com muito amor e muita fé em Deus, que um dia você chega lá."
+          </p>
+          <cite>— Ayrton Senna</cite>
+        </blockquote>
       </div>
       <div className="track-rail" aria-hidden="true">
         <div className="track-car">
