@@ -76,22 +76,6 @@ function Home() {
         aria-hidden="true"
       />
 
-      <header className="home-nav">
-        <Link to="/" className="home-brand">
-          <span className="brand-mark">
-            <img src={sennaS.url} alt="" width={30} height={30} />
-          </span>
-          <b>
-            pitstop<span className="tld">.dev.br</span>
-          </b>
-        </Link>
-        <nav>
-          <a href="#sobre">sobre</a>
-          <a href="#areas">áreas</a>
-          <a href="#relatorios">relatórios</a>
-        </nav>
-      </header>
-
       <section className="home-hero">
         <div className="home-hero-copy">
           <p className="kicker">
