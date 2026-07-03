@@ -9,7 +9,7 @@ import f1Car from "@/assets/brand/f1-car.png.asset.json";
 import f1Logo from "@/assets/brand/f1-logo.png.asset.json";
 import sennaBg from "@/assets/brand/senna-bg.mp4.asset.json";
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/relatorios/kubernetes")({
   component: Index,
 });
 

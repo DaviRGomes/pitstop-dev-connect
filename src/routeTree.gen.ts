@@ -9,50 +9,50 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
+import { Route as RelatoriosKubernetesRouteImport } from './routes/relatorios.kubernetes'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const RelatoriosKubernetesRoute = RelatoriosKubernetesRouteImport.update({
+  id: '/relatorios/kubernetes',
+  path: '/relatorios/kubernetes',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
+  '/relatorios/kubernetes': typeof RelatoriosKubernetesRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
+  '/relatorios/kubernetes': typeof RelatoriosKubernetesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
+  '/relatorios/kubernetes': typeof RelatoriosKubernetesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/relatorios/kubernetes'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/relatorios/kubernetes'
+  id: '__root__' | '/relatorios/kubernetes'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
+  RelatoriosKubernetesRoute: typeof RelatoriosKubernetesRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/relatorios/kubernetes': {
+      id: '/relatorios/kubernetes'
+      path: '/relatorios/kubernetes'
+      fullPath: '/relatorios/kubernetes'
+      preLoaderRoute: typeof RelatoriosKubernetesRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
+  RelatoriosKubernetesRoute: RelatoriosKubernetesRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
