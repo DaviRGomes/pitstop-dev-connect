@@ -81,7 +81,7 @@ function Home() {
           <h1 className="home-title">
             Engenharia de software
             <br />
-            em <span className="b">ritmo de Fórmula 1</span>.
+            em <span className="b">ritmo de Fórmula 1</span>
           </h1>
           <p className="lead">
             O <strong>pitstop.dev.br</strong> é um espaço aberto pra estudar
@@ -193,7 +193,6 @@ function Home() {
             <b>pitstop.dev.br</b> — estudos em ritmo de F1 · devops · cloud · backend
           </span>
         </span>
-        <span className="foot-note">projeto de estudo · 100% aberto</span>
       </footer>
     </div>
   );

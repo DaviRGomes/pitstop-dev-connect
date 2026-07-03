@@ -212,12 +212,6 @@ const NAV = [
 function Index() {
   const [activeId, setActiveId] = useState("inicio");
   const [done, setDone] = useState<Record<string, boolean>>({});
-  const [booted, setBooted] = useState(false);
-
-  useEffect(() => {
-    const t = setTimeout(() => setBooted(true), 2600);
-    return () => clearTimeout(t);
-  }, []);
 
   useEffect(() => {
     try {
@@ -289,22 +283,6 @@ function Index() {
         playsInline
         aria-hidden="true"
       />
-      <div className={`boot-splash ${booted ? "is-gone" : ""}`} aria-hidden="true">
-        <video
-          className="boot-splash-video"
-          src={sennaBg}
-          autoPlay
-          muted
-          playsInline
-        />
-        <blockquote className="boot-splash-quote">
-          <p>
-            "Tenha sempre como meta muita força, muita determinação e sempre faça
-            tudo com muito amor e muita fé em Deus, que um dia você chega lá."
-          </p>
-          <cite>— Ayrton Senna</cite>
-        </blockquote>
-      </div>
       <aside className="rail">
         <div className="brand">
           <span className="brand-mark">
@@ -396,7 +374,7 @@ function Index() {
                 1–8 (Thiago Adriano, FIAP).
               </span>
             </span>
-            <span className="foot-note">100% estático · progresso salvo em localStorage</span>
+
           </footer>
         </div>
       </main>

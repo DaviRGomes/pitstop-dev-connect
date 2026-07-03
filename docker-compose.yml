@@ -1,0 +1,29 @@
+services:
+  # Desenvolvimento com hot-reload
+  dev:
+    image: oven/bun:1.2
+    working_dir: /app
+    volumes:
+      - .:/app
+      - bun_modules:/app/node_modules
+    ports:
+      - "3005:3005"
+    environment:
+      - NODE_ENV=development
+      - VITE_SENNA_BG_URL=/brand/senna-bg.mp4
+    command: sh -c "bun install && bun run dev --host 0.0.0.0"
+
+  # Produção — constrói a imagem e sobe o servidor SSR
+  app:
+    build:
+      context: .
+      target: runner
+    ports:
+      - "3005:3005"
+    environment:
+      - NODE_ENV=production
+    profiles:
+      - prod
+
+volumes:
+  bun_modules:
