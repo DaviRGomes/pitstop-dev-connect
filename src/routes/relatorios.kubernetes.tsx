@@ -3,10 +3,7 @@ import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { ExternalLink, Flag, Info, Terminal } from "lucide-react";
 import { LESSONS, PLATFORMS, type Command, type Example, type Lesson } from "@/data/lessons";
 import { Icon } from "@/components/Icon";
-import sennaS from "@/assets/brand/senna-s.png.asset.json";
-import helmetImg from "@/assets/brand/helmet.png.asset.json";
-import f1Logo from "@/assets/brand/f1-logo.png.asset.json";
-import sennaBg from "@/assets/brand/senna-bg.mp4.asset.json";
+import { sennaS, helmetImg, f1Logo, sennaBg } from "@/assets/brand/paths";
 
 export const Route = createFileRoute("/relatorios/kubernetes")({
   component: Index,
