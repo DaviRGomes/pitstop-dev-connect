@@ -282,7 +282,7 @@ function Index() {
     <div className="shell">
       <video
         className="bg-video"
-        src={sennaBg.url}
+        src={sennaBg}
         autoPlay
         muted
         loop
@@ -292,7 +292,7 @@ function Index() {
       <div className={`boot-splash ${booted ? "is-gone" : ""}`} aria-hidden="true">
         <video
           className="boot-splash-video"
-          src={sennaBg.url}
+          src={sennaBg}
           autoPlay
           muted
           playsInline
@@ -308,7 +308,7 @@ function Index() {
       <aside className="rail">
         <div className="brand">
           <span className="brand-mark">
-            <img src={sennaS.url} alt="" width={30} height={30} />
+            <img src={sennaS} alt="" width={30} height={30} />
           </span>
           <div>
             <b>
@@ -327,7 +327,7 @@ function Index() {
                 </span>
               ) : activeId === n.id ? (
                 <span className="active-mark" aria-hidden="true">
-                  <img src={helmetImg.url} alt="" width={18} height={18} />
+                  <img src={helmetImg} alt="" width={18} height={18} />
                 </span>
               ) : null}
             </a>
@@ -390,7 +390,7 @@ function Index() {
 
           <footer>
             <span className="foot-brand">
-              <img src={f1Logo.url} alt="" width={38} height={19} />
+              <img src={f1Logo} alt="" width={38} height={19} />
               <span>
                 <b>pitstop.dev.br</b> — guia Kubernetes etapa por etapa, baseado nas aulas
                 1–8 (Thiago Adriano, FIAP).
