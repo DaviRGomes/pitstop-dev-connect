@@ -1,0 +1,73 @@
+{
+  "MRData": {
+    "xmlns": "",
+    "series": "f1",
+    "url": "https://api.jolpi.ca/ergast/f1/current/driverstandings.json",
+    "limit": "30",
+    "offset": "0",
+    "total": "3",
+    "StandingsTable": {
+      "season": "2026",
+      "round": "8",
+      "StandingsLists": [
+        {
+          "season": "2026",
+          "round": "8",
+          "DriverStandings": [
+            {
+              "position": "1",
+              "positionText": "1",
+              "points": "216",
+              "wins": "7",
+              "Driver": {
+                "driverId": "norris",
+                "code": "NOR",
+                "givenName": "Lando",
+                "familyName": "Norris",
+                "dateOfBirth": "1999-11-13",
+                "nationality": "British"
+              },
+              "Constructors": [
+                { "constructorId": "mclaren", "name": "McLaren", "nationality": "British" }
+              ]
+            },
+            {
+              "position": "2",
+              "positionText": "2",
+              "points": "197",
+              "wins": "4",
+              "Driver": {
+                "driverId": "piastri",
+                "code": "PIA",
+                "givenName": "Oscar",
+                "familyName": "Piastri",
+                "dateOfBirth": "2001-04-06",
+                "nationality": "Australian"
+              },
+              "Constructors": [
+                { "constructorId": "mclaren", "name": "McLaren", "nationality": "British" }
+              ]
+            },
+            {
+              "position": "3",
+              "positionText": "3",
+              "points": "155",
+              "wins": "1",
+              "Driver": {
+                "driverId": "max_verstappen",
+                "code": "VER",
+                "givenName": "Max",
+                "familyName": "Verstappen",
+                "dateOfBirth": "1997-09-30",
+                "nationality": "Dutch"
+              },
+              "Constructors": [
+                { "constructorId": "red_bull", "name": "Red Bull", "nationality": "Austrian" }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

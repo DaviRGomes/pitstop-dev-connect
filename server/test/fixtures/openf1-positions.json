@@ -1,0 +1,7 @@
+[
+  { "date": "2026-07-05T14:10:00.000000+00:00", "session_key": 11323, "meeting_key": 1289, "driver_number": 63, "position": 1 },
+  { "date": "2026-07-05T14:10:00.000000+00:00", "session_key": 11323, "meeting_key": 1289, "driver_number": 1, "position": 2 },
+  { "date": "2026-07-05T14:10:00.000000+00:00", "session_key": 11323, "meeting_key": 1289, "driver_number": 12, "position": 3 },
+  { "date": "2026-07-05T14:25:31.442000+00:00", "session_key": 11323, "meeting_key": 1289, "driver_number": 1, "position": 1 },
+  { "date": "2026-07-05T14:25:31.442000+00:00", "session_key": 11323, "meeting_key": 1289, "driver_number": 63, "position": 2 }
+]

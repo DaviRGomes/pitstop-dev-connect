@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: 
+  name: pod_deployment
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: tag_pod
+  template:
+    metadata:
+      labels:
+        app: tag_pod
+    spec:
+      containers:
+        - name: pitstop_dev
+          image: davirosagomes/pitstop-dev-connect:latest
+          ports:
+            - containerPort: 3005
+          envFrom: 
+            - configMapRef:
+                name: configmap-pitstop
+          resources: 
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3005
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3 
+          readnessProbe:
+            httpGet:
+              path: /ready
+              port: 3005
+
+
+          
+  

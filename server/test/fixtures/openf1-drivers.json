@@ -1,0 +1,44 @@
+[
+  {
+    "meeting_key": 1289,
+    "session_key": 11323,
+    "driver_number": 1,
+    "broadcast_name": "L NORRIS",
+    "full_name": "Lando NORRIS",
+    "name_acronym": "NOR",
+    "team_name": "McLaren",
+    "team_colour": "F47600",
+    "first_name": "Lando",
+    "last_name": "Norris",
+    "headshot_url": "https://example.com/headshots/norris.png",
+    "country_code": null
+  },
+  {
+    "meeting_key": 1289,
+    "session_key": 11323,
+    "driver_number": 63,
+    "broadcast_name": "G RUSSELL",
+    "full_name": "George RUSSELL",
+    "name_acronym": "RUS",
+    "team_name": "Mercedes",
+    "team_colour": "27F4D2",
+    "first_name": "George",
+    "last_name": "Russell",
+    "headshot_url": "https://example.com/headshots/russell.png",
+    "country_code": null
+  },
+  {
+    "meeting_key": 1289,
+    "session_key": 11323,
+    "driver_number": 12,
+    "broadcast_name": "K ANTONELLI",
+    "full_name": "Kimi ANTONELLI",
+    "name_acronym": "ANT",
+    "team_name": "Mercedes",
+    "team_colour": "27F4D2",
+    "first_name": "Kimi",
+    "last_name": "Antonelli",
+    "headshot_url": "https://example.com/headshots/antonelli.png",
+    "country_code": null
+  }
+]

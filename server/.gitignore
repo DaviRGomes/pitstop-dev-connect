@@ -1,0 +1,5 @@
+# dependências
+node_modules/
+
+# ícones baixados pelo `npm run icons` (o manifest.json fica como referência)
+public/tracks/*.png

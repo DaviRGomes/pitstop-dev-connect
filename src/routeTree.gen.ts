@@ -10,43 +10,131 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as EnIndexRouteImport } from './routes/en.index'
+import { Route as RelatoriosServidoresWebRouteImport } from './routes/relatorios.servidores-web'
+import { Route as RelatoriosKubernetesAvancadoRouteImport } from './routes/relatorios.kubernetes-avancado'
 import { Route as RelatoriosKubernetesRouteImport } from './routes/relatorios.kubernetes'
+import { Route as EnRelatoriosServidoresWebRouteImport } from './routes/en.relatorios.servidores-web'
+import { Route as EnRelatoriosKubernetesAvancadoRouteImport } from './routes/en.relatorios.kubernetes-avancado'
+import { Route as EnRelatoriosKubernetesRouteImport } from './routes/en.relatorios.kubernetes'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EnIndexRoute = EnIndexRouteImport.update({
+  id: '/en/',
+  path: '/en/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RelatoriosServidoresWebRoute = RelatoriosServidoresWebRouteImport.update({
+  id: '/relatorios/servidores-web',
+  path: '/relatorios/servidores-web',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RelatoriosKubernetesAvancadoRoute =
+  RelatoriosKubernetesAvancadoRouteImport.update({
+    id: '/relatorios/kubernetes-avancado',
+    path: '/relatorios/kubernetes-avancado',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const RelatoriosKubernetesRoute = RelatoriosKubernetesRouteImport.update({
   id: '/relatorios/kubernetes',
   path: '/relatorios/kubernetes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EnRelatoriosServidoresWebRoute =
+  EnRelatoriosServidoresWebRouteImport.update({
+    id: '/en/relatorios/servidores-web',
+    path: '/en/relatorios/servidores-web',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const EnRelatoriosKubernetesAvancadoRoute =
+  EnRelatoriosKubernetesAvancadoRouteImport.update({
+    id: '/en/relatorios/kubernetes-avancado',
+    path: '/en/relatorios/kubernetes-avancado',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const EnRelatoriosKubernetesRoute = EnRelatoriosKubernetesRouteImport.update({
+  id: '/en/relatorios/kubernetes',
+  path: '/en/relatorios/kubernetes',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/relatorios/kubernetes': typeof RelatoriosKubernetesRoute
+  '/relatorios/kubernetes-avancado': typeof RelatoriosKubernetesAvancadoRoute
+  '/relatorios/servidores-web': typeof RelatoriosServidoresWebRoute
+  '/en/': typeof EnIndexRoute
+  '/en/relatorios/kubernetes': typeof EnRelatoriosKubernetesRoute
+  '/en/relatorios/kubernetes-avancado': typeof EnRelatoriosKubernetesAvancadoRoute
+  '/en/relatorios/servidores-web': typeof EnRelatoriosServidoresWebRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/relatorios/kubernetes': typeof RelatoriosKubernetesRoute
+  '/relatorios/kubernetes-avancado': typeof RelatoriosKubernetesAvancadoRoute
+  '/relatorios/servidores-web': typeof RelatoriosServidoresWebRoute
+  '/en': typeof EnIndexRoute
+  '/en/relatorios/kubernetes': typeof EnRelatoriosKubernetesRoute
+  '/en/relatorios/kubernetes-avancado': typeof EnRelatoriosKubernetesAvancadoRoute
+  '/en/relatorios/servidores-web': typeof EnRelatoriosServidoresWebRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/relatorios/kubernetes': typeof RelatoriosKubernetesRoute
+  '/relatorios/kubernetes-avancado': typeof RelatoriosKubernetesAvancadoRoute
+  '/relatorios/servidores-web': typeof RelatoriosServidoresWebRoute
+  '/en/': typeof EnIndexRoute
+  '/en/relatorios/kubernetes': typeof EnRelatoriosKubernetesRoute
+  '/en/relatorios/kubernetes-avancado': typeof EnRelatoriosKubernetesAvancadoRoute
+  '/en/relatorios/servidores-web': typeof EnRelatoriosServidoresWebRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/relatorios/kubernetes'
+  fullPaths:
+    | '/'
+    | '/relatorios/kubernetes'
+    | '/relatorios/kubernetes-avancado'
+    | '/relatorios/servidores-web'
+    | '/en/'
+    | '/en/relatorios/kubernetes'
+    | '/en/relatorios/kubernetes-avancado'
+    | '/en/relatorios/servidores-web'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/relatorios/kubernetes'
-  id: '__root__' | '/' | '/relatorios/kubernetes'
+  to:
+    | '/'
+    | '/relatorios/kubernetes'
+    | '/relatorios/kubernetes-avancado'
+    | '/relatorios/servidores-web'
+    | '/en'
+    | '/en/relatorios/kubernetes'
+    | '/en/relatorios/kubernetes-avancado'
+    | '/en/relatorios/servidores-web'
+  id:
+    | '__root__'
+    | '/'
+    | '/relatorios/kubernetes'
+    | '/relatorios/kubernetes-avancado'
+    | '/relatorios/servidores-web'
+    | '/en/'
+    | '/en/relatorios/kubernetes'
+    | '/en/relatorios/kubernetes-avancado'
+    | '/en/relatorios/servidores-web'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   RelatoriosKubernetesRoute: typeof RelatoriosKubernetesRoute
+  RelatoriosKubernetesAvancadoRoute: typeof RelatoriosKubernetesAvancadoRoute
+  RelatoriosServidoresWebRoute: typeof RelatoriosServidoresWebRoute
+  EnIndexRoute: typeof EnIndexRoute
+  EnRelatoriosKubernetesRoute: typeof EnRelatoriosKubernetesRoute
+  EnRelatoriosKubernetesAvancadoRoute: typeof EnRelatoriosKubernetesAvancadoRoute
+  EnRelatoriosServidoresWebRoute: typeof EnRelatoriosServidoresWebRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -58,11 +146,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/en/': {
+      id: '/en/'
+      path: '/en'
+      fullPath: '/en/'
+      preLoaderRoute: typeof EnIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/relatorios/servidores-web': {
+      id: '/relatorios/servidores-web'
+      path: '/relatorios/servidores-web'
+      fullPath: '/relatorios/servidores-web'
+      preLoaderRoute: typeof RelatoriosServidoresWebRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/relatorios/kubernetes-avancado': {
+      id: '/relatorios/kubernetes-avancado'
+      path: '/relatorios/kubernetes-avancado'
+      fullPath: '/relatorios/kubernetes-avancado'
+      preLoaderRoute: typeof RelatoriosKubernetesAvancadoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/relatorios/kubernetes': {
       id: '/relatorios/kubernetes'
       path: '/relatorios/kubernetes'
       fullPath: '/relatorios/kubernetes'
       preLoaderRoute: typeof RelatoriosKubernetesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/en/relatorios/servidores-web': {
+      id: '/en/relatorios/servidores-web'
+      path: '/en/relatorios/servidores-web'
+      fullPath: '/en/relatorios/servidores-web'
+      preLoaderRoute: typeof EnRelatoriosServidoresWebRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/en/relatorios/kubernetes-avancado': {
+      id: '/en/relatorios/kubernetes-avancado'
+      path: '/en/relatorios/kubernetes-avancado'
+      fullPath: '/en/relatorios/kubernetes-avancado'
+      preLoaderRoute: typeof EnRelatoriosKubernetesAvancadoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/en/relatorios/kubernetes': {
+      id: '/en/relatorios/kubernetes'
+      path: '/en/relatorios/kubernetes'
+      fullPath: '/en/relatorios/kubernetes'
+      preLoaderRoute: typeof EnRelatoriosKubernetesRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -71,7 +201,23 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   RelatoriosKubernetesRoute: RelatoriosKubernetesRoute,
+  RelatoriosKubernetesAvancadoRoute: RelatoriosKubernetesAvancadoRoute,
+  RelatoriosServidoresWebRoute: RelatoriosServidoresWebRoute,
+  EnIndexRoute: EnIndexRoute,
+  EnRelatoriosKubernetesRoute: EnRelatoriosKubernetesRoute,
+  EnRelatoriosKubernetesAvancadoRoute: EnRelatoriosKubernetesAvancadoRoute,
+  EnRelatoriosServidoresWebRoute: EnRelatoriosServidoresWebRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

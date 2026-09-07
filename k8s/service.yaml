@@ -1,0 +1,12 @@
+appVersion: v1
+kind: Service
+metadata:
+  name: service_pitsop
+spec: 
+  type: NodePort
+  selector:
+    app: tag_pod
+  ports:
+    - port: 3005
+      targetPort: 3005
+      nodePort: 30005

@@ -1,0 +1,7 @@
+appVersion: v1
+kind: ConfigMap
+metadata:
+  name: configmap-pitstop
+data:
+  DOMAIN: pitstop.dev.br
+  VITE_PITSTOP_API: https://pitstop.dev.br

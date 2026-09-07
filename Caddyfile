@@ -1,0 +1,14 @@
+{$DOMAIN}, www.{$DOMAIN} {
+	encode zstd gzip
+
+	# API de F1 e imagens de pista → container do backend (server/, porta 3333)
+	@api path /api/* /tracks/*
+	handle @api {
+		reverse_proxy api-prod:3333
+	}
+
+	# Todo o resto → app SSR (Nitro node-server, porta 3005)
+	handle {
+		reverse_proxy app:3005
+	}
+}

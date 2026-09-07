@@ -1,0 +1,170 @@
+{
+  "sakhir": {
+    "file": "/tracks/sakhir.png",
+    "circuit": "Sakhir",
+    "meeting": "Bahrain Grand Prix",
+    "country": "Bahrain",
+    "source": "https://media.formula1.com/content/dam/fom-website/2018-redesign-assets/Track%20icons%204x3/Bahrain%20carbon.png"
+  },
+  "melbourne": {
+    "file": "/tracks/melbourne.png",
+    "circuit": "Melbourne",
+    "meeting": "Australian Grand Prix",
+    "country": "Australia",
+    "source": "https://media.formula1.com/content/dam/fom-website/2018-redesign-assets/Track%20icons%204x3/Australia%20carbon.png"
+  },
+  "shanghai": {
+    "file": "/tracks/shanghai.png",
+    "circuit": "Shanghai",
+    "meeting": "Chinese Grand Prix",
+    "country": "China",
+    "source": "https://media.formula1.com/content/dam/fom-website/2018-redesign-assets/Track%20icons%204x3/China%20carbon.png"
+  },
+  "suzuka": {
+    "file": "/tracks/suzuka.png",
+    "circuit": "Suzuka",
+    "meeting": "Japanese Grand Prix",
+    "country": "Japan",
+    "source": "https://media.formula1.com/content/dam/fom-website/2018-redesign-assets/Track%20icons%204x3/Japan%20carbon.png"
+  },
+  "jeddah": {
+    "file": "/tracks/jeddah.png",
+    "circuit": "Jeddah",
+    "meeting": "Saudi Arabian Grand Prix",
+    "country": "Saudi Arabia",
+    "source": "https://media.formula1.com/content/dam/fom-website/2018-redesign-assets/Track%20icons%204x3/Saudi Arabia%20carbon.png"
+  },
+  "miami": {
+    "file": "/tracks/miami.png",
+    "circuit": "Miami",
+    "meeting": "Miami Grand Prix",
+    "country": "United States",
+    "source": "https://media.formula1.com/content/dam/fom-website/2018-redesign-assets/Track%20icons%204x3/Miami%20carbon.png"
+  },
+  "montreal": {
+    "file": "/tracks/montreal.png",
+    "circuit": "Montreal",
+    "meeting": "Canadian Grand Prix",
+    "country": "Canada",
+    "source": "https://media.formula1.com/content/dam/fom-website/2018-redesign-assets/Track%20icons%204x3/Canada%20carbon.png"
+  },
+  "monte-carlo": {
+    "file": "/tracks/monte-carlo.png",
+    "circuit": "Monte Carlo",
+    "meeting": "Monaco Grand Prix",
+    "country": "Monaco",
+    "source": "https://media.formula1.com/content/dam/fom-website/2018-redesign-assets/Track%20icons%204x3/Monaco%20carbon.png"
+  },
+  "catalunya": {
+    "file": "/tracks/catalunya.png",
+    "circuit": "Catalunya",
+    "meeting": "Barcelona Grand Prix",
+    "country": "Spain",
+    "source": "https://media.formula1.com/content/dam/fom-website/2018-redesign-assets/Track%20icons%204x3/Spain%20carbon.png"
+  },
+  "spielberg": {
+    "file": "/tracks/spielberg.png",
+    "circuit": "Spielberg",
+    "meeting": "Austrian Grand Prix",
+    "country": "Austria",
+    "source": "https://media.formula1.com/content/dam/fom-website/2018-redesign-assets/Track%20icons%204x3/Austria%20carbon.png"
+  },
+  "silverstone": {
+    "file": "/tracks/silverstone.png",
+    "circuit": "Silverstone",
+    "meeting": "British Grand Prix",
+    "country": "United Kingdom",
+    "source": "https://media.formula1.com/content/dam/fom-website/2018-redesign-assets/Track%20icons%204x3/Great Britain%20carbon.png"
+  },
+  "spa-francorchamps": {
+    "file": "/tracks/spa-francorchamps.png",
+    "circuit": "Spa-Francorchamps",
+    "meeting": "Belgian Grand Prix",
+    "country": "Belgium",
+    "source": "https://media.formula1.com/content/dam/fom-website/2018-redesign-assets/Track%20icons%204x3/Belgium%20carbon.png"
+  },
+  "hungaroring": {
+    "file": "/tracks/hungaroring.png",
+    "circuit": "Hungaroring",
+    "meeting": "Hungarian Grand Prix",
+    "country": "Hungary",
+    "source": "https://media.formula1.com/content/dam/fom-website/2018-redesign-assets/Track%20icons%204x3/Hungary%20carbon.png"
+  },
+  "zandvoort": {
+    "file": "/tracks/zandvoort.png",
+    "circuit": "Zandvoort",
+    "meeting": "Dutch Grand Prix",
+    "country": "Netherlands",
+    "source": "https://media.formula1.com/content/dam/fom-website/2018-redesign-assets/Track%20icons%204x3/Netherlands%20carbon.png"
+  },
+  "monza": {
+    "file": "/tracks/monza.png",
+    "circuit": "Monza",
+    "meeting": "Italian Grand Prix",
+    "country": "Italy",
+    "source": "https://media.formula1.com/content/dam/fom-website/2018-redesign-assets/Track%20icons%204x3/Italy%20carbon.png"
+  },
+  "madring": {
+    "file": "/tracks/madring.png",
+    "circuit": "Madring",
+    "meeting": "Spanish Grand Prix",
+    "country": "Spain",
+    "source": "https://media.formula1.com/content/dam/fom-website/2018-redesign-assets/Track%20icons%204x3/Spain%20carbon.png"
+  },
+  "baku": {
+    "file": "/tracks/baku.png",
+    "circuit": "Baku",
+    "meeting": "Azerbaijan Grand Prix",
+    "country": "Azerbaijan",
+    "source": "https://media.formula1.com/content/dam/fom-website/2018-redesign-assets/Track%20icons%204x3/Azerbaijan%20carbon.png"
+  },
+  "singapore": {
+    "file": "/tracks/singapore.png",
+    "circuit": "Singapore",
+    "meeting": "Singapore Grand Prix",
+    "country": "Singapore",
+    "source": "https://media.formula1.com/content/dam/fom-website/2018-redesign-assets/Track%20icons%204x3/Singapore%20carbon.png"
+  },
+  "austin": {
+    "file": "/tracks/austin.png",
+    "circuit": "Austin",
+    "meeting": "United States Grand Prix",
+    "country": "United States",
+    "source": "https://media.formula1.com/content/dam/fom-website/2018-redesign-assets/Track%20icons%204x3/United States%20carbon.png"
+  },
+  "mexico-city": {
+    "file": "/tracks/mexico-city.png",
+    "circuit": "Mexico City",
+    "meeting": "Mexico City Grand Prix",
+    "country": "Mexico",
+    "source": "https://media.formula1.com/content/dam/fom-website/2018-redesign-assets/Track%20icons%204x3/Mexico%20carbon.png"
+  },
+  "interlagos": {
+    "file": "/tracks/interlagos.png",
+    "circuit": "Interlagos",
+    "meeting": "São Paulo Grand Prix",
+    "country": "Brazil",
+    "source": "https://media.formula1.com/content/dam/fom-website/2018-redesign-assets/Track%20icons%204x3/Brazil%20carbon.png"
+  },
+  "las-vegas": {
+    "file": "/tracks/las-vegas.png",
+    "circuit": "Las Vegas",
+    "meeting": "Las Vegas Grand Prix",
+    "country": "United States",
+    "source": "https://media.formula1.com/content/dam/fom-website/2018-redesign-assets/Track%20icons%204x3/Las Vegas%20carbon.png"
+  },
+  "lusail": {
+    "file": "/tracks/lusail.png",
+    "circuit": "Lusail",
+    "meeting": "Qatar Grand Prix",
+    "country": "Qatar",
+    "source": "https://media.formula1.com/content/dam/fom-website/2018-redesign-assets/Track%20icons%204x3/Qatar%20carbon.png"
+  },
+  "yas-marina-circuit": {
+    "file": "/tracks/yas-marina-circuit.png",
+    "circuit": "Yas Marina Circuit",
+    "meeting": "Abu Dhabi Grand Prix",
+    "country": "United Arab Emirates",
+    "source": "https://media.formula1.com/content/dam/fom-website/2018-redesign-assets/Track%20icons%204x3/Abu Dhabi%20carbon.png"
+  }
+}

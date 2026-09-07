@@ -9,6 +9,12 @@ RUN bun install --frozen-lockfile
 FROM deps AS builder
 WORKDIR /app
 
+# URL pública da API de F1, embutida no bundle em build-time (Vite só expõe
+# variáveis com prefixo VITE_). Em produção atrás do proxy same-origin, passe
+# o próprio domínio, ex.: --build-arg VITE_PITSTOP_API=https://pitstop.dev.br
+ARG VITE_PITSTOP_API=""
+ENV VITE_PITSTOP_API=$VITE_PITSTOP_API
+
 COPY . .
 # Override the default Cloudflare target so Nitro produces a Node.js server
 RUN NITRO_PRESET=node-server bun run build

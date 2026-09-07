@@ -79,11 +79,19 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "pitstop.dev.br — Guia Kubernetes etapa por etapa" },
-      { name: "description", content: "Guia interativo de Kubernetes em 8 etapas: conceitos, YAMLs comentados, comandos essenciais e labs gratuitos pra praticar em clusters reais." },
+      { title: "pitstop.dev | Guia Kubernetes etapa por etapa" },
+      {
+        name: "description",
+        content:
+          "Guia interativo de Kubernetes em 8 etapas: conceitos, YAMLs comentados, comandos essenciais e labs gratuitos pra praticar em clusters reais.",
+      },
       { name: "author", content: "pitstop.dev.br" },
-      { property: "og:title", content: "pitstop.dev.br — Guia Kubernetes etapa por etapa" },
-      { property: "og:description", content: "8 etapas de Kubernetes com exemplos reais, YAML comentado e comandos com saída esperada." },
+      { property: "og:title", content: "pitstop.dev.br | Guia Kubernetes etapa por etapa" },
+      {
+        property: "og:description",
+        content:
+          "8 etapas de Kubernetes com exemplos reais, YAML comentado e comandos com saída esperada.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
