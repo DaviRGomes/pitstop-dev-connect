@@ -1,17 +1,20 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
 import { Volume2, VolumeX, SkipForward } from "lucide-react";
 
 import { sennaBg } from "@/assets/brand/paths";
+import type { F1Locale } from "@/lib/f1";
+import { BOOT_SEEN_KEY, releaseBootCover } from "@/lib/bootCover";
 
 // Marca que o intro já rodou nesta sessão do navegador. Usamos sessionStorage
 // (não localStorage) para que o splash reapareça sempre que a pessoa "abre o
-// site" numa nova aba/sessão, mas não a cada navegação interna.
-const SEEN_KEY = "pitstop-boot-seen";
+// site" numa nova aba/sessão, mas não a cada navegação interna. A mesma chave
+// é lida pelo script inline do __root que cobre a home antes do primeiro paint.
+const SEEN_KEY = BOOT_SEEN_KEY;
 // Precisa casar com a transição .8s de .boot-splash no styles.css.
 const FADE_MS = 900;
 // Tempo que o splash fica visível DEPOIS que o vídeo aparece (não desde o
 // carregamento) — assim o vídeo é sempre mostrado por esse tempo.
-const HOLD_MS = 12600;
+const HOLD_MS = 10000;
 // Se o vídeo não COMEÇAR A TOCAR até aqui, pula o splash direto. É o que
 // impede o play nativo do celular de ficar preso por cima do texto quando o
 // navegador bloqueia o autoplay.
@@ -21,28 +24,50 @@ const PLAY_MAX_MS = 3000;
 // suportar autoplay.
 const SKIP_VISIBLE_MS = 2000;
 
+const BOOT_COPY = {
+  pt: {
+    dialog: "Abertura",
+    soundOff: "Desativar som",
+    soundOn: "Ativar som",
+    skip: "Pular abertura",
+    skipText: "Pular",
+    quote:
+      '"Tenha sempre como meta muita força, muita determinação e sempre faça tudo com muito amor e muita fé em Deus, que um dia você chega lá"',
+    credit: "Vídeo:",
+  },
+  en: {
+    dialog: "Opening",
+    soundOff: "Turn sound off",
+    soundOn: "Turn sound on",
+    skip: "Skip opening",
+    skipText: "Skip",
+    quote:
+      '"Always aim for great strength and determination, and do everything with love and faith. One day, you will get there."',
+    credit: "Video:",
+  },
+} as const;
+
 /**
- * Abertura + vídeo de fundo do site — UM único elemento <video>.
+ * Abertura + vídeo de fundo da home — UM único elemento <video>.
  *
- * Este componente vive no __root, então o mesmo <video.bg-video> é a fonte de
- * imagem e som do site inteiro (evita baixar/decodificar o arquivo duas vezes,
- * que era o que deixava a tela preta no início). Ele tem dois "modos":
+ * O __root monta este componente sob demanda apenas nas homes PT/EN. Assim,
+ * relatórios não baixam nem decodificam o vídeo. Na home, o mesmo
+ * <video.bg-video> é a fonte de imagem e som (evita processar o arquivo duas
+ * vezes, que era o que deixava a tela preta no início). Ele tem dois "modos":
  *
  *  - boot (`is-boot`): 1x por sessão, no topo (z-index alto) e vívido, servindo
  *    de splash. Uma cortina preta atrás dele esconde a home; a citação fica por
- *    cima. O som toca desde o início.
- *  - fundo: nos demais momentos, fica lá atrás (z-index 0, bem apagado), como
- *    plano de fundo enquanto a pessoa navega.
+ *    cima. O vídeo começa mudo e o som pode ser ativado pelo botão.
+ *  - fundo: depois da abertura, fica atrás da home (z-index 0, bem apagado).
  *
  * O splash só começa a contar o tempo quando o vídeo REALMENTE começa a tocar
  * (`onPlaying`), então nunca some com a tela preta nem prende o usuário num
  * play que não rodou. Passado o tempo, a cortina e a citação dissolvem e o
  * mesmo vídeo recua pro fundo, sem cortar.
  *
- * O SOM toca uma única vez, do início ao fim: quando o vídeo termina (`ended`),
- * fica mudo e passa a rodar em loop silencioso. Autoplay com áudio depende do
- * "media engagement" do navegador; se bloqueado, o vídeo toca mudo e o primeiro
- * gesto (clique/toque/tecla) liga o som. O ícone no canto é o controle manual.
+ * O vídeo começa mudo porque navegadores não garantem autoplay com áudio. O
+ * botão no canto ativa o som por um gesto explícito. Quando o vídeo termina
+ * (`ended`), ele volta a rodar em loop silencioso como fundo da home.
  *
  * RETROCOMPATIBILIDADE MOBILE:
  * - Muitos navegadores Android (Samsung Internet, UC Browser, Firefox Mobile,
@@ -54,7 +79,9 @@ const SKIP_VISIBLE_MS = 2000;
  * - O listener de pause→resume foi removido para evitar loops infinitos em
  *   dispositivos que pausam vídeos por política do sistema.
  */
-export function BootSplash() {
+export function BootSplash({ locale = "pt" }: { locale?: F1Locale }) {
+  const copy = BOOT_COPY[locale];
+  const [videoAllowed, setVideoAllowed] = useState<boolean | null>(null);
   const [show, setShow] = useState(false);
   const [gone, setGone] = useState(false);
   const [soundOn, setSoundOn] = useState(false);
@@ -62,25 +89,61 @@ export function BootSplash() {
   const [showSkip, setShowSkip] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const endedRef = useRef(false);
+  // Enquanto a mídia carrega, a home fica sob a capa preta do __root
+  // (boot-pending). A cortina do splash só aparece depois do primeiro quadro
+  // reproduzível; se o vídeo falhar ou o autoplay for bloqueado, a capa sai e
+  // a home é liberada (no máximo PLAY_MAX_MS, ou a trava do script inline).
+  const splashPendingRef = useRef(false);
   // Impede que o vídeo seja marcado como "tocando" mais de uma vez e que o
   // timer do splash (HOLD) seja iniciado duas vezes.
   const playingRef = useRef(false);
   const holdStartedRef = useRef(false);
+
+  // Não cria nem baixa o vídeo antes de conhecer as preferências do cliente.
+  // Em economia de dados ou movimento reduzido, o site abre direto no conteúdo.
+  useEffect(() => {
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const connection = (navigator as Navigator & { connection?: { saveData?: boolean } })
+      .connection;
+
+    const updatePolicy = () => {
+      const allowed = !reducedMotion.matches && !connection?.saveData;
+      setVideoAllowed(allowed);
+      if (!allowed) releaseBootCover();
+    };
+
+    updatePolicy();
+    reducedMotion.addEventListener("change", updatePolicy);
+    return () => reducedMotion.removeEventListener("change", updatePolicy);
+  }, []);
 
   // Marca que o vídeo COMEÇOU a tocar de verdade (primeiro quadro em
   // movimento, via evento `playing`). É esse sinal — e não a mera prontidão do
   // arquivo — que libera a contagem do splash. No celular que bloqueia o
   // autoplay, ele nunca dispara e a trava de segurança pula o splash.
   const markPlaying = useCallback(() => {
-    if (playingRef.current) return;
-    playingRef.current = true;
-    setPlaying(true);
-    setShowSkip(false);
+    if (!playingRef.current) {
+      playingRef.current = true;
+      setPlaying(true);
+      setShowSkip(false);
+    }
+
+    if (splashPendingRef.current) {
+      splashPendingRef.current = false;
+      setShow(true);
+      try {
+        sessionStorage.setItem(SEEN_KEY, "1");
+      } catch {
+        // sessionStorage indisponível: a abertura poderá reaparecer.
+      }
+    }
   }, []);
 
   // Pula o splash imediatamente (chamado pelo botão "Pular" ou quando o
   // vídeo definitivamente não vai rodar)
   const skipSplash = useCallback(() => {
+    splashPendingRef.current = false;
+    releaseBootCover();
     setGone(true);
     window.setTimeout(() => setShow(false), FADE_MS);
   }, []);
@@ -88,6 +151,8 @@ export function BootSplash() {
   // Roda uma vez no cliente: decide se mostra o splash e orquestra o áudio.
   // Só no cliente para evitar mismatch de hidratação do overlay.
   useEffect(() => {
+    if (!videoAllowed) return;
+
     let seen = false;
     try {
       seen = sessionStorage.getItem(SEEN_KEY) === "1";
@@ -110,16 +175,17 @@ export function BootSplash() {
     // Já rodou nesta sessão: sem splash nem som — só mantém o vídeo de fundo
     // tocando, mudo e em loop.
     if (seen) {
-      if (v) void v.play().catch(() => { });
+      splashPendingRef.current = false;
+      releaseBootCover();
+      if (v)
+        void v
+          .play()
+          .then(markPlaying)
+          .catch(() => {});
       return;
     }
-    try {
-      sessionStorage.setItem(SEEN_KEY, "1");
-    } catch {
-      // ignore
-    }
 
-    setShow(true);
+    splashPendingRef.current = true;
 
     // Trava de segurança: se o vídeo não COMEÇAR A TOCAR a tempo, pula o splash
     // direto. Garante que ninguém fique preso na tela preta nem no play nativo
@@ -136,90 +202,28 @@ export function BootSplash() {
       }
     }, SKIP_VISIBLE_MS);
 
-    let armed = false;
-
-    // O celular não libera áudio sem um gesto — e o WebKit (iOS) vai além: se a
-    // gente desmutar sem toque um vídeo que entrou por autoplay mudo, ele PAUSA
-    // o vídeo, passa a exigir gesto até pra tocar mudo de novo e desenha o play
-    // nativo dele por cima do site. Era isso que obrigava a apertar play no
-    // celular. Em ponteiro grosso (touch), então, nem tentamos: roda mudo e o
-    // primeiro toque liga o som.
-    const mayTrySound = !window.matchMedia("(pointer: coarse)").matches;
-
-    function arm() {
-      if (armed || endedRef.current) return;
-      armed = true;
-      document.addEventListener("pointerdown", onGesture);
-      document.addEventListener("keydown", onGesture);
-    }
-
-    function disarm() {
-      if (!armed) return;
-      armed = false;
-      document.removeEventListener("pointerdown", onGesture);
-      document.removeEventListener("keydown", onGesture);
-    }
-
-    // Primeiro gesto do usuário: destrava o que o navegador tiver bloqueado —
-    // o som e, no pior caso (iOS em Modo de Baixo Consumo), o próprio playback.
-    function onGesture(e: Event) {
-      if (e.target instanceof Element && e.target.closest(".boot-splash-sound")) return;
-      if (e.target instanceof Element && e.target.closest(".boot-splash-skip")) return;
-      if (!v || endedRef.current) return;
-      v.muted = false;
-      v.volume = 1;
-      void v.play().catch(() => { });
-      setSoundOn(true);
-      disarm();
-    }
-
     // Fim da (única) passada com som: silencia e volta a rodar em loop mudo.
     function onEnded() {
       endedRef.current = true;
-      disarm();
       if (!v) return;
       v.muted = true;
       v.loop = true;
-      void v.play().catch(() => { });
+      void v.play().catch(() => {});
       setSoundOn(false);
-    }
-
-    // Só no desktop: tenta subir o som de um vídeo que JÁ está tocando. Se o
-    // navegador não nos deu "media engagement" suficiente, ele pausa ao desmutar
-    // e rejeita este play() — aí voltamos pro mudo (a imagem não para) e o 1º
-    // gesto liga o som.
-    function tryUnmute() {
-      if (!v || endedRef.current) return;
-      v.muted = false;
-      v.volume = 1;
-      v.play()
-        .then(() => setSoundOn(true))
-        .catch(() => {
-          v.muted = true;
-          setSoundOn(false);
-          void v.play().catch(() => { });
-          arm();
-        });
     }
 
     if (v) {
       v.loop = false; // sem loop nesta 1ª passada, pra o evento 'ended' disparar
       v.addEventListener("ended", onEnded);
 
-      // Quem dá o play é o JS (mudo), NÃO o atributo `autoPlay`. Assim o play
-      // acontece só depois de garantirmos o estado mudo acima — é isso que
-      // evita o play nativo do celular quando o navegador bloquearia o autoplay
-      // do atributo antes do JS rodar. O som vem depois (desktop) ou no
-      // primeiro toque (celular).
+      // O atributo `autoPlay` cobre o comportamento nativo e este play() roda
+      // depois de garantirmos a propriedade `muted`. A Promise também cobre a
+      // rara situação em que o evento `playing` ocorre antes deste efeito.
       v.play()
-        .then(() => (mayTrySound ? tryUnmute() : arm()))
+        .then(markPlaying)
         .catch(() => {
           // Nem mudo pôde tocar: navegador bloqueou autoplay completamente.
-          // Isso acontece em Samsung Internet com economia de dados, UC Browser,
-          // alguns Firefox Mobile e dispositivos com pouca RAM.
-          // Em vez de deixar o play nativo preso por cima do texto, PULAMOS o
-          // splash na hora; o 1º gesto liga o som no fundo.
-          arm(); // arma o gesto pra ligar o som no fundo
+          // Em vez de prender a pessoa numa tela vazia, mantém a home visível.
           skipSplash();
         });
     }
@@ -227,11 +231,16 @@ export function BootSplash() {
     return () => {
       window.clearTimeout(safety);
       window.clearTimeout(skipTimer);
-      disarm();
-      if (v) v.removeEventListener("ended", onEnded);
+      splashPendingRef.current = false;
+      releaseBootCover();
+      if (v) {
+        v.removeEventListener("ended", onEnded);
+        v.pause();
+        v.removeAttribute("src");
+        v.load();
+      }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [markPlaying, skipSplash, videoAllowed]);
 
   // Mantém o vídeo de fundo vivo no celular. iOS/Android pausam o <video>
   // quando a aba vai pro segundo plano, a tela bloqueia ou logo após a passada
@@ -241,18 +250,22 @@ export function BootSplash() {
   // dá play de novo, o que o navegador pausa de novo...). Usamos apenas o
   // evento "visibilitychange" para retomar quando a aba volta ao foco.
   useEffect(() => {
+    if (!videoAllowed) return;
     const v = videoRef.current;
     if (!v) return;
 
     function resume() {
-      // Só reanima o que está mudo: isso cobre o fundo em loop e a abertura no
-      // celular (que roda mudo), sem brigar com a passada com som do desktop —
-      // lá, se o navegador pausar ao desmutar, quem trata é o tryUnmute.
+      // Só reanima o que está mudo: isso cobre o fundo em loop e a abertura sem
+      // tentar contornar a política de áudio do navegador.
       if (!v || !v.paused || !v.muted) return;
-      void v.play().catch(() => { });
+      void v.play().catch(() => {});
     }
     function onVisibility() {
-      if (document.visibilityState === "visible") resume();
+      if (document.visibilityState === "hidden") {
+        v?.pause();
+        return;
+      }
+      resume();
     }
 
     // Tenta retomar o vídeo se ele foi pausado por outra razão
@@ -265,7 +278,14 @@ export function BootSplash() {
       window.clearTimeout(initialResumeTimer);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, []);
+  }, [videoAllowed]);
+
+  // A capa preta do __root segura a home até aqui. Assim que a cortina e o
+  // vídeo do splash estão no DOM (antes do paint), ela sai sem deixar a home
+  // piscar entre uma e outra.
+  useLayoutEffect(() => {
+    if (show) releaseBootCover();
+  }, [show]);
 
   // Começa a contar o tempo do splash só quando o vídeo REALMENTE começou a
   // tocar (evento `playing`) — nunca some com a tela preta nem prende o usuário
@@ -285,13 +305,22 @@ export function BootSplash() {
     const v = videoRef.current;
     if (!v || endedRef.current) return;
     const next = !soundOn;
-    setSoundOn(next);
     v.muted = !next;
     if (next) {
       v.volume = 1;
-      void v.play().catch(() => { });
+      void v
+        .play()
+        .then(() => setSoundOn(true))
+        .catch(() => {
+          v.muted = true;
+          setSoundOn(false);
+        });
+      return;
     }
+    setSoundOn(false);
   }
+
+  if (!videoAllowed) return null;
 
   const isBoot = show && !gone;
 
@@ -302,13 +331,15 @@ export function BootSplash() {
         className={`bg-video${isBoot ? " is-boot" : ""}`}
         src={sennaBg}
         muted
+        autoPlay
         loop
         playsInline
-        preload="auto"
+        preload="metadata"
         aria-hidden="true"
-        // Sem o atributo `autoPlay`: quem dá o play é o JS, mudo, no momento
-        // certo (ver useEffect). Isso evita o play nativo do celular quando o
-        // navegador bloquearia o autoplay do atributo antes do JS rodar.
+        onLoadedMetadata={(event) => {
+          // O arquivo tem uma breve faixa preta de codificação no início.
+          event.currentTarget.currentTime = 0.2;
+        }}
         // `onPlaying` é o gatilho que libera a contagem do splash.
         onPlaying={markPlaying}
         // Se o vídeo der erro (formato não suportado, rede, etc), pula direto
@@ -318,15 +349,23 @@ export function BootSplash() {
       {show && (
         <>
           <div className={`boot-curtain${gone ? " is-gone" : ""}`} aria-hidden="true" />
-          <div className={`boot-splash${gone ? " is-gone" : ""}`} role="dialog" aria-label="Abertura">
+          <div
+            className={`boot-splash${gone ? " is-gone" : ""}`}
+            role="dialog"
+            aria-label={copy.dialog}
+          >
             <button
               type="button"
               className="boot-splash-sound"
               onClick={toggleSound}
               aria-pressed={soundOn}
-              aria-label={soundOn ? "Desativar som" : "Ativar som"}
+              aria-label={soundOn ? copy.soundOff : copy.soundOn}
             >
-              {soundOn ? <Volume2 size={20} aria-hidden="true" /> : <VolumeX size={20} aria-hidden="true" />}
+              {soundOn ? (
+                <Volume2 size={20} aria-hidden="true" />
+              ) : (
+                <VolumeX size={20} aria-hidden="true" />
+              )}
             </button>
 
             {/* Botão "Pular" — aparece após SKIP_VISIBLE_MS caso o vídeo
@@ -336,18 +375,15 @@ export function BootSplash() {
                 type="button"
                 className="boot-splash-skip"
                 onClick={skipSplash}
-                aria-label="Pular abertura"
+                aria-label={copy.skip}
               >
-                <span>Pular</span>
+                <span>{copy.skipText}</span>
                 <SkipForward size={16} aria-hidden="true" />
               </button>
             )}
 
             <blockquote className="boot-splash-quote">
-              <p>
-                "Tenha sempre como meta muita força, muita determinação e sempre faça
-                tudo com muito amor e muita fé em Deus, que um dia você chega lá"
-              </p>
+              <p>{copy.quote}</p>
               <cite>— Ayrton Senna</cite>
             </blockquote>
 
@@ -357,7 +393,7 @@ export function BootSplash() {
               rel="noopener noreferrer"
               className="boot-splash-credit"
             >
-              Vídeo: <strong>@csavfx</strong> no YouTube
+              {copy.credit} <strong>@csavfx</strong> {locale === "pt" ? "no" : "on"} YouTube
             </a>
           </div>
         </>

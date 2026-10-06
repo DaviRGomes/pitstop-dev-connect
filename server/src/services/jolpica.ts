@@ -1,5 +1,6 @@
-import { getOrSet, TTL } from '../cache';
-import type { RaceEvent, RaceResult, ResultRow, SessionTime, StandingRow } from '../types';
+import { getOrSet, TTL } from '../cache.js';
+import { fetchJson } from '../http.js';
+import type { RaceEvent, RaceResult, ResultRow, SessionTime, StandingRow } from '../types.js';
 
 const BASE = 'https://api.jolpi.ca/ergast/f1';
 const HEADERS = { 'User-Agent': 'pitstop-dev-study/1.0' };
@@ -62,11 +63,7 @@ interface JolpicaResponse {
 }
 
 async function fetchJolpica(path: string): Promise<JolpicaResponse> {
-  const res = await fetch(`${BASE}${path}`, { headers: HEADERS });
-  if (!res.ok) {
-    throw new Error(`Jolpica respondeu ${res.status} em ${path}`);
-  }
-  return (await res.json()) as JolpicaResponse;
+  return fetchJson<JolpicaResponse>('Jolpica', `${BASE}${path}`, { headers: HEADERS });
 }
 
 // ---------------------------------------------------------------------------

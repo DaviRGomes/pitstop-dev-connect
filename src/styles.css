@@ -222,6 +222,14 @@ a:hover { text-decoration: underline; }
 .bg-video::-webkit-media-controls-overlay-play-button { display: none !important; }
 .bg-video::-webkit-media-controls-overlay-enclosure { display: none !important; }
 
+/* Capa da primeira visita: o script inline do __root marca o <html> antes do
+   primeiro paint e a home fica preta até o BootSplash assumir com o vídeo
+   (ou desistir dele). Fica abaixo da cortina e do vídeo em modo splash. */
+html.boot-pending { overflow: hidden; }
+html.boot-pending body::before {
+  content: ""; position: fixed; inset: 0; z-index: 9996; background: #000;
+}
+
 /* Modo splash: o mesmo vídeo sobe pro topo e fica vívido. A cortina preta
    atrás dele mantém o mix-blend-mode: screen com aparência natural. */
 .bg-video.is-boot { z-index: 9998; opacity: 1; }
@@ -1269,6 +1277,7 @@ footer { border-top: 1px solid var(--line); margin-top: 60px; padding: 34px 0 80
   display: flex; flex-direction: column; gap: 2px;
 }
 .search-empty { margin: 0; padding: 14px 12px; font-size: .82rem; color: var(--dim); }
+.search-error { color: var(--mclaren-red); }
 .search-result {
   display: flex; flex-direction: column; gap: 2px;
   padding: 8px 10px; border-radius: 8px; color: var(--body);
@@ -1308,6 +1317,16 @@ footer { border-top: 1px solid var(--line); margin-top: 60px; padding: 34px 0 80
 .hamburger:hover { background: var(--wash); }
 
 body { padding-top: var(--nav-h); }
+
+/* Relatórios longos: o navegador pode pular layout/pintura das seções fora
+   da tela, preservando o tamanho estimado para não causar salto de conteúdo. */
+@supports (content-visibility: auto) {
+  .section,
+  .home-section {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 760px;
+  }
+}
 
 @media (max-width: 900px) {
   .site-nav-right > .site-nav-links,

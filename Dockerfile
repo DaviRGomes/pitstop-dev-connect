@@ -9,11 +9,13 @@ RUN bun install --frozen-lockfile
 FROM deps AS builder
 WORKDIR /app
 
-# URL pública da API de F1, embutida no bundle em build-time (Vite só expõe
-# variáveis com prefixo VITE_). Em produção atrás do proxy same-origin, passe
-# o próprio domínio, ex.: --build-arg VITE_PITSTOP_API=https://pitstop.dev.br
+# URLs públicas embutidas no bundle em build-time (Vite só expõe variáveis com
+# prefixo VITE_). Atrás do Caddy same-origin, deixe VITE_PITSTOP_API vazia.
+# Defina VITE_SENNA_BG_URL apenas quando o vídeo estiver em uma CDN externa.
 ARG VITE_PITSTOP_API=""
 ENV VITE_PITSTOP_API=$VITE_PITSTOP_API
+ARG VITE_SENNA_BG_URL=""
+ENV VITE_SENNA_BG_URL=$VITE_SENNA_BG_URL
 
 COPY . .
 # Override the default Cloudflare target so Nitro produces a Node.js server

@@ -1,7 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { fetchLive, fetchPodiums, fetchRaces, fetchStandings } from "@/lib/f1";
+import { fetchLive, fetchPodiums, fetchRaces, fetchStandings, type F1Locale } from "@/lib/f1";
 import { ChampionshipCard } from "./ChampionshipCard";
+import { F1_COPY } from "./i18n";
 import { LiveBoard } from "./LiveBoard";
 import { RaceCarousel } from "./RaceCarousel";
 
@@ -10,7 +11,8 @@ import { RaceCarousel } from "./RaceCarousel";
  * corrida, com countdown no fuso de SP) que vira placar ao vivo quando a
  * sessão começa — polling de 5s no /api/f1/live do backend.
  */
-export function RaceHub() {
+export function RaceHub({ locale = "pt" }: { locale?: F1Locale }) {
+  const copy = F1_COPY[locale];
   // dados só no cliente: evita mismatch de hidratação com o SSR do Start
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -67,7 +69,7 @@ export function RaceHub() {
     return (
       <div className="race-panel race-skeleton">
         <span className="live-dot" aria-hidden="true" />
-        <p>sincronizando telemetria…</p>
+        <p>{copy.syncingTelemetry}</p>
       </div>
     );
   }
@@ -75,9 +77,9 @@ export function RaceHub() {
   if (races.isError || !races.data?.length) {
     return (
       <div className="race-panel race-offline">
-        <p className="race-bottom-label">telemetria offline</p>
+        <p className="race-bottom-label">{copy.telemetryOffline}</p>
         <p>
-          não consegui falar com o backend do pitstop.
+          {copy.telemetryOfflineBody}
           <br />
           <code>docker compose up api</code>
         </p>
@@ -90,9 +92,9 @@ export function RaceHub() {
 
   const mainPanel =
     liveState?.live && !calendarPinned ? (
-      <LiveBoard live={liveState} onShowCalendar={() => setCalendarPinned(true)} />
+      <LiveBoard live={liveState} locale={locale} onShowCalendar={() => setCalendarPinned(true)} />
     ) : (
-      <RaceCarousel races={races.data} podiums={podiums.data ?? []} />
+      <RaceCarousel locale={locale} races={races.data} podiums={podiums.data ?? []} />
     );
 
   return (
@@ -100,7 +102,7 @@ export function RaceHub() {
       {liveState?.live && calendarPinned && (
         <button type="button" className="race-live-back" onClick={() => setCalendarPinned(false)}>
           <span className="live-dot" aria-hidden="true" />
-          sessão ao vivo agora, voltar ao placar
+          {copy.liveSessionBack}
         </button>
       )}
       <div className={`race-hub-cards${seasonStandings.length ? "" : " solo"}`}>
@@ -110,6 +112,7 @@ export function RaceHub() {
             standings={seasonStandings}
             live={liveState}
             season={races.data[0]?.season}
+            locale={locale}
           />
         )}
       </div>

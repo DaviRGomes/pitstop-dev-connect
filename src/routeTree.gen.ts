@@ -14,9 +14,13 @@ import { Route as EnIndexRouteImport } from './routes/en.index'
 import { Route as RelatoriosServidoresWebRouteImport } from './routes/relatorios.servidores-web'
 import { Route as RelatoriosKubernetesAvancadoRouteImport } from './routes/relatorios.kubernetes-avancado'
 import { Route as RelatoriosKubernetesRouteImport } from './routes/relatorios.kubernetes'
+import { Route as RelatoriosEscalabilidadeRouteImport } from './routes/relatorios.escalabilidade'
+import { Route as RelatoriosContainersRouteImport } from './routes/relatorios.containers'
 import { Route as EnRelatoriosServidoresWebRouteImport } from './routes/en.relatorios.servidores-web'
 import { Route as EnRelatoriosKubernetesAvancadoRouteImport } from './routes/en.relatorios.kubernetes-avancado'
 import { Route as EnRelatoriosKubernetesRouteImport } from './routes/en.relatorios.kubernetes'
+import { Route as EnRelatoriosEscalabilidadeRouteImport } from './routes/en.relatorios.escalabilidade'
+import { Route as EnRelatoriosContainersRouteImport } from './routes/en.relatorios.containers'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -44,6 +48,17 @@ const RelatoriosKubernetesRoute = RelatoriosKubernetesRouteImport.update({
   path: '/relatorios/kubernetes',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RelatoriosEscalabilidadeRoute =
+  RelatoriosEscalabilidadeRouteImport.update({
+    id: '/relatorios/escalabilidade',
+    path: '/relatorios/escalabilidade',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const RelatoriosContainersRoute = RelatoriosContainersRouteImport.update({
+  id: '/relatorios/containers',
+  path: '/relatorios/containers',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EnRelatoriosServidoresWebRoute =
   EnRelatoriosServidoresWebRouteImport.update({
     id: '/en/relatorios/servidores-web',
@@ -61,23 +76,42 @@ const EnRelatoriosKubernetesRoute = EnRelatoriosKubernetesRouteImport.update({
   path: '/en/relatorios/kubernetes',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EnRelatoriosEscalabilidadeRoute =
+  EnRelatoriosEscalabilidadeRouteImport.update({
+    id: '/en/relatorios/escalabilidade',
+    path: '/en/relatorios/escalabilidade',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const EnRelatoriosContainersRoute = EnRelatoriosContainersRouteImport.update({
+  id: '/en/relatorios/containers',
+  path: '/en/relatorios/containers',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/relatorios/containers': typeof RelatoriosContainersRoute
+  '/relatorios/escalabilidade': typeof RelatoriosEscalabilidadeRoute
   '/relatorios/kubernetes': typeof RelatoriosKubernetesRoute
   '/relatorios/kubernetes-avancado': typeof RelatoriosKubernetesAvancadoRoute
   '/relatorios/servidores-web': typeof RelatoriosServidoresWebRoute
   '/en/': typeof EnIndexRoute
+  '/en/relatorios/containers': typeof EnRelatoriosContainersRoute
+  '/en/relatorios/escalabilidade': typeof EnRelatoriosEscalabilidadeRoute
   '/en/relatorios/kubernetes': typeof EnRelatoriosKubernetesRoute
   '/en/relatorios/kubernetes-avancado': typeof EnRelatoriosKubernetesAvancadoRoute
   '/en/relatorios/servidores-web': typeof EnRelatoriosServidoresWebRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/relatorios/containers': typeof RelatoriosContainersRoute
+  '/relatorios/escalabilidade': typeof RelatoriosEscalabilidadeRoute
   '/relatorios/kubernetes': typeof RelatoriosKubernetesRoute
   '/relatorios/kubernetes-avancado': typeof RelatoriosKubernetesAvancadoRoute
   '/relatorios/servidores-web': typeof RelatoriosServidoresWebRoute
   '/en': typeof EnIndexRoute
+  '/en/relatorios/containers': typeof EnRelatoriosContainersRoute
+  '/en/relatorios/escalabilidade': typeof EnRelatoriosEscalabilidadeRoute
   '/en/relatorios/kubernetes': typeof EnRelatoriosKubernetesRoute
   '/en/relatorios/kubernetes-avancado': typeof EnRelatoriosKubernetesAvancadoRoute
   '/en/relatorios/servidores-web': typeof EnRelatoriosServidoresWebRoute
@@ -85,10 +119,14 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/relatorios/containers': typeof RelatoriosContainersRoute
+  '/relatorios/escalabilidade': typeof RelatoriosEscalabilidadeRoute
   '/relatorios/kubernetes': typeof RelatoriosKubernetesRoute
   '/relatorios/kubernetes-avancado': typeof RelatoriosKubernetesAvancadoRoute
   '/relatorios/servidores-web': typeof RelatoriosServidoresWebRoute
   '/en/': typeof EnIndexRoute
+  '/en/relatorios/containers': typeof EnRelatoriosContainersRoute
+  '/en/relatorios/escalabilidade': typeof EnRelatoriosEscalabilidadeRoute
   '/en/relatorios/kubernetes': typeof EnRelatoriosKubernetesRoute
   '/en/relatorios/kubernetes-avancado': typeof EnRelatoriosKubernetesAvancadoRoute
   '/en/relatorios/servidores-web': typeof EnRelatoriosServidoresWebRoute
@@ -97,30 +135,42 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/relatorios/containers'
+    | '/relatorios/escalabilidade'
     | '/relatorios/kubernetes'
     | '/relatorios/kubernetes-avancado'
     | '/relatorios/servidores-web'
     | '/en/'
+    | '/en/relatorios/containers'
+    | '/en/relatorios/escalabilidade'
     | '/en/relatorios/kubernetes'
     | '/en/relatorios/kubernetes-avancado'
     | '/en/relatorios/servidores-web'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/relatorios/containers'
+    | '/relatorios/escalabilidade'
     | '/relatorios/kubernetes'
     | '/relatorios/kubernetes-avancado'
     | '/relatorios/servidores-web'
     | '/en'
+    | '/en/relatorios/containers'
+    | '/en/relatorios/escalabilidade'
     | '/en/relatorios/kubernetes'
     | '/en/relatorios/kubernetes-avancado'
     | '/en/relatorios/servidores-web'
   id:
     | '__root__'
     | '/'
+    | '/relatorios/containers'
+    | '/relatorios/escalabilidade'
     | '/relatorios/kubernetes'
     | '/relatorios/kubernetes-avancado'
     | '/relatorios/servidores-web'
     | '/en/'
+    | '/en/relatorios/containers'
+    | '/en/relatorios/escalabilidade'
     | '/en/relatorios/kubernetes'
     | '/en/relatorios/kubernetes-avancado'
     | '/en/relatorios/servidores-web'
@@ -128,10 +178,14 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  RelatoriosContainersRoute: typeof RelatoriosContainersRoute
+  RelatoriosEscalabilidadeRoute: typeof RelatoriosEscalabilidadeRoute
   RelatoriosKubernetesRoute: typeof RelatoriosKubernetesRoute
   RelatoriosKubernetesAvancadoRoute: typeof RelatoriosKubernetesAvancadoRoute
   RelatoriosServidoresWebRoute: typeof RelatoriosServidoresWebRoute
   EnIndexRoute: typeof EnIndexRoute
+  EnRelatoriosContainersRoute: typeof EnRelatoriosContainersRoute
+  EnRelatoriosEscalabilidadeRoute: typeof EnRelatoriosEscalabilidadeRoute
   EnRelatoriosKubernetesRoute: typeof EnRelatoriosKubernetesRoute
   EnRelatoriosKubernetesAvancadoRoute: typeof EnRelatoriosKubernetesAvancadoRoute
   EnRelatoriosServidoresWebRoute: typeof EnRelatoriosServidoresWebRoute
@@ -174,6 +228,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RelatoriosKubernetesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/relatorios/escalabilidade': {
+      id: '/relatorios/escalabilidade'
+      path: '/relatorios/escalabilidade'
+      fullPath: '/relatorios/escalabilidade'
+      preLoaderRoute: typeof RelatoriosEscalabilidadeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/relatorios/containers': {
+      id: '/relatorios/containers'
+      path: '/relatorios/containers'
+      fullPath: '/relatorios/containers'
+      preLoaderRoute: typeof RelatoriosContainersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/en/relatorios/servidores-web': {
       id: '/en/relatorios/servidores-web'
       path: '/en/relatorios/servidores-web'
@@ -195,15 +263,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EnRelatoriosKubernetesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/en/relatorios/escalabilidade': {
+      id: '/en/relatorios/escalabilidade'
+      path: '/en/relatorios/escalabilidade'
+      fullPath: '/en/relatorios/escalabilidade'
+      preLoaderRoute: typeof EnRelatoriosEscalabilidadeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/en/relatorios/containers': {
+      id: '/en/relatorios/containers'
+      path: '/en/relatorios/containers'
+      fullPath: '/en/relatorios/containers'
+      preLoaderRoute: typeof EnRelatoriosContainersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  RelatoriosContainersRoute: RelatoriosContainersRoute,
+  RelatoriosEscalabilidadeRoute: RelatoriosEscalabilidadeRoute,
   RelatoriosKubernetesRoute: RelatoriosKubernetesRoute,
   RelatoriosKubernetesAvancadoRoute: RelatoriosKubernetesAvancadoRoute,
   RelatoriosServidoresWebRoute: RelatoriosServidoresWebRoute,
   EnIndexRoute: EnIndexRoute,
+  EnRelatoriosContainersRoute: EnRelatoriosContainersRoute,
+  EnRelatoriosEscalabilidadeRoute: EnRelatoriosEscalabilidadeRoute,
   EnRelatoriosKubernetesRoute: EnRelatoriosKubernetesRoute,
   EnRelatoriosKubernetesAvancadoRoute: EnRelatoriosKubernetesAvancadoRoute,
   EnRelatoriosServidoresWebRoute: EnRelatoriosServidoresWebRoute,

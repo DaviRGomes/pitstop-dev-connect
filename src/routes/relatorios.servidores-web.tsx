@@ -5,13 +5,21 @@ import {
   GuideProgress,
   GuideRail,
   LessonSection,
-  useGuideProgress,
-  useScrollSpy,
-  useSectionReveal,
 } from "@/components/guide/GuideKit";
+import { useGuideProgress, useScrollSpy, useSectionReveal } from "@/components/guide/hooks";
 import { f1Logo } from "@/assets/brand/paths";
+import { reportHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/relatorios/servidores-web")({
+  head: () =>
+    reportHead({
+      locale: "pt",
+      title: "Servidores Web e Balanceamento de Carga | pitstop.dev",
+      description:
+        "Guia imersivo sobre HTTP, Apache, Nginx, balanceamento, Ingress, TLS, Service Mesh, observabilidade, alta disponibilidade e segurança.",
+      ptPath: "/relatorios/servidores-web",
+      enPath: "/en/relatorios/servidores-web",
+    }),
   component: Index,
 });
 

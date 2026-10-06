@@ -3,3 +3,12 @@ node_modules
 .git
 .lovable
 dist
+.env
+.env.*
+!.env.example
+.claude
+.github
+docs
+k8s
+relatorios
+server

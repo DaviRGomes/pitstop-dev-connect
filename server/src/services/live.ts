@@ -6,7 +6,7 @@ import {
   getSessionPositions,
   type OpenF1Lap,
   type OpenF1Session,
-} from './openf1';
+} from './openf1.js';
 
 export interface LiveSessionInfo {
   name: string; // "Race", "Sprint", "Qualifying", "Practice 1"…

@@ -5,13 +5,21 @@ import {
   GuideProgress,
   GuideRail,
   LessonSection,
-  useGuideProgress,
-  useScrollSpy,
-  useSectionReveal,
 } from "@/components/guide/GuideKit";
+import { useGuideProgress, useScrollSpy, useSectionReveal } from "@/components/guide/hooks";
 import { f1Logo } from "@/assets/brand/paths";
+import { reportHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/en/relatorios/servidores-web")({
+  head: () =>
+    reportHead({
+      locale: "en",
+      title: "Web Servers and Load Balancing | pitstop.dev",
+      description:
+        "An immersive guide to HTTP, Apache, Nginx, load balancing, Ingress, TLS, Service Mesh, observability, high availability, and security.",
+      ptPath: "/relatorios/servidores-web",
+      enPath: "/en/relatorios/servidores-web",
+    }),
   component: Index,
 });
 

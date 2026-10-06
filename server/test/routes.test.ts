@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { clearCache } from '../src/cache';
 import { app } from '../src/index';
 import nextFixture from './fixtures/jolpica-next.json';
@@ -10,6 +10,13 @@ beforeEach(() => {
   clearCache();
   fetchMock.mockReset();
   vi.stubGlobal('fetch', fetchMock);
+  delete process.env.CACHE_CLEAR_TOKEN;
+  delete process.env.CORS_ORIGINS;
+});
+
+afterEach(() => {
+  delete process.env.CACHE_CLEAR_TOKEN;
+  delete process.env.CORS_ORIGINS;
 });
 
 describe('GET /api/health', () => {
@@ -20,6 +27,27 @@ describe('GET /api/health', () => {
     expect(res.body.ok).toBe(true);
     expect(res.body.service).toBe('pitstop-server');
     expect(typeof res.body.time).toBe('string');
+    expect(res.headers['x-powered-by']).toBeUndefined();
+  });
+
+  it('só emite CORS para origins locais ou configurados', async () => {
+    const local = await request(app).get('/api/health').set('Origin', 'http://localhost:3005');
+    const denied = await request(app).get('/api/health').set('Origin', 'https://malicioso.example');
+    process.env.CORS_ORIGINS = 'https://app.example,https://admin.example';
+    const configured = await request(app).get('/api/health').set('Origin', 'https://app.example');
+
+    expect(local.headers['access-control-allow-origin']).toBe('http://localhost:3005');
+    expect(denied.headers['access-control-allow-origin']).toBeUndefined();
+    expect(configured.headers['access-control-allow-origin']).toBe('https://app.example');
+  });
+});
+
+describe('GET /tracks', () => {
+  it('entrega assets versionados com cache de um dia', async () => {
+    const res = await request(app).get('/tracks/manifest.json');
+
+    expect(res.status).toBe(200);
+    expect(res.headers['cache-control']).toContain('max-age=86400');
   });
 });
 
@@ -50,7 +78,8 @@ describe('erro de upstream', () => {
 
     expect(res.status).toBe(502);
     expect(res.body.ok).toBe(false);
-    expect(res.body.error).toContain('rede indisponível');
+    expect(res.body.error).toBe('Fonte de dados temporariamente indisponível');
+    expect(res.body.error).not.toContain('rede indisponível');
     expect(error).toHaveBeenCalled();
   });
 
@@ -62,6 +91,23 @@ describe('erro de upstream', () => {
 
     expect(res.status).toBe(502);
     expect(res.body.ok).toBe(false);
+  });
+});
+
+describe('validação de season', () => {
+  it.each(['abc', '1949', '9999'])('rejeita season inválida (%s) sem chamar upstream', async (season) => {
+    const res = await request(app).get('/api/f1/calendar').query({ season });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ ok: false });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('rejeita parâmetros season repetidos', async () => {
+    const res = await request(app).get('/api/f1/calendar?season=2025&season=2026');
+
+    expect(res.status).toBe(400);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
 
@@ -94,8 +140,30 @@ describe('GET /api/f1/live', () => {
 });
 
 describe('POST /api/cache/clear', () => {
-  it('limpa o cache e devolve ok', async () => {
+  it('fica indisponível quando o token não foi configurado', async () => {
     const res = await request(app).post('/api/cache/clear');
+
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ ok: false, error: 'Não encontrado' });
+  });
+
+  it('rejeita credencial incorreta', async () => {
+    process.env.CACHE_CLEAR_TOKEN = 'segredo-de-teste';
+
+    const res = await request(app)
+      .post('/api/cache/clear')
+      .set('Authorization', 'Bearer outro-segredo');
+
+    expect(res.status).toBe(401);
+    expect(res.body).toEqual({ ok: false, error: 'Não autorizado' });
+  });
+
+  it('limpa o cache com Bearer válido', async () => {
+    process.env.CACHE_CLEAR_TOKEN = 'segredo-de-teste';
+
+    const res = await request(app)
+      .post('/api/cache/clear')
+      .set('Authorization', 'Bearer segredo-de-teste');
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ ok: true, cleared: true });

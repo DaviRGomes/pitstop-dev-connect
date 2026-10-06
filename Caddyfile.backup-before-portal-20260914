@@ -1,0 +1,22 @@
+{$DOMAIN}, www.{$DOMAIN} {
+	encode zstd gzip
+
+	# Os nomes gerados pelo Vite têm hash de conteúdo e podem ser imutáveis.
+	@immutable path /assets/*
+	header @immutable Cache-Control "public, max-age=31536000, immutable"
+
+	# Assets de marca mantêm nomes estáveis; revalide com frequência moderada.
+	@brand path /brand/*
+	header @brand Cache-Control "public, max-age=86400, stale-while-revalidate=604800"
+
+	# API de F1 e imagens de pista → container do backend (server/, porta 3333)
+	@api path /api/* /tracks/*
+	handle @api {
+		reverse_proxy api-prod:3333
+	}
+
+	# Todo o resto → app SSR (Nitro node-server, porta 3005)
+	handle {
+		reverse_proxy app:3005
+	}
+}

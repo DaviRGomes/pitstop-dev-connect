@@ -5,11 +5,12 @@
   "description": "Backend de dados de F1 (Jolpica-F1 + OpenF1) para o pitstop",
   "type": "module",
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "start": "tsx src/index.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/index.js",
     "icons": "tsx scripts/download-track-icons.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

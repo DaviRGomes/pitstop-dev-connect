@@ -7,14 +7,14 @@
 //    domínio → same-origin, sem CORS e sem mixed-content sob HTTPS.
 //  - Dev/local: sem a env, cai no mesmo host da página na porta 3333
 //    (o docker compose publica a api em 3333 no profile dev).
-// Todas as chamadas partem do navegador, então o fallback de SSR nunca roda.
+// Em produção, sem a env, o proxy same-origin atende as rotas /api e /tracks.
 function apiBase(): string {
   const fromEnv = import.meta.env.VITE_PITSTOP_API as string | undefined;
   if (fromEnv) return fromEnv.replace(/\/$/, "");
-  if (typeof window !== "undefined") {
+  if (import.meta.env.DEV && typeof window !== "undefined") {
     return `${window.location.protocol}//${window.location.hostname}:3333`;
   }
-  return "http://localhost:3333";
+  return import.meta.env.DEV ? "http://localhost:3333" : "";
 }
 
 export const F1_API = apiBase();
@@ -123,25 +123,54 @@ export function raceStart(race: RaceEvent): Date {
   return new Date(`${race.date}T${race.time ?? "00:00:00Z"}`);
 }
 
-/** Datas sempre exibidas no fuso de São Paulo. */
+export type F1Locale = "pt" | "en";
+
+/** Datas sempre exibidas no fuso de São Paulo, no idioma da página. */
 const SP_TZ = "America/Sao_Paulo";
-export const fmtDia = new Intl.DateTimeFormat("pt-BR", {
-  timeZone: SP_TZ,
-  weekday: "short",
-  day: "2-digit",
-  month: "short",
-});
-export const fmtHora = new Intl.DateTimeFormat("pt-BR", {
-  timeZone: SP_TZ,
-  hour: "2-digit",
-  minute: "2-digit",
-});
-export const fmtHoraSeg = new Intl.DateTimeFormat("pt-BR", {
-  timeZone: SP_TZ,
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-});
+const F1_DATE_FORMATTERS = {
+  pt: {
+    day: new Intl.DateTimeFormat("pt-BR", {
+      timeZone: SP_TZ,
+      weekday: "short",
+      day: "2-digit",
+      month: "short",
+    }),
+    time: new Intl.DateTimeFormat("pt-BR", {
+      timeZone: SP_TZ,
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
+    timeWithSeconds: new Intl.DateTimeFormat("pt-BR", {
+      timeZone: SP_TZ,
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    }),
+  },
+  en: {
+    day: new Intl.DateTimeFormat("en-US", {
+      timeZone: SP_TZ,
+      weekday: "short",
+      day: "2-digit",
+      month: "short",
+    }),
+    time: new Intl.DateTimeFormat("en-US", {
+      timeZone: SP_TZ,
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
+    timeWithSeconds: new Intl.DateTimeFormat("en-US", {
+      timeZone: SP_TZ,
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    }),
+  },
+} satisfies Record<F1Locale, Record<string, Intl.DateTimeFormat>>;
+
+export function getF1DateFormatters(locale: F1Locale) {
+  return F1_DATE_FORMATTERS[locale];
+}
 
 /** PNG local baixado pelo `npm run icons`; cai pro CDN da F1 se não houver. */
 export function trackIcon(race: RaceEvent): string | undefined {
@@ -164,8 +193,8 @@ export function formatLapTime(seconds: number | null | undefined): string {
 }
 
 /** Gap pro líder como a F1 mostra: "líder", "+1.234" ou "+1 LAP". */
-export function formatGap(row: LiveDriverRow): string {
-  if (row.position === 1) return "líder";
+export function formatGap(row: LiveDriverRow, locale: F1Locale = "pt"): string {
+  if (row.position === 1) return locale === "en" ? "leader" : "líder";
   const gap = row.gapToLeader;
   if (gap == null) return "—";
   return typeof gap === "number" ? `+${gap.toFixed(3)}` : gap;

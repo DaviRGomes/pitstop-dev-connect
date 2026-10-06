@@ -2,24 +2,18 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, Cloud, Server, Wrench } from "lucide-react";
 import { f1Logo } from "@/assets/brand/paths";
 import { RaceHub } from "@/components/f1/RaceHub";
+import { localizedHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: "pitstop.dev | DevOps, Cloud e Backend em ritmo de F1" },
-      {
-        name: "description",
-        content:
-          "Relatórios de estudo sobre DevOps, Cloud e Backend explicados com a lógica da Fórmula 1, do box à corrida, com exemplos práticos.",
-      },
-      { property: "og:title", content: "pitstop.dev | Estudos em ritmo de F1" },
-      {
-        property: "og:description",
-        content:
-          "Aprenda DevOps, Cloud e Backend com metáforas de Fórmula 1. Relatórios abertos, comentados linha a linha.",
-      },
-    ],
-  }),
+  head: () =>
+    localizedHead({
+      locale: "pt",
+      title: "pitstop.dev | DevOps, Cloud e Backend em ritmo de F1",
+      description:
+        "Relatórios de estudo sobre DevOps, Cloud e Backend explicados com a lógica da Fórmula 1, do box à corrida, com exemplos práticos.",
+      ptPath: "/",
+      enPath: "/en",
+    }),
   component: Home,
 });
 
@@ -61,9 +55,9 @@ const REPORTS = [
     num: "R02",
     area: "DevOps · Cloud Avançado",
     title: "Kubernetes avançado: da saúde à segurança",
-    lead: "9 etapas da Fase 2: probes e recursos, agendamento fino, rollouts, Helm, Blue/Green, Canary, Karpenter, KEDA e segurança. Baseado no módulo DevOps e Arquitetura Cloud (FIAP).",
+    lead: "9 etapas da Fase 2 + 1 bônus: probes e recursos, agendamento fino, rollouts, Helm, Blue/Green, Canary, Karpenter, KEDA, segurança e um capstone de produção. Baseado no módulo DevOps e Arquitetura Cloud (FIAP).",
     status: "publicado",
-    laps: "9 voltas",
+    laps: "10 voltas",
   },
   {
     id: "servidores-web",
@@ -74,6 +68,26 @@ const REPORTS = [
     lead: "14 etapas: servidores web, HTTP, Apache e Nginx, balanceamento, Ingress, TLS, Istio, observabilidade, alta disponibilidade e defesa da borda.",
     status: "publicado",
     laps: "14 voltas",
+  },
+  {
+    id: "containers",
+    to: "/relatorios/containers",
+    num: "R04",
+    area: "DevOps · Containers",
+    title: "Containers e Docker: da imagem à produção",
+    lead: "13 etapas: fundamentos de containers, imagens, Dockerfile, redes, volumes, Docker Compose, segurança, boas práticas e diagnóstico.",
+    status: "publicado",
+    laps: "13 voltas",
+  },
+  {
+    id: "escalabilidade",
+    to: "/relatorios/escalabilidade",
+    num: "R05",
+    area: "DevOps · Escalabilidade",
+    title: "Escalabilidade nos servidores: do box ao pico",
+    lead: "6 etapas: desempenho x escala, load balancers, aplicações stateless, filas e workers, CDN, réplicas de banco, CAP e observabilidade, com laboratórios locais.",
+    status: "publicado",
+    laps: "6 voltas",
   },
 ];
 
@@ -111,7 +125,7 @@ function Home() {
           </div>
         </div>
         <div className="home-hero-art">
-          <RaceHub />
+          <RaceHub locale="pt" />
         </div>
       </section>
 
@@ -168,22 +182,6 @@ function Home() {
               </div>
             </Link>
           ))}
-          <div className="report-card report-card--empty">
-            <div className="report-head">
-              <span className="report-num">R04</span>
-              <span className="report-status s-em-breve">em breve</span>
-            </div>
-            <p className="report-area">Cloud · AWS</p>
-            <h3>Fundamentos de AWS pra quem vem do backend</h3>
-            <p className="report-lead">
-              VPC, IAM, EC2, S3, RDS. O que cada peça faz e como elas se conectam numa arquitetura
-              mínima de produção.
-            </p>
-            <div className="report-foot">
-              <span>a definir</span>
-              <span className="report-go muted">aguardando largada</span>
-            </div>
-          </div>
         </div>
       </section>
 

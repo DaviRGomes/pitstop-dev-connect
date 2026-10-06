@@ -1,5 +1,6 @@
-// Content for the 8 stages, based on lessons 1-8 (Thiago Adriano / FIAP),
-// themed around Formula 1 by the /otimizar-relatorio pipeline (relatorios/kubernetes-basico/final.md)
+// Content for the 8 core stages (lessons 1-8, Thiago Adriano / FIAP) plus 1 bonus
+// capstone stage that applies the full module outside the official lesson syllabus,
+// themed around Formula 1 by the /otimizar-relatorio pipeline (relatorios/kubernetes-basico/final.md).
 // English translation of kubernetesbasico.ts.
 
 export type Example = {
@@ -335,7 +336,7 @@ pod "nginx" deleted`,
     lead: "In Stage 02 you created a pod with an imperative command. It works, but it has two holes: you don't know exactly what got created or where. And if you need to recreate that same pod tomorrow, you're relying on memory. No team builds a car from memory: there's a spec sheet for everything, from wing angle to every bolt's torque.",
     concept: [
       "A cluster is a group of machines (nodes) working together, with well-defined roles: it's the team assembled for race weekend. The Pod is the smallest unit Kubernetes manages. On our map, the Pod is the car: an 'envelope' holding one or more containers that share networking and storage.",
-      "Four facts about Pods: (1) a Pod represents a running process and can hold more than one container sharing the same IP and volumes, like the power unit and the MGU-K in the same car; (2) Pods are ephemeral, constantly born and dying; the car that raced Silverstone today gets stripped down to the last bolt before Spa, what survives is the spec (keep this line, it's the root of Stages 04, 05, and 06); (3) every Pod gets an internal cluster IP, the car's position on track: real, it exists, but it keeps changing; (4) Pods are described in YAML, the car's spec sheet.",
+      "Four facts about Pods: (1) a Pod represents a running process and can hold more than one container sharing the same IP and volumes, like the power unit and the MGU-K in the same car; (2) Pods are ephemeral, constantly born and dying; the car that raced in the 2026 British Grand Prix gets stripped down to the last bolt before Spa, while the spec survives (keep this line, it's the root of Stages 04, 05, and 06); (3) every Pod gets an internal cluster IP, the car's position on track: real, it exists, but it keeps changing; (4) Pods are described in YAML, the car's spec sheet.",
       "To organize dozens of Pods there are labels and annotations. In F1, every car component (power unit, turbo, MGU-K, gearbox) carries an FIA-sealed tracking tag: that's how the system knows which engine is in which car; the tag exists to IDENTIFY AND SELECT. The engineer's debrief notebook (\"driver reported vibration at turn 7\") is information for humans, and nobody filters components by notebook entry. Labels are the FIA tag (it's by label that a Service finds its Pods, as you'll see in Stage 04); annotations are the debrief notebook (author, documentation, audit trail; they do NOT take part in selection). That difference is what shows up on the test.",
     ],
     pointsTitle: "Who does what inside the cluster",
@@ -554,8 +555,8 @@ http://127.0.0.1:53412   ← open it in your browser: the nginx page!`,
     tag: "self-healing + scale",
     title: "Self-healing and scale: ReplicaSets and Deployments",
     narration:
-      "THIS is where the point-scorers separate from the rest of the grid! Just today, lap 46, the Red Bull engine died and Verstappen watched the finish from the wall. Zero points. In production, your single Pod dying at 3 a.m. is exactly that scene. Self-healing and the way back: the most important stage of the guide starts NOW.",
-    lead: "Up to now you've created Pods by hand. Great for learning, but think about Silverstone today: Verstappen stopped on lap 46 and that was it, there's no substitute mid-race. In production, your one Pod dying overnight is the same thing: the site is down until someone wakes up. And when you ship 2.0, how do you swap versions without taking the service down? And if it ships with a catastrophic bug, how do you get back fast?",
+      "THIS is where the point-scorers separate from the rest of the grid! At the 2026 British Grand Prix, on lap 46, the Red Bull engine died and Verstappen watched the finish from the wall. Zero points. In production, your single Pod dying at 3 a.m. is exactly that scene. Self-healing and the way back: the most important stage of the guide starts NOW.",
+    lead: "Up to now you've created Pods by hand. Great for learning, but think about the 2026 British Grand Prix: Verstappen stopped on lap 46 and that was it, there's no substitute mid-race. In production, your one Pod dying overnight is the same thing: the site is down until someone wakes up. And when you ship 2.0, how do you swap versions without taking the service down? And if it ships with a catastrophic bug, how do you get back fast?",
     concept: [
       'ReplicaSet: the team boss of headcount. You declare "replicas: 3" and it watches the Pods by label selector (the FIA tag, again!). One drops? It notices the count is short and spins up another in seconds, without you asking. It\'s the team boss\'s non-negotiable rule, "N cars ready, always": the driver wrecks the chassis Saturday, the mechanics work through the night, and Sunday there\'s a whole car on the grid, rebuilt from spec. That\'s Kubernetes self-healing, Stage 01\'s "desired state" kept for real.',
       "The analogy breaks here, and it's worth flagging: in F1, replacing a car only happens between sessions, and the rules cap each team at 2 cars. The ReplicaSet has no parc fermé and no rulebook: it replaces the Pod in seconds, any time, any quantity. Think of K8s as an endurance race with no entry limit, where the \"mechanics' all-nighter\" takes thirty seconds.",
@@ -787,7 +788,7 @@ i survived!            ← the Pod died, the data didn't.`,
     tag: "app health",
     title: "Probes: how the cluster knows your app is actually alive",
     narration:
-      "Careful, this corner is BLIND! Today, at Silverstone, the whole world watched: Antonelli started from pole, set a 1:31.777 (the fastest lap of the race), and crossed the line SIXTEENTH. Fifty-two laps on track, and nothing about it was healthy. And the veterans remember Senna at Interlagos, 1991: the car was moving, but only sixth gear still worked. That's exactly the gap probes close.",
+      "Careful, this corner is BLIND! At the 2026 British Grand Prix, the whole world watched: Antonelli started from pole, set a 1:31.777 (the fastest lap of the race), and crossed the line FIFTEENTH. Fifty-two laps on track, and nothing about it was healthy. And the veterans remember Senna at Interlagos, 1991: the car was moving, but only sixth gear still worked. That's exactly the gap probes close.",
     lead: "Antonelli was out there, running, for all 52 laps, and something was clearly not healthy anyway. It's identical in the cluster: your app deadlocks at 3 a.m., the process is still standing (Kubernetes sees Running across the board), but no request gets answered. Stage 05's self-healing only recreates pods that DIE; it can't see pods that are alive but stuck: the car that's running... but isn't.",
     concept: [
       "Probes are health checks declared in the Pod's manifest. It's telemetry plus a radio check: the team doesn't trust the fact that the car is moving. It checks specific channels at regular intervals: oil pressure, power unit temperature, the driver's response on the radio. It's not enough for the car to be on track; it has to respond to being poked.",
@@ -902,7 +903,7 @@ Events:
       "In another terminal, run kubectl describe pod liveness-exec and look in Events for the Warning Unhealthy plus Normal Killing pair. Learn to recognize that duo: in production, it's the signature of a failing probe.",
       "Clean up: kubectl delete pod liveness-exec.",
     ],
-    tip: "Running does NOT mean healthy. Antonelli ran all 52 laps at Silverstone with pole and the fastest lap in his pocket, and finished P16. A car on track isn't a competitive car; a standing process isn't a working app. That's exactly why probes exist.",
+    tip: "Running does NOT mean healthy. Antonelli ran all 52 laps at Silverstone with pole and the fastest lap in his pocket, and finished P15. A car on track isn't a competitive car; a standing process isn't a working app. That's exactly why probes exist.",
     takeaway:
       "Liveness fails = turn the car off and on (restart); Readiness fails = the box's red light (leaves the load balancer without restarting); Startup = the power unit's fire-up (holds the other two off until the app finishes warming up).",
     outro:
@@ -1052,7 +1053,190 @@ nginx-hpa   cpu: 152%/70%   1        10       3    ← scaled itself!
     takeaway:
       "HPA = desired state applied to scale: you set the target, floor, and ceiling, and the pit wall does the rest. But without metrics-server (sensors) and resources.requests (declared allocation), it sees nothing.",
     outro:
-      "And the cluster SCALED ITSELF, ladies and gentlemen! Replicas climbing on screen without a single command, and the loop closes: you declare the target, the pit wall runs the race. Final corner complete. Now it's the cool-down lap, a wave to the grandstand, and the podium just ahead.",
+      "And the cluster SCALED ITSELF, ladies and gentlemen! Replicas climbing on screen without a single command, and the loop closes: you declare the target, the pit wall runs the race. The eight official stages end here. Before the cool-down lap, though, the garage calls one more time: take all these separate pieces and build the complete car for real, with a production image. Bonus stage, stay with me.",
+  },
+
+  {
+    id: "m9",
+    num: "09",
+    navTitle: "Professional example",
+    tag: "capstone · real docker hub",
+    title: "The professional example: everything applied to a real Docker Hub image",
+    narration:
+      "The checkered flag is not the end of a season, only the end of ONE race. What separates the champion from the rest of the grid is what happens next: the debrief, where every piece tested on its own over the weekend becomes the complete car that races all season. This bonus stage sits outside the official set of 8 lessons: take the eight parts you calibrated separately and build the real car.",
+    lead: "The previous eight stages deliberately used nginx: a simple, quiet image that let you learn each mechanism without distractions. No team sends out a car that has never run as a complete package, though. This stage combines ConfigMap, Deployment, Service, and HPA as they appear in practice: one real application, stefanprodan/podinfo from Docker Hub, with genuine health endpoints instead of the illustrative YAML from Stage 07.",
+    concept: [
+      "Podinfo (docker.io/stefanprodan/podinfo) is an open source project built to be exercised: it exposes real /healthz and /readyz endpoints, accepts configuration through environment variables (PODINFO_UI_MESSAGE and PODINFO_UI_COLOR, injected by the same ConfigMap mechanism from Stage 04), and provides a /panic endpoint that deliberately crashes the process. You can test liveness on a real application without sabotaging a busybox with sleep and rm as in Stage 07.",
+      "The four files below connect through the same thread that holds the entire guide together: the app: podinfo label, the FIA tag from Stage 03. The ConfigMap injects variables through envFrom (Stage 04); the Deployment declares 3 replicas with resources.requests, required by the HPA from Stage 08, plus the two probes that make sense for a fast-starting app: liveness at /healthz and readiness at /readyz (Stage 07). The Service is a NodePort because podinfo IS the entry point here, following Stage 04's rule of thumb. The HPA reads the CPU request declared by the Deployment and scales between 2 and 8 replicas (Stage 08).",
+      "Notice what is NOT included: not every part you learned belongs on every car. The startupProbe from Stage 07 is omitted because podinfo starts in a fraction of a second. Using a component only because it exists in the manual is not engineering, it is decoration, and decoration adds weight.",
+      "What about the PVC from Stage 06? It is deliberately left out of the Deployment too, for a technical reason. That PVC uses ReadWriteOnce, and only one node at a time can mount that volume for read-write access. Copying the same volumes.persistentVolumeClaim into a Deployment with replicas: 3 is a classic mistake made by someone who memorized YAML without understanding it. The accident may appear to work in single-node Minikube, but in a multi-node production cluster extra replicas can get stuck on FailedAttachVolume while fighting over the same disk. If this app truly needed persistent state, the right answer would be a shared cache, such as podinfo's --cache-server option with Redis, or a StatefulSet with volumeClaimTemplates for state per replica, a separate PVC for each car. That belongs to the advanced module. Stage 06 remains completely valid for its own scenario, such as one database Pod, just not for this one.",
+    ],
+    pointsTitle: "Each part, matched to the stage that taught it",
+    points: [
+      { t: "ConfigMap → env vars", d: "Stage 04: injects PODINFO_UI_MESSAGE and PODINFO_UI_COLOR through envFrom. It changes configuration, not the image.", color: "blue" },
+      { t: "Deployment → 3 replicas", d: "Stage 05: real self-healing, ready for a rolling update whenever the image changes.", color: "signal" },
+      { t: "Probes → real healthz/readyz", d: "Stage 07: liveness and readiness checking a real application, with no illustrative YAML.", color: "ember" },
+      { t: "Service → NodePort", d: "Stage 04: podinfo is the entry point here, so it is exposed; a database behind it would use ClusterIP.", color: "violet" },
+      { t: "HPA → 2 to 8 replicas", d: "Stage 08: scales from the same CPU request declared in the Deployment's resources.requests.", color: "blue" },
+      { t: "PVC → explained, not copied", d: "Stage 06: deliberately omitted because an RWO volume does not serve replicas on multiple nodes. The stage remains correct for its scenario.", color: "signal" },
+    ],
+    examplesTitle: "The 4 production manifests plus the complete test",
+    examples: [
+      {
+        label: "configmap.yaml",
+        lang: "yaml",
+        code: `# configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: podinfo-config
+data:
+  PODINFO_UI_MESSAGE: "hello from pitstop.dev!"  # appears in the app
+  PODINFO_UI_COLOR: "#34d399"                    # banner color in the UI`,
+        note: "This is the same envFrom mechanism from Stage 04, but these keys are variables that podinfo actually reads to build its own interface, as confirmed by the project's official chart.",
+      },
+      {
+        label: "deployment.yaml",
+        lang: "yaml",
+        code: `# deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: podinfo
+spec:
+  replicas: 3                        # real self-healing, Stage 05
+  selector:
+    matchLabels:
+      app: podinfo
+  template:
+    metadata:
+      labels:
+        app: podinfo                 # matches the selector above and the Service
+    spec:
+      containers:
+        - name: podinfo
+          image: stefanprodan/podinfo:6.14.1  # real Docker Hub image, pinned version
+          ports:
+            - containerPort: 9898
+          envFrom:                   # injects the whole ConfigMap, Stage 04
+            - configMapRef:
+                name: podinfo-config
+          resources:                 # required for HPA percentage, Stage 08
+            requests:
+              cpu: "100m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+          livenessProbe:             # "alive?" failure -> restart, Stage 07
+            httpGet:
+              path: /healthz
+              port: 9898
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:            # "ready for traffic?" failure -> leaves Service
+            httpGet:
+              path: /readyz
+              port: 9898
+            periodSeconds: 5`,
+        note: "No startupProbe and no volumes, by design. A professional manifest declares what the app needs, not everything the course has taught.",
+      },
+      {
+        label: "service.yaml",
+        lang: "yaml",
+        code: `# service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: podinfo
+spec:
+  type: NodePort
+  selector:
+    app: podinfo
+  ports:
+    - port: 9898
+      targetPort: 9898
+      nodePort: 30898`,
+      },
+      {
+        label: "hpa.yaml",
+        lang: "yaml",
+        code: `# hpa.yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: podinfo
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: podinfo
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70`,
+      },
+      {
+        label: "apply plus production test",
+        lang: "sh",
+        code: `# Apply all 4 manifests at once
+$ kubectl apply -f configmap.yaml -f deployment.yaml -f service.yaml -f hpa.yaml
+configmap/podinfo-config created
+deployment.apps/podinfo created
+service/podinfo created
+horizontalpodautoscaler.autoscaling/podinfo created
+
+# Wait for all 3 replicas to be Running and the HPA to leave <unknown>
+$ kubectl get pods,hpa
+
+# Open the real UI: message and color come from the ConfigMap
+$ minikube service podinfo --url
+http://127.0.0.1:53412   <- refresh it: the hostname changes as the Service balances replicas
+
+# Editing a ConfigMap does NOT restart Pods by itself
+$ kubectl edit configmap podinfo-config
+$ kubectl exec deploy/podinfo -- env | grep MESSAGE
+PODINFO_UI_MESSAGE=hello from pitstop.dev!   <- still the OLD value
+
+$ kubectl rollout restart deployment/podinfo
+deployment.apps/podinfo restarted
+
+# Real liveness: /panic crashes the process
+$ kubectl exec deploy/podinfo -- curl -s localhost:9898/panic
+$ kubectl get pods -w
+podinfo-7f9c6d-abc   1/1   Running   1 (4s ago)   <- restarted by itself
+
+# Real readiness: disable /readyz without killing the process
+$ kubectl exec deploy/podinfo -- curl -s -X POST localhost:9898/readyz/disable
+$ kubectl get endpoints podinfo
+podinfo   10.244.0.5:9898,10.244.0.6:9898   <- the disabled pod disappeared`,
+        note: "Use curl, not wget: that is what the official podinfo image installs. If /panic does not crash it on the first try, repeat the call because the response can arrive before the process exits.",
+      },
+    ],
+    commands: [
+      { cmd: "kubectl apply -f a.yaml -f b.yaml -f c.yaml -f d.yaml", note: "applies several manifests at once" },
+      { cmd: "kubectl rollout restart deployment/<name>", note: "forces Pods to read a changed ConfigMap" },
+      { cmd: "kubectl exec deploy/<name> -- <command>", note: "runs a command in a Deployment Pod without knowing its exact name" },
+      { cmd: "kubectl get endpoints <service>", note: "shows who is actually receiving traffic now, including readiness effects" },
+    ],
+    handsOnIntro: "The bonus guide's final corner: assemble everything, break it deliberately, and prove that you understand it.",
+    handsOn: [
+      "Save the four YAML files (configmap.yaml, deployment.yaml, service.yaml, hpa.yaml) and apply them with one kubectl apply command that references all four.",
+      "Run kubectl get pods,hpa until you see 3/3 Running and a real CPU value in the HPA, not <unknown>. If it stalls, confirm that Stage 08's metrics-server is still enabled.",
+      "Open minikube service podinfo --url in a browser and refresh it a few times. Watch the hostname change. This is the same Service from Stage 04, now balancing three real replicas.",
+      "Reproduce the ConfigMap gotcha: edit the message, confirm that kubectl exec ... env still shows the old value, then run kubectl rollout restart deployment/podinfo. Confirm the change again.",
+      "Trigger liveness deliberately with curl .../panic and follow kubectl get pods -w until RESTARTS climbs on its own, without a manual restart.",
+      "Disable readiness with curl -X POST .../readyz/disable and use kubectl get endpoints podinfo to confirm that the Pod left the list without restarting. That is the garage's red light on a real app.",
+      "Finish by generating load as in Stage 08, using the same busybox generator against http://podinfo:9898, and watch the HPA scale this Deployment by itself.",
+    ],
+    tip: "The ConfigMap gotcha catches every junior team at least once: editing the ConfigMap does not restart anything by itself unless a sidecar such as Reloader handles it. In production, applying a new configuration is usually followed by kubectl rollout restart deployment/<name>.",
+    takeaway: "A professional manifest is not the sum of everything you learned. It is a deliberate selection of what the app needs (ConfigMap, replicas, real probes, Service, HPA) and what it does not need (a startupProbe for a fast app, a PVC in a scaled Deployment). Understanding why every piece belongs or stays out is the difference between memorizing YAML and designing a system.",
+    outro: "Back in the pit lane, parked, engine off. Nine stages later (eight on the official grid and this bonus pit stop), the simulator became real garage experience: you assembled, broke, and healed a real app using a production image from Docker Hub. The official championship, Thiago Adriano's 8 lessons, ends here. The track stays open: each platform below is another free-practice session.",
   },
 ];
 

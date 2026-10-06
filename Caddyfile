@@ -1,6 +1,14 @@
 {$DOMAIN}, www.{$DOMAIN} {
 	encode zstd gzip
 
+	# Os nomes gerados pelo Vite têm hash de conteúdo e podem ser imutáveis.
+	@immutable path /assets/*
+	header @immutable Cache-Control "public, max-age=31536000, immutable"
+
+	# Assets de marca mantêm nomes estáveis; revalide com frequência moderada.
+	@brand path /brand/*
+	header @brand Cache-Control "public, max-age=86400, stale-while-revalidate=604800"
+
 	# API de F1 e imagens de pista → container do backend (server/, porta 3333)
 	@api path /api/* /tracks/*
 	handle @api {
@@ -11,4 +19,27 @@
 	handle {
 		reverse_proxy app:3005
 	}
+}
+
+portal.pitstop.dev.br {
+	encode zstd gzip
+
+	handle_path /api/* {
+		reverse_proxy portal-api:3000
+	}
+
+	handle {
+		reverse_proxy portal-web:8080
+	}
+}
+
+# Finance App (repo Financeiro, /opt/finance-app). O nginx do finance publica a porta 8992
+# no host; o caddy alcança pelo gateway do docker0 (as redes Docker dos dois projetos são
+# separadas). TLS termina aqui; o nginx do finance segue em HTTP puro só no host.
+financas.pitstop.dev.br {
+	encode zstd gzip
+
+	header Strict-Transport-Security "max-age=31536000"
+
+	reverse_proxy 172.17.0.1:8992
 }

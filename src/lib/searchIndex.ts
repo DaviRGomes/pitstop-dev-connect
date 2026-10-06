@@ -5,7 +5,8 @@
 export type Locale = "pt" | "en";
 
 export type SearchDoc = {
-  guideSlug: "kubernetes" | "kubernetes-avancado" | "servidores-web";
+  guideSlug:
+    "kubernetes" | "kubernetes-avancado" | "servidores-web" | "containers" | "escalabilidade";
   guideTitle: string;
   hash: string;
   num: string;
@@ -50,7 +51,7 @@ const GUIDES_PT: GuideConfig[] = [
     slug: "kubernetes-avancado",
     title: "Kubernetes avançado: da saúde à segurança",
     overview:
-      "9 etapas da Fase 2: probes e recursos, agendamento fino, rollouts, Helm, Blue/Green, Canary, Karpenter, KEDA e segurança.",
+      "9 etapas da Fase 2 + 1 bônus: probes e recursos, agendamento fino, rollouts, Helm, Blue/Green, Canary, Karpenter, KEDA, segurança e um capstone de produção.",
     overviewTag: "visão geral",
     loader: () => import("@/data/kubernetesavancado"),
   },
@@ -62,6 +63,22 @@ const GUIDES_PT: GuideConfig[] = [
     overviewTag: "visão geral",
     loader: () => import("@/data/servidoresweb"),
   },
+  {
+    slug: "containers",
+    title: "Containers e Docker: da imagem à produção",
+    overview:
+      "13 etapas: fundamentos de containers, imagens, Dockerfile, redes, volumes, Docker Compose, segurança, boas práticas e diagnóstico.",
+    overviewTag: "visão geral",
+    loader: () => import("@/data/containers"),
+  },
+  {
+    slug: "escalabilidade",
+    title: "Escalabilidade nos servidores: do box ao pico",
+    overview:
+      "6 etapas: desempenho x escala, load balancers, aplicações stateless, filas e workers, CDN, réplicas de banco, CAP e observabilidade.",
+    overviewTag: "visão geral",
+    loader: () => import("@/data/escalabilidade"),
+  },
 ];
 
 const GUIDES_EN: GuideConfig[] = [
@@ -69,7 +86,7 @@ const GUIDES_EN: GuideConfig[] = [
     slug: "kubernetes",
     title: "Kubernetes explained with real examples",
     overview:
-      "8 stages: the problem each piece solves, YAML commented line by line, and commands with the expected output.",
+      "8 stages + 1 bonus: the problem each piece solves, annotated YAML, commands with expected output, and a final production example using a real Docker Hub image.",
     overviewTag: "overview",
     loader: () => import("@/data/kubernetesbasico.en"),
   },
@@ -77,7 +94,7 @@ const GUIDES_EN: GuideConfig[] = [
     slug: "kubernetes-avancado",
     title: "Advanced Kubernetes: from health checks to security",
     overview:
-      "9 stages from Phase 2: probes and resources, fine-grained scheduling, rollouts, Helm, Blue/Green, Canary, Karpenter, KEDA and security.",
+      "9 stages from Phase 2 + 1 bonus: probes and resources, fine-grained scheduling, rollouts, Helm, Blue/Green, Canary, Karpenter, KEDA, security, and a production capstone.",
     overviewTag: "overview",
     loader: () => import("@/data/kubernetesavancado.en"),
   },
@@ -89,10 +106,31 @@ const GUIDES_EN: GuideConfig[] = [
     overviewTag: "overview",
     loader: () => import("@/data/servidoresweb.en"),
   },
+  {
+    slug: "containers",
+    title: "Containers and Docker: from image to production",
+    overview:
+      "13 stages: container fundamentals, images, Dockerfiles, networking, volumes, Docker Compose, security, best practices, and troubleshooting.",
+    overviewTag: "overview",
+    loader: () => import("@/data/containers.en"),
+  },
+  {
+    slug: "escalabilidade",
+    title: "Server Scalability: from pit box to peak load",
+    overview:
+      "6 stages: performance vs scale, load balancers, stateless apps, queues and workers, CDNs, database replicas, CAP, and observability.",
+    overviewTag: "overview",
+    loader: () => import("@/data/escalabilidade.en"),
+  },
 ];
 
 function normalize(s: string) {
-  return s.toLowerCase();
+  return s
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLocaleLowerCase()
+    .replace(/[^a-z0-9+#.]+/g, " ")
+    .trim();
 }
 
 function truncate(s: string, n: number) {
@@ -153,7 +191,13 @@ async function buildIndex(locale: Locale): Promise<SearchDoc[]> {
 const cache: Partial<Record<Locale, Promise<SearchDoc[]>>> = {};
 
 export function getSearchIndex(locale: Locale): Promise<SearchDoc[]> {
-  if (!cache[locale]) cache[locale] = buildIndex(locale);
+  if (!cache[locale]) {
+    cache[locale] = buildIndex(locale).catch((error: unknown) => {
+      // Permite uma nova tentativa após falha transitória ao baixar um chunk.
+      delete cache[locale];
+      throw error;
+    });
+  }
   return cache[locale]!;
 }
 

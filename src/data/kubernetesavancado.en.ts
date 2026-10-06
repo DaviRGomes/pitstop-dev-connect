@@ -1,5 +1,6 @@
-// Content from the 9 lessons of the DevOps and Cloud Architecture module — Phase 2 (FIAP),
-// themed with Formula 1 by the /otimizar-relatorio pipeline (relatorios/kubernetes-avancado/final.md)
+// Content from the 9 lessons of the DevOps and Cloud Architecture module — Phase 2 (FIAP)
+// plus 1 bonus capstone stage that connects both modules outside the official lesson syllabus,
+// themed with Formula 1 by the /otimizar-relatorio pipeline (relatorios/kubernetes-avancado/final.md).
 
 export type Example = {
   label: string;
@@ -95,7 +96,7 @@ export const DE_PARA: Mapping[] = [
   },
   {
     k8s: "QoS classes",
-    f1: "The order in which the team sacrifices cars under a safety car / when resources are tight",
+    f1: "The car's resource contract, one factor in its protection when resources are tight",
   },
   {
     k8s: "Taint",
@@ -196,7 +197,7 @@ export const LESSONS: Lesson[] = [
       'This is exactly what happened to Antonelli at Silverstone: started on pole (P1), crossed the line in P15. The car was alive (engine running, laps completed, race finished), but it wasn\'t on the pace. Process standing, 500 response. You need two different kinds of telemetry: one that screams "the car has stopped" and calls it into the garage to swap a part (liveness), and another that says "the car is still running but off the pace, pull it from the fight until it recovers" without calling it in for repair (readiness). And you need to define how much ERS energy and quota each component is entitled to, so no one steals the other\'s envelope (requests/limits).',
       "The three probes are the telemetry the pit wall reads at the end of every sector. Liveness restarts the container after N failures (self-healing); readiness only pulls the pod out of the load balancer, without restarting it; startup protects slow-booting apps by suspending the other two while the app hasn't come up yet. Confusing liveness with readiness causes cascading restarts. It's the difference between calling the car into the garage (losing 22s) and just telling it to cede position and recover.",
       "Requests and limits are the resource contract. requests is what the container reserves, the guaranteed floor the scheduler uses to decide which node the pod fits on (the guaranteed ERS energy per lap). limits is the ceiling it can't cross: blow past the memory limit and you get an OOMKill (the kernel kills the container); blow past the CPU limit and you get throttling (the kernel slows the process down to keep it inside its quota). Blowing the PU's thermal envelope burns the component; hitting the energy ceiling is the derate that reins in the power.",
-      "The combination of requests and limits produces the pod's QoS class: the sacrifice order for when the garage runs short on resources. Guaranteed (requests == limits on every container) is sacrificed last (the championship leader's car); Burstable (requests < limits) uses idle slack but yields under contention; BestEffort (no requests, no limits) is evicted first (the test car nobody protects).",
+      "The combination of requests and limits produces the pod's QoS class. Guaranteed requires equal CPU and memory requests and limits in every container; Burstable has some CPU or memory configuration but doesn't meet the Guaranteed criteria; BestEffort defines neither CPU or memory requests NOR limits in any container. QoS describes the resource contract, but it does not create a fixed eviction queue on its own: under node pressure, the kubelet considers usage above requests, Priority, and the proportion of that excess.",
       "One counterintuitive detail (a real case from Buffer): setting a CPU limit can actually make latency worse. The CFS quota algorithm can throttle a pod even at low average usage: small spikes burn through the 100ms quota and the process freezes until the next period. Buffer removed CPU limits from latency-sensitive services and saw p99 drop by 5 to 10x. In a multi-tenant setup you want limits for isolation; in a latency-sensitive service, sometimes less is more. And replicas in parallel multiply availability (A = MTBF / (MTBF + MTTR)): two pods at 99% reach roughly 99.99%, because the Service behaves like a logical OR: it only takes one Ready pod. The team with two cars: if one retires, the other still scores.",
     ],
     pointsTitle: "Key concepts in this stage",
@@ -223,7 +224,7 @@ export const LESSONS: Lesson[] = [
       },
       {
         t: "QoS classes",
-        d: "Guaranteed (requests==limits) is sacrificed last; Burstable (requests<limits) yields under contention; BestEffort (nothing set) is evicted first. The sacrifice order under a safety car.",
+        d: "Guaranteed has equal CPU/memory requests and limits; Burstable has some configuration but is not Guaranteed; BestEffort has no request or limit in any container. QoS alone is not a fixed eviction order.",
         color: "teal",
       },
     ],
@@ -302,9 +303,9 @@ kubectl describe pod teste-liveness | grep -i liveness`,
       'Confirm the reason: kubectl describe pod teste-liveness | grep -i liveness, and see "Liveness probe failed".',
       "That's self-healing: the car automatically called into the garage because telemetry flagged a stall. Clean up with kubectl delete pod teste-liveness.",
     ],
-    tip: "Don't put a database check in the liveness probe. If the database goes down, every replica fails liveness at the same time, they all restart together, and you get a cascading failure. Check dependencies in the startup probe (so you don't come up without them) and degrade gracefully otherwise. It's like tying both cars' liveness to the same piece of infrastructure: if that fails, both come into the garage together and you're left with no one on track.",
+    tip: "Don't put a database check in the liveness probe. If the database goes down, every replica fails liveness at the same time, they all restart together, and you get a cascading failure. Use a startup probe only to protect the application's own slow boot. Check dependencies in readiness, which pulls the pod from traffic without restarting it, and degrade gracefully when possible. It's like tying both cars' liveness to the same piece of infrastructure: if that fails, both come into the garage together and you're left with no one on track.",
     takeaway:
-      "Liveness restarts, readiness only pulls from traffic, and every pod deserves at least a request, because a pod with no request is BestEffort and the first to be evicted. Liveness is calling the car into the garage, readiness is ceding position and recovering; a car with no reserved energy is the first one sacrificed under a safety car.",
+      "Liveness restarts, readiness pulls from traffic, and startup protects only a slow boot. BestEffort means no CPU or memory requests OR limits in any container; declaring resources gives the scheduler a real reference, but eviction also considers Priority and how far usage exceeds requests. Liveness is calling the car into the garage, readiness is ceding position and recovering.",
     outro:
       "SECTOR 1 GREEN! We've crossed the first split and the car is in one piece, telemetry clean, resources under control. What a start! But now the track tightens: next up is the technical complex where we decide WHICH garage each car goes into. Strategy takes over. Hold on tight, Stage 02 is a pure precision corner.",
   },
@@ -319,10 +320,10 @@ kubectl describe pod teste-liveness | grep -i liveness`,
       "The track now demands a cool head. A fast car isn't enough: you need to put the RIGHT car in the RIGHT garage, and know who the team sacrifices when resources get tight. This is where the strategist wins or loses the Sunday. Radio's live with the pit wall!",
     lead: "You have a mixed cluster: some nodes have GPUs (expensive, for training models), most are ordinary. By default the scheduler drops a pod on any node it fits, so a random pod can occupy the GPU node and block the ML team, while a training job can land on an ordinary node with no GPU and never work. Worse: when a node runs out of memory, who does Kubernetes kill first? If it's the wrong pod, your critical service goes with it.",
     concept: [
-      'Think of the pit lane. There\'s the ordinary garage and the specialized one: the one with the thermal blankets for wet tyres, the GPU calibration rig. Taints are the sign that says "reserved garage, authorized cars only" (repels anyone without clearance). Affinity is the strategy call on the radio: "take that car to the GPU garage" (attracts). And eviction is the chief mechanic who, when the garage runs short on power, starts sacrificing the test car before touching the championship leader\'s car.',
+      'Think of the pit lane. There\'s the ordinary garage and the specialized one: the one with the thermal blankets for wet tyres, the GPU calibration rig. Taints are the sign that says "reserved garage, authorized cars only" (repels anyone without clearance). Affinity is the strategy call on the radio: "take that car to the GPU garage" (attracts). And eviction is the chief mechanic who, when the garage runs short on power, decides who leaves by checking excess usage, priority, and the proportion of that excess.',
       "Taints and Tolerations repel. A taint is a mark on the node (\"don't schedule pods here unless they tolerate X\"); a toleration is the mark on the pod (\"I can handle X, I can go there\"). The effects: NoSchedule (won't schedule non-tolerant pods; ones already running stay), PreferNoSchedule (avoids it, but it's not absolute) and NoExecute (blocks new pods AND evicts non-tolerant pods already there; useful for draining a node for maintenance). Crucial point: a taint only repels, it doesn't attract. A pod that tolerates the GPU node can still end up on an ordinary one. To guarantee it only goes to the GPU, combine it with affinity.",
       'Node Affinity is the positive counterpart ("I want to go to nodes with label X"): required (hard, no label means no scheduling) vs. preferred (soft, weighted, if none is found it schedules elsewhere anyway). Pod Affinity/Anti-Affinity, meanwhile, relates pods to each other: affinity pulls them together ("put the cache near the front-end"); anti-affinity keeps them apart ("never put two replicas of the database on the same node/zone"), never both cars in the same garage. Inter-pod affinity gets expensive for the scheduler above a few hundred nodes; for spreading with a numeric guarantee, prefer Topology Spread Constraints (maxSkew), which scales better.',
-      "Eviction under pressure is the node's self-protection. When memory, disk, or PIDs run short, the kubelet first tries to clean up (dead containers, unused images); if that's not enough, it evicts pods in this order: first the ones exceeding their requests (overshot BestEffort and Burstable), then by PriorityClass, and Guaranteed pods last. Details worth knowing: node-pressure eviction ignores the PodDisruptionBudget (it's an emergency); eviction ≠ OOMKill (OOMKill is the cgroup killing a container that went over its limit; eviction is the kubelet pulling pods to save the whole node). Placing pods under multiple constraints is bin packing, which is NP-hard. The scheduler uses a greedy heuristic (filter nodes → score them → pick one): fast, never optimal.",
+      "Eviction under pressure is the node's self-protection. When memory, disk, or PIDs run short, the kubelet first tries to clean up dead containers and unused images. If that isn't enough, it ranks pods for the scarce resource: it first separates those whose usage exceeds requests, then compares Priority and, among equivalent pods, the proportion by which usage exceeds the request. QoS class is not used as a direct order; BestEffort is usually vulnerable because its request is zero, while a Guaranteed pod only joins that group if it exceeds its own request. Details worth knowing: node-pressure eviction ignores the PodDisruptionBudget (it's an emergency); eviction ≠ OOMKill (OOMKill is the cgroup killing a container that went over its limit; eviction is the kubelet pulling pods to save the whole node). Placing pods under multiple constraints is bin packing, which is NP-hard. The scheduler uses a greedy heuristic (filter nodes → score them → pick one): fast, never optimal.",
     ],
     pointsTitle: "Key concepts in this stage",
     points: [
@@ -348,7 +349,7 @@ kubectl describe pod teste-liveness | grep -i liveness`,
       },
       {
         t: "Eviction under pressure",
-        d: "Short on memory/disk/PIDs, the kubelet evicts pods: first those exceeding requests, then by PriorityClass, Guaranteed last. Ignores the PodDisruptionBudget (emergency). ≠ OOMKill (cgroup kills one container).",
+        d: "Short on memory/disk/PIDs, the kubelet ranks for the scarce resource: usage above requests, then Priority and the proportion of excess. QoS is not a direct order. It ignores the PDB (emergency). Eviction ≠ OOMKill.",
         color: "teal",
       },
     ],
@@ -965,7 +966,7 @@ kubectl delete deploy app-v1 app-v2; kubectl delete svc canary-svc`,
     lead: "So far you've scaled pods. But in a flash sale the HPA asks for 20 new pods and... there's no node to put them on. The pods sit Pending and the service can't keep up with demand. The traditional Cluster Autoscaler would solve it, but it's slow and depends on fixed node groups (ASGs) pre-configured by type/zone, a pain to maintain. And it often spins up a giant node for one small pod, wasting money.",
     concept: [
       "It's the difference between two ways of building a garage in the pit lane. The Cluster Autoscaler is having fixed-size garage contracts, booked months in advance: a small car shows up and you're forced to open a giant garage, paying for the empty space. Karpenter is the logistics manager who looks at exactly how many cars, and what size, just arrived, and builds the right-sized garage on the spot, choosing even the cheapest material available, then tears it down the moment it's empty.",
-      "Karpenter = just-in-time node autoscaling. Built by AWS (open source, now multicloud), it provisions nodes sized to the pending pods, without fixed groups: faster (seconds to under a minute), picks the optimal instance (including Spot), and removes idle nodes on its own. Companies report savings of up to 30%. The flow: pods become unschedulable (the scheduler can't find a node) → Karpenter watches → calculates which instance best fits those pods → provisions it → the pods get scheduled. In reverse, it spots underutilized nodes and consolidates: moves the pods elsewhere and removes the idle node, or swaps an expensive On-Demand instance for a cheaper Spot one.",
+      "Karpenter = just-in-time node autoscaling. Created by AWS and maintained as an open-source project, it provisions nodes sized to the pending pods, without fixed groups: faster (seconds to under a minute), picks the optimal instance (including Spot), and removes idle nodes on its own. Companies report savings of up to 30%. The flow: pods become unschedulable (the scheduler can't find a node) → Karpenter watches → calculates which instance best fits those pods → provisions it → the pods get scheduled. In reverse, it spots underutilized nodes and consolidates: moves the pods elsewhere and removes the idle node, or swaps an expensive On-Demand instance for a cheaper Spot one.",
       "Configuration via NodePools (formerly called Provisioners): they define the rules for the nodes Karpenter is allowed to launch: instance types, zones, Spot vs. On-Demand, limits. Recommendation: restrict as little as possible, to give Karpenter room to optimize. Why it's clever: the underlying problem is multidimensional bin packing (NP-hard); it uses a greedy heuristic (filters out unfit types, sorts by cost/fit, does something close to First-Fit Decreasing). Key difference: the Cluster Autoscaler preserves homogeneity within a group (a small pod can trigger a big node); Karpenter does right-sizing, a small node for a small pod.",
       "Spot and cost: Spot instances cost roughly 70-90% less, but can be pulled back with short notice (2 minutes on AWS). They're borrowed material the supplier can reclaim at any time: cheap, but you need a plan B. Karpenter handles this with proactive interruption: it detects the warning, marks the node as terminating, applies a taint, and drains the pods elsewhere before the cutoff. It also respects PodDisruptionBudgets, never consolidating or terminating nodes if that would violate the budget. Best practices: a PDB to control how many pods go down together, Topology Spread to distribute replicas, and separate NodePools for critical workloads (On-Demand) vs. tolerant ones (Spot).",
     ],
@@ -1349,6 +1350,194 @@ kubectl delete namespace lab`,
     takeaway:
       "One SA per app, plus a namespaced Role with specific verbs, plus short-lived tokens (IRSA/Workload Identity): that's what turns a \"compromised container\" into a contained incident instead of a lost cluster. A badge with your name on it, opening only the right zone, expiring on its own: the paddock's Zero Trust, applied to the cluster.",
     outro:
-      "CHECKERED FLAG IN SIGHT! The car got through the final chicane without touching a thing, scrutineering signed off, and the trophy is YOURS. Nine sectors completed start to finish. You're no longer a passenger in this cluster: you're the driver in command of the pit wall. It's been an honor calling this race!",
+      "CHECKERED FLAG IN SIGHT! The car got through the final chicane without touching a thing, scrutineering signed off, and the trophy is YOURS. Nine sectors completed start to finish. You're no longer a passenger in this cluster: you're the driver in command of the pit wall. Every champion knows the trophy goes back to the factory for the test day that decides who moves from the academy to the main team, though. Bonus stage, one pit stop that joins both modules in a single race. Come with me.",
+  },
+
+  {
+    id: "m10",
+    num: "10",
+    navTitle: "Professional example",
+    tag: "capstone · from the academy to the main grid",
+    title: "The professional example: podinfo joins the main team",
+    narration:
+      "August 31, 2024, at Monza: Mercedes announced that Kimi Antonelli, the academy driver who had made his official F1 practice debut in the Italian Grand Prix's first free-practice session the previous day, would join the works team as a full-time driver for 2025 alongside George Russell. It was no longer just simulator work: the next step was a full season under the spotlight, with no room for setup mistakes. Our podinfo, which completed Stage 09 of the basic module inside the Minikube simulator, is about to earn the same promotion. Helmet on: this bonus stage closes both modules in a single race.",
+    lead: "Here is where you left it: Stage 09 of the basic module deployed podinfo with a ConfigMap, a 3-replica Deployment, a NodePort Service, and an HPA from 2 to 8. It works, but it is still the academy car: one environment copied by hand, using the default ServiceAccount, with no guarantee that replicas will not all disappear together if one node fails, and no safe way to test a new version without betting all 3 replicas at once. Each of this module's nine stages supplied one part that closes those gaps. This tenth stage assembles the car that is ready for a real grid.",
+    concept: [
+      "Helm from Stage 04 is now the mold that holds everything. The ConfigMap, Service, and HPA from Stage 09 of the basic module enter the chart as templates/configmap.yaml, templates/service.yaml, and templates/hpa.yaml. The Deployment receives the structural reinforcement because identity, spreading, and rollout pace all live there. The same chart serves development, staging, and production by changing only the values file. Chart.yaml and templates stay the same: one car mold, with a different setup sheet for each circuit.",
+      "Minimal identity from Stage 09: podinfo gets its own ServiceAccount instead of default. Unlike the analytics-sa example, which needed to read pods and ConfigMaps, podinfo is only an HTTP server and never talks to the API Server to do its job. Its badge opens no RBAC doors, so there is no Role or RoleBinding, and the access token is not mounted in the pod (automountServiceAccountToken: false). This is least privilege taken to its logical conclusion: zero credentials when zero credentials are needed.",
+      "Real high availability and rollout pace from Stages 01, 02, and 03: the CPU limit is removed, following the Buffer lesson, because podinfo is latency-sensitive and a CPU ceiling can cause CFS throttling during short bursts. The pod becomes Burstable, with access to idle CPU but an explicit scheduling floor. A topologySpreadConstraint with maxSkew: 1 spreads replicas across nodes so a single node failure does not take every replica. The rollout uses maxUnavailable: 0 and maxSurge: 1, while a PodDisruptionBudget prevents planned node drains from removing too many replicas at once. Remember the Stage 02 caveat: node-pressure eviction ignores the PDB because it is an emergency. A PDB protects against voluntary disruptions such as drain, node upgrade, and Karpenter consolidation.",
+      "What stays out, and why: Karpenter from Stage 07 and IRSA/Workload Identity from Stage 09 are cloud concepts with no effect in single-node Minikube, so they remain in the explanation. cert-manager needs a real CA, and this lab has no TLS ingress to renew. KEDA is omitted because the HPA inherited from the basic module exactly fits podinfo, an always-on HTTP API that should not scale to zero. Queue-driven scale-to-zero shines for queue workers instead. Blue/Green is left out by choice: for one public Service you choose one promotion strategy, and the progressive, metric-driven canary from Stage 06 fits a service that already exposes /healthz and /readyz better than a sudden 100% switch.",
+    ],
+    pointsTitle: "Each part, matched to the stage that taught it",
+    points: [
+      { t: "Helm → the chart that holds everything", d: "Stage 04: the basic module's ConfigMap, Service, and HPA become templates; values change by environment while the mold stays the same.", color: "blue" },
+      { t: "ServiceAccount with no permissions", d: "Stage 09: podinfo never talks to the API Server, so it gets its own identity with no Role and no mounted token. Least privilege at its strictest.", color: "violet" },
+      { t: "No CPU limit", d: "Stage 01: avoids CFS throttling in a latency-sensitive app. The pod is Burstable, with idle CPU headroom and an explicit scheduling floor.", color: "signal" },
+      { t: "Topology Spread plus PDB", d: "Stage 02: maxSkew: 1 spreads replicas across nodes; the PDB keeps a floor of available replicas during a planned drain.", color: "teal" },
+      { t: "Tuned RollingUpdate", d: "Stage 03: maxUnavailable: 0 plus maxSurge: 1 and a change-cause in rollout history. Controlled replacement with the reason recorded.", color: "ember" },
+      { t: "Canary through a parallel Helm release", d: "Stage 06: a second release, the same app label, few replicas, and a new version. Traffic splits by proportion and promotion uses helm upgrade --atomic.", color: "blue" },
+    ],
+    examplesTitle: "The Helm chart, minimal identity, and canary together",
+    examples: [
+      {
+        label: "values.yaml (production)",
+        lang: "yaml",
+        code: `# values.yaml: the production environment's setup sheet
+# Development and staging use the SAME chart with a different -f file
+replicaCount: 3
+image:
+  repository: stefanprodan/podinfo
+  tag: "6.14.1"                 # never "latest" in production
+serviceAccount:
+  name: podinfo-sa
+resources:
+  requests: { cpu: 100m, memory: 64Mi }
+  limits:   { memory: 128Mi }   # NO CPU limit, avoiding CFS throttling
+rollout:
+  maxUnavailable: 0
+  maxSurge: 1
+  minReadySeconds: 10
+topologySpread:
+  maxSkew: 1
+podDisruptionBudget:
+  minAvailable: 2
+hpa:
+  minReplicas: 2
+  maxReplicas: 8
+  targetCPUUtilization: 70`,
+      },
+      {
+        label: "templates/deployment.yaml",
+        lang: "yaml",
+        code: `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: podinfo
+  annotations:
+    kubernetes.io/change-cause: "{{ .Values.image.tag }}"
+spec:
+  replicas: {{ .Values.replicaCount }}
+  minReadySeconds: {{ .Values.rollout.minReadySeconds }}
+  revisionHistoryLimit: 10
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: {{ .Values.rollout.maxUnavailable }}
+      maxSurge: {{ .Values.rollout.maxSurge }}
+  selector:
+    matchLabels: { app: podinfo }
+  template:
+    metadata:
+      labels: { app: podinfo }
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      topologySpreadConstraints:
+        - maxSkew: {{ .Values.topologySpread.maxSkew }}
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector: { matchLabels: { app: podinfo } }
+      containers:
+        - name: podinfo
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          ports: [ { containerPort: 9898 } ]
+          envFrom: [ { configMapRef: { name: podinfo-config } } ]
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          livenessProbe:
+            httpGet: { path: /healthz, port: 9898 }
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: { path: /readyz, port: 9898 }
+            periodSeconds: 5`,
+        note: "There is no PVC here, for the same reason explained in Stage 09 of the basic module, and no podAntiAffinity. Stage 02 recommended Topology Spread over inter-pod affinity at scale, and this chart follows that advice.",
+      },
+      {
+        label: "templates/serviceaccount.yaml plus pdb.yaml",
+        lang: "yaml",
+        code: `# templates/serviceaccount.yaml: its own identity, ZERO permissions
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.serviceAccount.name }}
+automountServiceAccountToken: false
+---
+# templates/pdb.yaml: keep N replicas available during a planned drain
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: { name: podinfo }
+spec:
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels: { app: podinfo }`,
+      },
+      {
+        label: "install, canary, and promotion",
+        lang: "sh",
+        code: `# 1) Start production with the "podinfo" release
+helm install podinfo ./podinfo-chart -f values.yaml -n podinfo --create-namespace
+kubectl get pods -n podinfo -o wide
+
+# 2) CANARY: a second release, the SAME app=podinfo label, 1 replica, new version
+helm install podinfo-canary ./podinfo-chart -f values.yaml \\
+  --set replicaCount=1 --set image.tag=6.15.0 \\
+  --set podDisruptionBudget.minAvailable=0 -n podinfo
+
+# 3) The production Service sees both releases: 4 endpoints
+kubectl get endpoints podinfo -n podinfo
+#   -> 4 IPs: 3 on v6.14.1 plus 1 on v6.15.0, about 25% of real traffic to the canary
+
+# 4) Clean telemetry? Promote the main release
+helm upgrade podinfo ./podinfo-chart -f values.yaml \\
+  --set image.tag=6.15.0 --atomic -n podinfo
+
+# 5) Retire the test car
+helm uninstall podinfo-canary -n podinfo
+
+# 6) The change is recorded through change-cause
+kubectl rollout history deployment/podinfo -n podinfo`,
+        note: "--atomic makes Helm roll back if the upgrade does not become healthy before its timeout. The canary adds capacity instead of removing v1 replicas, so the Service never falls below the production PDB floor.",
+      },
+      {
+        label: "proof of minimal identity",
+        lang: "sh",
+        code: `# The podinfo SA can do NOTHING. Prove it, as the inverse of Stage 09:
+kubectl auth can-i list pods -n podinfo --as=system:serviceaccount:podinfo:podinfo-sa
+#   -> no
+kubectl auth can-i get configmaps -n podinfo --as=system:serviceaccount:podinfo:podinfo-sa
+#   -> no
+kubectl auth can-i get secrets -n podinfo --as=system:serviceaccount:podinfo:podinfo-sa
+#   -> no
+
+# The PDB and the effect of a planned drain:
+kubectl get pdb podinfo -n podinfo
+NAME      MIN AVAILABLE   ALLOWED DISRUPTIONS
+podinfo   2               1
+
+# Final cleanup for both modules:
+helm uninstall podinfo podinfo-canary -n podinfo 2>/dev/null
+kubectl delete namespace podinfo`,
+        note: "In Stage 09, analytics-sa returned yes for listing pods because that privilege was granted deliberately. Here everything returns no: an app with no reason to call the API Server receives no credentials for convenience.",
+      },
+    ],
+    commands: [
+      { cmd: "helm install <release> ./chart -f values.yaml --set k=v -n <ns>", note: "starts a production or canary release by changing only values" },
+      { cmd: "helm upgrade <release> ./chart -f values.yaml --set image.tag=X --atomic -n <ns>", note: "promotes a version with automatic rollback if it does not become healthy" },
+      { cmd: "kubectl get endpoints <service> -n <ns>", note: "confirms how many replicas the Service currently sees" },
+      { cmd: "kubectl get pdb -n <ns>", note: "shows the availability floor during a planned drain" },
+    ],
+    handsOnIntro: "The final corner of both modules: build the chart, prove minimal identity, and promote a new version without betting everything at once.",
+    handsOn: [
+      "Package the 4 manifests from Stage 09 of the basic module (ConfigMap, Deployment, Service, HPA) in a Helm chart, adding the 3 files introduced here: values.yaml, the permissionless ServiceAccount, and the PodDisruptionBudget.",
+      "Start production with helm install podinfo ./podinfo-chart -f values.yaml -n podinfo --create-namespace, then confirm 3 Running replicas with kubectl get pods -n podinfo -o wide.",
+      "Run the minimal identity proof with the 3 kubectl auth can-i calls for podinfo-sa. Unlike analytics-sa in Stage 09, all of them return no because the app has no reason to call the API Server.",
+      "Check the PDB with kubectl get pdb podinfo -n podinfo and inspect ALLOWED DISRUPTIONS.",
+      "Start the canary with helm install podinfo-canary plus replicaCount=1 and image.tag=6.15.0, then use kubectl get endpoints podinfo -n podinfo to confirm 4 IPs, one already serving real traffic from the new version.",
+      "Promote with helm upgrade podinfo plus image.tag=6.15.0 and --atomic, then retire the test car with helm uninstall podinfo-canary. Use kubectl rollout history deployment/podinfo -n podinfo to confirm that the change was recorded.",
+      "Clean up both modules with helm uninstall podinfo -n podinfo, ignoring an error if the canary is already gone, and kubectl delete namespace podinfo.",
+    ],
+    tip: "helm upgrade --atomic alone is not a complete guarantee: it rolls the release back when probes fail, but only after attempting the change. Combine it with a PDB and low maxUnavailable so a failed attempt does not remove too much capacity while atomic is still deciding whether to give up. It is the airbag, not the seat belt. Use both together.",
+    takeaway: "Production is not about having more YAML, but about the right composition: Helm packages it; a ServiceAccount with no permissions isolates identity with the least privilege possible; Topology Spread plus a PDB protect availability across nodes and planned disruptions; a tuned RollingUpdate controls replacement; and a canary through a parallel Helm release tests a new version with real traffic before committing everyone.",
+    outro: "PODIUM IN BOTH MODULES! Podinfo went from a loose Pod in the basic module's simulator to a production release with minimal identity, real high availability, and an auditable canary pit stop, the way a main team operates. Nineteen stages, two modules, one driver: you. The next race is yours, on a real cloud cluster with Karpenter provisioning nodes and KEDA scaling from a queue, the two sectors this lab could only show from a distance. Good racing!",
   },
 ];

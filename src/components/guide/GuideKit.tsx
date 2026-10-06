@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Flag, Info, Terminal } from "lucide-react";
 import { Icon } from "@/components/Icon";
 import { helmetImg } from "@/assets/brand/paths";
@@ -332,82 +332,4 @@ export function DeParaDetails({
       </ul>
     </details>
   );
-}
-
-export function useGuideProgress(storageKey: string) {
-  const [done, setDone] = useState<Record<string, boolean>>({});
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (raw) setDone(JSON.parse(raw));
-    } catch {
-      // ignore
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(done));
-    } catch {
-      // ignore
-    }
-  }, [storageKey, done]);
-
-  return [done, setDone] as const;
-}
-
-export function useSectionReveal() {
-  useLayoutEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!("IntersectionObserver" in window)) return;
-    const sections = Array.from(document.querySelectorAll<HTMLElement>(".section"));
-    const io = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries) {
-          if (e.isIntersecting) {
-            e.target.classList.add("is-in");
-            io.unobserve(e.target);
-          }
-        }
-      },
-      { rootMargin: "0px 0px -10% 0px", threshold: 0.05 },
-    );
-    for (const el of sections) {
-      el.classList.add("reveal");
-      io.observe(el);
-    }
-    return () => io.disconnect();
-  }, []);
-}
-
-export function useScrollSpy(ids: string[]) {
-  const [activeId, setActiveId] = useState(ids[0]);
-  const key = ids.join("|");
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const onScroll = () => {
-      const pos = window.scrollY + window.innerHeight * 0.3;
-      let cur = ids[0];
-      for (const id of ids) {
-        const el = document.getElementById(id);
-        if (el && el.offsetTop <= pos) cur = id;
-      }
-      setActiveId(cur);
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    onScroll();
-    return () => window.removeEventListener("scroll", onScroll);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const el = document.querySelector(".nav a.active");
-    el?.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
-  }, [activeId]);
-
-  return activeId;
 }

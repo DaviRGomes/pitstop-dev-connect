@@ -6,13 +6,21 @@ import {
   GuideProgress,
   GuideRail,
   LessonSection,
-  useGuideProgress,
-  useScrollSpy,
-  useSectionReveal,
 } from "@/components/guide/GuideKit";
+import { useGuideProgress, useScrollSpy, useSectionReveal } from "@/components/guide/hooks";
 import { f1Logo } from "@/assets/brand/paths";
+import { reportHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/en/relatorios/kubernetes")({
+  head: () =>
+    reportHead({
+      locale: "en",
+      title: "Kubernetes explained with real examples | pitstop.dev",
+      description:
+        "An immersive Kubernetes guide with concepts, annotated YAML, commands, hands-on exercises, and Formula 1 analogies.",
+      ptPath: "/relatorios/kubernetes",
+      enPath: "/en/relatorios/kubernetes",
+    }),
   component: Index,
 });
 
@@ -20,7 +28,7 @@ function PlatformsSection() {
   return (
     <section className="section" id="pratica">
       <p className="eyebrow">
-        Stage 09 <span className="tag">free labs</span>
+        Stage 10 <span className="tag">free labs</span>
       </p>
       <h2>Practice for free on real clusters</h2>
       <p className="narration">
@@ -64,7 +72,7 @@ function PlatformsSection() {
 const NAV = [
   { id: "inicio", num: "00", title: "Start" },
   ...LESSONS.map((l) => ({ id: l.id, num: l.num, title: l.navTitle })),
-  { id: "pratica", num: "09", title: "Practice for free" },
+  { id: "pratica", num: "10", title: "Practice for free" },
 ];
 
 const LESSON_COPY = {
@@ -96,7 +104,7 @@ function Index() {
           <>
             interactive guide · react
             <br />
-            content from lessons 1–8
+            content from lessons 1–8 + bonus
           </>
         }
       />
@@ -113,17 +121,19 @@ function Index() {
               live from the <span className="b">paddock</span>.
             </h1>
             <p className="narration">
-              Good afternoon, everyone! Eight stages, from lights out (why this sport exists) to the
-              final straight of autoscaling, where the cluster starts driving itself. At stake:
-              leaving here knowing how to build, run, heal and scale a real cluster. Lights are
-              about to go out, and the driver takes the wheel of the narration. Over to you.
+              Good afternoon, everyone! Eight official stages, from lights out (why this sport
+              exists) to the final straight of autoscaling, plus a bonus pit stop where everything
+              becomes one production app with a real Docker Hub image. At stake: leaving here
+              knowing how to build, run, heal and scale a real cluster. Lights are about to go out,
+              and the driver takes the wheel of the narration. Over to you.
             </p>
             <p className="lead">
               Every Kubernetes concept read the way a driver reads telemetry:{" "}
               <strong>the problem each piece solves</strong>, a technically honest F1 analogy, YAML
               commented line by line, commands with the expected output, and a{" "}
-              <strong>hands-on</strong> section per stage. At the end, the{" "}
-              <strong>free platforms</strong> to practice on real clusters in your browser.
+              <strong>hands-on</strong> section per stage. In Stage 09, it all comes together in one
+              professional example. At the end, the <strong>free platforms</strong> to practice on
+              real clusters in your browser.
             </p>
             <DeParaDetails
               summaryLabel="The cheat sheet: pin this to your visor"

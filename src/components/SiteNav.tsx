@@ -18,6 +18,7 @@ const COPY = {
     searchLabel: "Buscar nos relatórios",
     searchLoading: "Carregando índice…",
     searchNoResults: "Nada encontrado.",
+    searchError: "Não foi possível carregar a busca. Tente novamente.",
     githubLabel: "GitHub",
     langLabel: "Mudar para inglês",
     menuLabel: "Menu",
@@ -34,6 +35,7 @@ const COPY = {
     searchLabel: "Search the reports",
     searchLoading: "Loading index…",
     searchNoResults: "No matches found.",
+    searchError: "Search could not be loaded. Please try again.",
     githubLabel: "GitHub",
     langLabel: "Switch to Portuguese",
     menuLabel: "Menu",
@@ -58,19 +60,25 @@ function SearchResultsList({
   query,
   emptyLabel,
   loadingLabel,
+  errorLabel,
+  hasError,
   onNavigate,
 }: {
   index: SearchDoc[] | null;
   query: string;
   emptyLabel: string;
   loadingLabel: string;
+  errorLabel: string;
+  hasError: boolean;
   onNavigate: () => void;
 }) {
   const matches = useMemo(() => (index ? searchDocs(index, query) : []), [index, query]);
 
   return (
-    <div className="search-results" role="listbox">
-      {!index ? (
+    <div className="search-results" role="listbox" aria-live="polite">
+      {hasError ? (
+        <p className="search-empty search-error">{errorLabel}</p>
+      ) : !index ? (
         <p className="search-empty">{loadingLabel}</p>
       ) : matches.length === 0 ? (
         <p className="search-empty">{emptyLabel}</p>
@@ -101,6 +109,7 @@ function SearchBox({
   label,
   loadingLabel,
   emptyLabel,
+  errorLabel,
   showKbdHint,
   inputRef,
 }: {
@@ -109,24 +118,36 @@ function SearchBox({
   label: string;
   loadingLabel: string;
   emptyLabel: string;
+  errorLabel: string;
   showKbdHint?: boolean;
   inputRef?: React.RefObject<HTMLInputElement | null>;
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [index, setIndex] = useState<SearchDoc[] | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const loadedLocale = useRef<Locale | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setIndex(null);
+    setLoadError(false);
     loadedLocale.current = null;
   }, [locale]);
 
   function ensureIndex() {
     if (loadedLocale.current === locale) return;
     loadedLocale.current = locale;
-    getSearchIndex(locale).then(setIndex);
+    setLoadError(false);
+    void getSearchIndex(locale)
+      .then((docs) => {
+        if (loadedLocale.current === locale) setIndex(docs);
+      })
+      .catch(() => {
+        if (loadedLocale.current !== locale) return;
+        loadedLocale.current = null;
+        setLoadError(true);
+      });
   }
 
   function close() {
@@ -174,6 +195,8 @@ function SearchBox({
           query={query}
           emptyLabel={emptyLabel}
           loadingLabel={loadingLabel}
+          errorLabel={errorLabel}
+          hasError={loadError}
           onNavigate={close}
         />
       )}
@@ -232,6 +255,7 @@ export function SiteNav() {
           label={t.searchLabel}
           loadingLabel={t.searchLoading}
           emptyLabel={t.searchNoResults}
+          errorLabel={t.searchError}
           showKbdHint
           inputRef={desktopSearchRef}
         />
@@ -281,6 +305,7 @@ export function SiteNav() {
             label={t.searchLabel}
             loadingLabel={t.searchLoading}
             emptyLabel={t.searchNoResults}
+            errorLabel={t.searchError}
           />
           <div className="site-nav-mobile-row">
             <a href={GITHUB_URL} target="_blank" rel="noreferrer">

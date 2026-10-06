@@ -2,24 +2,18 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, Cloud, Server, Wrench } from "lucide-react";
 import { f1Logo } from "@/assets/brand/paths";
 import { RaceHub } from "@/components/f1/RaceHub";
+import { localizedHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/en/")({
-  head: () => ({
-    meta: [
-      { title: "pitstop.dev | DevOps, Cloud and Backend at F1 pace" },
-      {
-        name: "description",
-        content:
-          "Study reports on DevOps, Cloud and Backend explained through Formula 1 logic, from the garage to race day, with hands-on examples.",
-      },
-      { property: "og:title", content: "pitstop.dev | Learning at F1 pace" },
-      {
-        property: "og:description",
-        content:
-          "Learn DevOps, Cloud and Backend through Formula 1 metaphors. Open reports, commented line by line.",
-      },
-    ],
-  }),
+  head: () =>
+    localizedHead({
+      locale: "en",
+      title: "pitstop.dev | DevOps, Cloud and Backend at F1 pace",
+      description:
+        "Study reports on DevOps, Cloud and Backend explained through Formula 1 logic, from the garage to race day, with hands-on examples.",
+      ptPath: "/",
+      enPath: "/en",
+    }),
   component: Home,
 });
 
@@ -51,9 +45,9 @@ const REPORTS = [
     num: "R01",
     area: "DevOps · Orchestration",
     title: "Kubernetes explained with real examples",
-    lead: "8 stages: the problem each piece solves, YAML commented line by line, and commands with the expected output. Based on lessons 1–8 (Thiago Adriano, FIAP).",
+    lead: "8 stages + 1 bonus: the problem each piece solves, YAML commented line by line, commands with expected output, and a final production example using a real Docker Hub image. Based on lessons 1–8 (Thiago Adriano, FIAP).",
     status: "published",
-    laps: "8 laps",
+    laps: "9 laps",
   },
   {
     id: "kubernetes-avancado",
@@ -61,9 +55,9 @@ const REPORTS = [
     num: "R02",
     area: "DevOps · Advanced Cloud",
     title: "Advanced Kubernetes: from health checks to security",
-    lead: "9 stages from Phase 2: probes and resources, fine-grained scheduling, rollouts, Helm, Blue/Green, Canary, Karpenter, KEDA and security. Based on the DevOps and Cloud Architecture module (FIAP).",
+    lead: "9 stages from Phase 2 + 1 bonus: probes and resources, fine-grained scheduling, rollouts, Helm, Blue/Green, Canary, Karpenter, KEDA, security, and a production capstone. Based on the DevOps and Cloud Architecture module (FIAP).",
     status: "published",
-    laps: "9 laps",
+    laps: "10 laps",
   },
   {
     id: "servidores-web",
@@ -74,6 +68,26 @@ const REPORTS = [
     lead: "14 stages: web servers, HTTP, Apache and Nginx, load balancing, Ingress, TLS, Istio, observability, high availability, and edge protection.",
     status: "published",
     laps: "14 laps",
+  },
+  {
+    id: "containers",
+    to: "/en/relatorios/containers",
+    num: "R04",
+    area: "DevOps · Containers",
+    title: "Containers and Docker: from image to production",
+    lead: "13 stages: container fundamentals, images, Dockerfiles, networking, volumes, Docker Compose, security, best practices, and troubleshooting.",
+    status: "published",
+    laps: "13 laps",
+  },
+  {
+    id: "escalabilidade",
+    to: "/en/relatorios/escalabilidade",
+    num: "R05",
+    area: "DevOps · Scalability",
+    title: "Server Scalability: from pit box to peak load",
+    lead: "6 stages: performance vs scale, load balancers, stateless apps, queues and workers, CDNs, database replicas, CAP, and observability, with local labs.",
+    status: "published",
+    laps: "6 laps",
   },
 ];
 
@@ -111,7 +125,7 @@ function Home() {
           </div>
         </div>
         <div className="home-hero-art">
-          <RaceHub />
+          <RaceHub locale="en" />
         </div>
       </section>
 
@@ -172,22 +186,6 @@ function Home() {
               </div>
             </Link>
           ))}
-          <div className="report-card report-card--empty">
-            <div className="report-head">
-              <span className="report-num">R04</span>
-              <span className="report-status s-em-breve">coming soon</span>
-            </div>
-            <p className="report-area">Cloud · AWS</p>
-            <h3>AWS fundamentals for backend engineers</h3>
-            <p className="report-lead">
-              VPC, IAM, EC2, S3, RDS. What each piece does and how they connect in a minimal
-              production architecture.
-            </p>
-            <div className="report-foot">
-              <span>TBD</span>
-              <span className="report-go muted">awaiting lights out</span>
-            </div>
-          </div>
         </div>
       </section>
 

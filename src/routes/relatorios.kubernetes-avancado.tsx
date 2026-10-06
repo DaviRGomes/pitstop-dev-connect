@@ -5,13 +5,21 @@ import {
   GuideProgress,
   GuideRail,
   LessonSection,
-  useGuideProgress,
-  useScrollSpy,
-  useSectionReveal,
 } from "@/components/guide/GuideKit";
+import { useGuideProgress, useScrollSpy, useSectionReveal } from "@/components/guide/hooks";
 import { f1Logo } from "@/assets/brand/paths";
+import { reportHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/relatorios/kubernetes-avancado")({
+  head: () =>
+    reportHead({
+      locale: "pt",
+      title: "Kubernetes avançado: da saúde à segurança | pitstop.dev",
+      description:
+        "Guia avançado de Kubernetes com 9 etapas da Fase 2 e um capstone de produção sobre probes, scheduling, rollouts, Helm, autoscaling e segurança.",
+      ptPath: "/relatorios/kubernetes-avancado",
+      enPath: "/en/relatorios/kubernetes-avancado",
+    }),
   component: Index,
 });
 

@@ -1,2 +1,8 @@
 node_modules
-public/tracks/*.png
+dist
+coverage
+.env
+.env.*
+!.env.example
+test
+*.log

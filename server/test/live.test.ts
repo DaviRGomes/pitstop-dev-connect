@@ -32,10 +32,12 @@ beforeEach(() => {
   clearCache();
   fetchMock.mockReset();
   vi.stubGlobal('fetch', fetchMock);
+  process.env.UPSTREAM_GET_RETRIES = '0';
 });
 
 afterEach(() => {
   vi.useRealTimers();
+  delete process.env.UPSTREAM_GET_RETRIES;
 });
 
 describe('isSessionLive', () => {

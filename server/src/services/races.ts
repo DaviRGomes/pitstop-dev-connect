@@ -1,7 +1,7 @@
-import { dayOf, slug } from '../utils';
-import type { RaceEvent } from '../types';
-import { getCalendar } from './jolpica';
-import { getMeetings, type OpenF1Meeting } from './openf1';
+import { dayOf, slug } from '../utils.js';
+import type { RaceEvent } from '../types.js';
+import { getCalendar } from './jolpica.js';
+import { getMeetings, type OpenF1Meeting } from './openf1.js';
 
 /**
  * Encontra o meeting da OpenF1 cujo fim de semana cobre o dia da corrida:

@@ -6,13 +6,21 @@ import {
   GuideProgress,
   GuideRail,
   LessonSection,
-  useGuideProgress,
-  useScrollSpy,
-  useSectionReveal,
 } from "@/components/guide/GuideKit";
+import { useGuideProgress, useScrollSpy, useSectionReveal } from "@/components/guide/hooks";
 import { f1Logo } from "@/assets/brand/paths";
+import { reportHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/relatorios/kubernetes")({
+  head: () =>
+    reportHead({
+      locale: "pt",
+      title: "Kubernetes explicado com exemplos reais | pitstop.dev",
+      description:
+        "Guia imersivo de Kubernetes com conceitos, YAML comentado, comandos, exercícios práticos e analogias de Fórmula 1.",
+      ptPath: "/relatorios/kubernetes",
+      enPath: "/en/relatorios/kubernetes",
+    }),
   component: Index,
 });
 

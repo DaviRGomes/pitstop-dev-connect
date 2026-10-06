@@ -46,9 +46,14 @@ describe('getNextRace', () => {
 
     await getNextRace();
 
-    expect(fetchMock).toHaveBeenCalledWith('https://api.jolpi.ca/ergast/f1/current/next.json', {
-      headers: { 'User-Agent': 'pitstop-dev-study/1.0' },
-    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.jolpi.ca/ergast/f1/current/next.json',
+      expect.objectContaining({
+        headers: { 'User-Agent': 'pitstop-dev-study/1.0' },
+        method: 'GET',
+        signal: expect.any(AbortSignal),
+      }),
+    );
   });
 });
 

@@ -36,8 +36,10 @@ services:
       context: .
       target: runner
       args:
-        # domínio público embutido no bundle (same-origin: o Caddy roteia /api)
+        # vazio usa same-origin: o Caddy roteia /api para o backend
         VITE_PITSTOP_API: ${VITE_PITSTOP_API:-}
+        # opcional: URL absoluta do vídeo quando ele estiver em uma CDN
+        VITE_SENNA_BG_URL: ${VITE_SENNA_BG_URL:-}
     environment:
       - NODE_ENV=production
     expose:
@@ -51,6 +53,16 @@ services:
       context: ./server
     expose:
       - "3333" # só na rede interna; o caddy roteia /api/* e /tracks/* pra cá
+    environment:
+      - NODE_ENV=production
+      - CORS_ORIGINS=${CORS_ORIGINS:-}
+      - CACHE_CLEAR_TOKEN=${CACHE_CLEAR_TOKEN:-}
+      - CACHE_MAX_ENTRIES=${CACHE_MAX_ENTRIES:-256}
+      - UPSTREAM_TIMEOUT_MS=${UPSTREAM_TIMEOUT_MS:-8000}
+      - UPSTREAM_GET_RETRIES=${UPSTREAM_GET_RETRIES:-1}
+      - OPENF1_ACCESS_TOKEN=${OPENF1_ACCESS_TOKEN:-}
+      - OPENF1_USERNAME=${OPENF1_USERNAME:-}
+      - OPENF1_PASSWORD=${OPENF1_PASSWORD:-}
     profiles:
       - prod
 

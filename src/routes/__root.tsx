@@ -4,15 +4,20 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useLocation,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { SiteNav } from "@/components/SiteNav";
-import { BootSplash } from "@/components/BootSplash";
+import { BOOT_COVER_MAX_MS, BOOT_PENDING_CLASS, BOOT_SEEN_KEY } from "@/lib/bootCover";
+
+const LazyBootSplash = lazy(() =>
+  import("@/components/BootSplash").then(({ BootSplash }) => ({ default: BootSplash })),
+);
 
 function NotFoundComponent() {
   return (
@@ -79,18 +84,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "pitstop.dev | Guia Kubernetes etapa por etapa" },
+      { title: "pitstop.dev | Relatórios imersivos de engenharia" },
       {
         name: "description",
         content:
-          "Guia interativo de Kubernetes em 8 etapas: conceitos, YAMLs comentados, comandos essenciais e labs gratuitos pra praticar em clusters reais.",
+          "Relatórios educacionais interativos sobre DevOps, Cloud e Backend, com conceitos, código comentado, comandos e exercícios práticos.",
       },
       { name: "author", content: "pitstop.dev.br" },
-      { property: "og:title", content: "pitstop.dev.br | Guia Kubernetes etapa por etapa" },
+      { property: "og:title", content: "pitstop.dev.br | Estudos de engenharia em ritmo de F1" },
       {
         property: "og:description",
         content:
-          "8 etapas de Kubernetes com exemplos reais, YAML comentado e comandos com saída esperada.",
+          "Relatórios imersivos de DevOps, Cloud e Backend com exemplos reais e prática guiada.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -115,10 +120,29 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   errorComponent: ErrorComponent,
 });
 
+// Roda antes do primeiro paint: na primeira visita da sessão à home, cobre a
+// página de preto (classe boot-pending) até o BootSplash assumir com o vídeo.
+// Sem isso, a home aparecia enquanto o chunk do splash e o vídeo carregavam.
+// As condições espelham o BootSplash (sessão já vista, movimento reduzido,
+// economia de dados); a trava final libera o site se o JS nunca chegar.
+const BOOT_COVER_SCRIPT = `(function(){try{
+var p=location.pathname;if(p!=="/"&&p!=="/en"&&p!=="/en/")return;
+if(sessionStorage.getItem("${BOOT_SEEN_KEY}")==="1")return;
+if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+var c=navigator.connection;if(c&&c.saveData)return;
+var d=document.documentElement;d.classList.add("${BOOT_PENDING_CLASS}");
+setTimeout(function(){d.classList.remove("${BOOT_PENDING_CLASS}")},${BOOT_COVER_MAX_MS});
+}catch(e){}})();`;
+
 function RootShell({ children }: { children: ReactNode }) {
+  const pathname = useLocation({ select: (location) => location.pathname });
+  const lang = pathname === "/en" || pathname.startsWith("/en/") ? "en" : "pt-BR";
+
   return (
-    <html lang="en">
+    // O script de boot adiciona uma classe no <html> antes da hidratação.
+    <html lang={lang} suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: BOOT_COVER_SCRIPT }} />
         <HeadContent />
       </head>
       <body>
@@ -131,10 +155,17 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const pathname = useLocation({ select: (location) => location.pathname });
+  const isEnglish = pathname === "/en" || pathname.startsWith("/en/");
+  const isHome = pathname === "/" || pathname === "/en" || pathname === "/en/";
 
   return (
     <QueryClientProvider client={queryClient}>
-      <BootSplash />
+      {isHome && (
+        <Suspense fallback={null}>
+          <LazyBootSplash locale={isEnglish ? "en" : "pt"} />
+        </Suspense>
+      )}
       <SiteNav />
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />

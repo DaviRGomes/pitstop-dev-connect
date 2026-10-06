@@ -102,8 +102,9 @@ Se você nunca ativou isso, provavelmente não há Cloud Firewall e nada é prec
 
 Estas mudanças já estão no repositório:
 
-- **`Dockerfile`** — aceita o build-arg `VITE_PITSTOP_API` e o embute no bundle
-  (o Vite só expõe variáveis com prefixo `VITE_`, em build-time).
+- **`Dockerfile`** — aceita os build-args `VITE_PITSTOP_API` e
+  `VITE_SENNA_BG_URL` e os embute no bundle (o Vite só expõe variáveis com
+  prefixo `VITE_`, em build-time).
 - **`docker-compose.yml`** — `app`/`api-prod` ficam só na rede interna (`expose`),
   o `app` recebe o build-arg, e há o serviço **`caddy`** publicando 80/443.
 - **`Caddyfile`** — HTTPS automático e roteamento por caminho.
@@ -135,11 +136,19 @@ Crie um `.env` na raiz do projeto **na VPS**:
 
 ```env
 DOMAIN=pitstop.dev.br
-VITE_PITSTOP_API=https://pitstop.dev.br
+VITE_PITSTOP_API=
+VITE_SENNA_BG_URL=
 ```
 
 - `DOMAIN` — usado pelo Caddy para o certificado e o roteamento.
-- `VITE_PITSTOP_API` — domínio embutido no front (same-origin: o Caddy roteia `/api`).
+- `VITE_PITSTOP_API` — deixe vazio no deploy padrão same-origin. Defina somente se
+  o navegador precisar chamar uma API hospedada em outra origem.
+- `VITE_SENNA_BG_URL` — deixe vazio para usar o vídeo versionado. Defina uma URL
+  absoluta somente se o vídeo estiver em uma CDN externa.
+
+As opções do backend, incluindo `CACHE_CLEAR_TOKEN`, limites de cache, timeouts,
+CORS e credenciais opcionais da OpenF1, estão documentadas em `.env.example` e são
+repassadas ao `api-prod` pelo Compose. Nunca versione os valores reais de segredo.
 
 ---
 
@@ -177,27 +186,12 @@ Ou um verificador de portas: `nmap SEU_IP -p 80,443`.
 
 ## Notas importantes
 
-- **`VITE_PITSTOP_API` é build-time.** Se mudar o domínio depois, é preciso
-  **rebuildar** (`--build`), não basta reiniciar. Por isso é build-arg, não env de runtime.
+- **As variáveis `VITE_*` são build-time.** Ao alterar uma delas, é preciso
+  **rebuildar** (`--build`), não basta reiniciar. No deploy same-origin padrão,
+  `VITE_PITSTOP_API` deve permanecer vazia.
 - **Testar prod localmente** mudou: como `app`/`api-prod` usam `expose` (rede interna),
   não há acesso direto por `localhost:3005` no profile prod — só via Caddy/domínio.
   Para o dia a dia, use `docker compose --profile dev up` (hot-reload, portas 3005/3333
   publicadas).
 - **Por que same-origin e não `api.` subdomínio:** o backend já serve sob `/api/*`, então
   o Caddy separa por caminho no mesmo domínio → um DNS só, zero CORS, HTTPS limpo.
-
-
-
-1. Cloud Firewall da Contabo (painel) — só confirmar que não tem um firewall externo bloqueando. Entra no my.contabo.com → Networking / Firewall. Se não existir nenhum atribuído à VPS, tá liberado. Se existir, adiciona inbound TCP 80 e TCP 443 (origem 0.0.0.0/0).
-2. DNS no registro.br — apontar @ e www pro IP da VPS (o do prompt sugere que já é sua VPS). Depois confirma:
-dig +short pitstop.dev.br
-2. Tem que retornar o IP da VPS.
-3. .env na raiz do projeto:
-env
-DOMAIN=pitstop.dev.br
-VITE_PITSTOP_API=https://pitstop.dev.br
-4. Subir:
-docker compose --profile prod up -d --build
-5. Acompanhar o certificado (é o passo que confirma que DNS + portas estão OK):
-docker compose --profile prod logs -f caddy
-5. Se você ver linhas de certificate obtained successfully pro seu domínio, tá no ar em https://pitstop.dev.br. Se ver erro de ACME/challenge, quase sempre é DNS ainda não propagado ou o Cloud Firewall da Contabo bloqueando a 80 (o Let's Encrypt valida pela porta 80).

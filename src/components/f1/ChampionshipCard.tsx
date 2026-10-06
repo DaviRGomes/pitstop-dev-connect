@@ -1,9 +1,11 @@
 import {
   projectChampionship,
   teamLogo,
+  type F1Locale,
   type LiveState,
   type StandingRow,
 } from "@/lib/f1";
+import { F1_COPY } from "./i18n";
 
 /**
  * Tabela geral do campeonato de pilotos (pontos acumulados do ano).
@@ -14,30 +16,31 @@ export function ChampionshipCard({
   standings,
   live,
   season,
+  locale,
 }: {
   standings: StandingRow[];
   live?: LiveState;
   season?: string;
+  locale: F1Locale;
 }) {
   const { rows, projecting } = projectChampionship(standings, live);
+  const copy = F1_COPY[locale];
 
   return (
     <article className="race-card champ-card">
       <header className="champ-head">
-        <span className="race-round">
-          {season ? `TEMPORADA ${season}` : "TEMPORADA"}
-        </span>
+        <span className="race-round">{season ? `${copy.season} ${season}` : copy.season}</span>
         {projecting ? (
           <span className="race-badge champ-live">
             <span className="live-dot" aria-hidden="true" />
-            pontos ao vivo
+            {copy.livePoints}
           </span>
         ) : (
-          <span className="race-badge done">tabela oficial</span>
+          <span className="race-badge done">{copy.officialStandings}</span>
         )}
       </header>
 
-      <h3 className="champ-title">Campeonato de pilotos</h3>
+      <h3 className="champ-title">{copy.championshipTitle}</h3>
 
       <ol className="champ-rows">
         {rows.map((row) => {
@@ -48,7 +51,7 @@ export function ChampionshipCard({
               {projecting && row.delta !== 0 && (
                 <span
                   className={`champ-delta ${row.delta > 0 ? "up" : "down"}`}
-                  title={`${row.delta > 0 ? "+" : ""}${row.delta} na tabela`}
+                  title={copy.standingsDelta(row.delta)}
                 >
                   {row.delta > 0 ? "▲" : "▼"}
                 </span>
@@ -56,9 +59,7 @@ export function ChampionshipCard({
               <span className="champ-driver" title={row.constructor}>
                 {row.driver}
               </span>
-              {projecting && row.gained > 0 && (
-                <span className="champ-gain">+{row.gained}</span>
-              )}
+              {projecting && row.gained > 0 && <span className="champ-gain">+{row.gained}</span>}
               {logo ? (
                 <img
                   className="champ-logo"

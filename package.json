@@ -6,8 +6,13 @@
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
+    "build:node": "NITRO_PRESET=node-server vite build",
     "build:dev": "vite build --mode development",
-    "preview": "vite preview",
+    "preview": "npm run build:node && node .output/server/index.mjs",
+    "smoke:preview": "npm run build:node && node scripts/smoke-preview.mjs",
+    "typecheck": "tsc --noEmit",
+    "content:check": "npm --prefix server exec -- tsx scripts/validate-content.ts",
+    "check": "npm run typecheck && npm run lint && npm run content:check && npm --prefix server run typecheck && npm --prefix server test && npm run smoke:preview && npm run build",
     "lint": "eslint .",
     "format": "prettier --write ."
   },

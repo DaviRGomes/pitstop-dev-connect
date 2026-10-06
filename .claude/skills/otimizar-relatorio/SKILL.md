@@ -1,11 +1,11 @@
 ---
 name: otimizar-relatorio
-description: Pipeline de otimização de relatório de estudo do pitstop. O professor de software melhora a didática, o piloto de F1 tematiza com analogias reais, o comentarista de F1 dá o acabamento narrativo e o aluno valida a compreensão. Use quando o usuário enviar um relatório de estudo bruto para transformar em guia imersivo de F1.
+description: Pipeline bilíngue de otimização de relatório de estudo do pitstop. Produz e valida versões equivalentes em PT-BR e inglês antes da publicação como guia imersivo de F1.
 ---
 
 # /otimizar-relatorio: pipeline de relatório de estudo
 
-Transforma um relatório de estudo bruto num guia didático imersivo em Fórmula 1, passando por 4 personas (agentes deste projeto): `professor-software` → `piloto-f1` → `comentarista-f1` → `aluno-software`.
+Transforma um relatório de estudo bruto num guia didático imersivo em Fórmula 1. A versão PT-BR passa por `professor-software` → `piloto-f1` → `comentarista-f1` → `aluno-software`. Depois, `tradutor-en` cria a versão inglesa e `revisor-bilingue` verifica a equivalência antes da publicação.
 
 ## Entrada
 
@@ -20,7 +20,10 @@ Crie `relatorios/<slug>/` na raiz do projeto. Todos os estágios ficam salvos ne
 - `02-piloto.md`: versão com analogias de F1
 - `03-comentarista.md`: versão com narrativa de transmissão
 - `04-parecer-aluno.md`: parecer de validação
-- `final.md`: versão aprovada
+- `final.md`: versão PT-BR aprovada
+- `05-tradutor-en.md`: tradução inglesa candidata
+- `06-parecer-bilingue.md`: parecer de paridade entre os idiomas
+- `final.en.md`: versão inglesa aprovada
 
 ## Regra de escrita do projeto: proibido travessão
 
@@ -34,7 +37,7 @@ grep -nP "—|–" relatorios/<slug>/03-comentarista.md
 
 As únicas exceções permitidas são intervalos numéricos ("aulas 1–8") e travessão de atribuição de citação ("— Ayrton Senna"). Qualquer outra ocorrência volta para a persona que escreveu o trecho antes da promoção para `final.md`.
 
-## Pipeline (agentes em sequência, cada um depende do anterior)
+## Pipeline PT-BR (agentes em sequência, cada um depende do anterior)
 
 Execute cada estágio com a tool Agent, usando o `subagent_type` indicado. Passe sempre os caminhos absolutos de entrada e saída no prompt, e sempre a regra do travessão.
 
@@ -49,6 +52,17 @@ Execute cada estágio com a tool Agent, usando o `subagent_type` indicado. Passe
 - **APROVADO COM RESSALVAS ou REPROVADO**: para cada conserto do parecer, reenvie ao agente responsável indicado (professor/piloto/comentarista) via SendMessage, porque o agente já tem contexto, pedindo para aplicar os consertos no arquivo do seu estágio; depois repasse os estágios seguintes nos arquivos afetados e rode o aluno de novo. **Máximo de 2 ciclos de revisão**; se ainda houver ressalvas após o 2º, copie a melhor versão para `final.md` e liste as ressalvas restantes para o usuário decidir.
 - **Travessões são exceção ao limite de ciclos**: eles não são questão de gosto, são um defeito mecânico. Se sobrar algum depois do 2º ciclo, conserte você mesmo no `final.md` (troque por ponto final, vírgula, dois-pontos ou parênteses, conforme a frase pedir) e avise o usuário de quantos consertou.
 
+## Pipeline em inglês
+
+Só comece quando `final.md` estiver aprovado.
+
+1. **`tradutor-en`**: traduza `final.md` para `<pasta>/05-tradutor-en.md`. Preserve integralmente estrutura, fatos, comandos, código e ordem dos exercícios. Não use travessão na prosa.
+2. **`revisor-bilingue`**: compare `final.md` com `05-tradutor-en.md` e salve o parecer em `<pasta>/06-parecer-bilingue.md`. Verifique seções, exemplos, comandos, exercícios, fatos, termos técnicos e gate de travessões.
+3. Se o parecer estiver **APROVADO**, copie `05-tradutor-en.md` para `final.en.md`.
+4. Se houver ressalvas, devolva somente os itens apontados ao `tradutor-en`, rode novamente o revisor e limite a dois ciclos. Nunca publique uma versão parcial como se fosse equivalente.
+
+Antes da aprovação final, substitua referências relativas como "hoje" pela data ou pelo nome exato do evento. Fatos atuais de F1 devem trazer a data de verificação e ser confirmados no backend do pitstop ou numa fonte oficial. A tradução não pode atualizar um fato isoladamente: qualquer correção factual deve entrar nos dois idiomas.
+
 ## Relatório final ao usuário
 
-Ao terminar, informe: caminho do `final.md`, veredito e nota do aluno, o quadro de-para das analogias, quantos ciclos de revisão foram necessários e a contagem final de travessões (deve ser zero). Sugira (sem executar) o próximo passo: converter o `final.md` para o formato `Lesson[]` num novo arquivo `src/data/<slug>.ts` (siga o modelo de `src/data/kubernetesbasico.ts`, que exporta `DE_PARA`, `ANALOGY_NOTES`, `LESSONS` e `PLATFORMS`) e criar a rota `src/routes/relatorios.<slug>.tsx` para publicar como página em `/relatorios/<slug>` do site.
+Ao terminar, informe: caminhos de `final.md` e `final.en.md`, vereditos dos dois revisores, nota do aluno, quadro de-para das analogias, ciclos de revisão e contagem final de travessões nos dois idiomas. Sugira (sem executar) converter as versões para `src/data/<slug>.ts` e `src/data/<slug>.en.ts`, preservando os mesmos IDs, exemplos, comandos e exercícios, e criar as rotas PT-BR e `/en` correspondentes.
