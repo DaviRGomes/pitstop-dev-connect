@@ -1643,3 +1643,26 @@ ol.lens-list { list-style: decimal; }
   .lens-figure-frame { padding: 10px; }
 }
 ol.lens-list { padding-left: 30px; }
+/* Glossário e limites da lente: começam recolhidos e abrem com um clique */
+.lens-collapse { margin-top: 22px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--wash); }
+.lens-collapse > summary {
+  display: flex; align-items: center; gap: 12px; padding: 14px 18px; cursor: pointer; list-style: none;
+  border-radius: 12px;
+}
+.lens-collapse > summary::-webkit-details-marker { display: none; }
+.lens-collapse > summary::before {
+  content: ""; flex: 0 0 auto; width: 8px; height: 8px; margin-right: 2px;
+  border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted);
+  transform: rotate(-45deg); transition: transform .2s ease;
+}
+.lens-collapse[open] > summary::before { transform: rotate(45deg); }
+.lens-collapse > summary h3 { margin: 0; flex: 1 1 auto; }
+.lens-collapse > summary:hover h3 { color: var(--text); }
+.lens-collapse > summary:focus-visible { outline: 2px solid var(--senna-yellow); outline-offset: 2px; }
+.lens-collapse-count {
+  font-family: var(--mono); font-size: .7rem; color: var(--dim);
+  border: 1px solid var(--line-strong); border-radius: 999px; padding: 2px 9px;
+}
+.lens-collapse[open] { padding-bottom: 14px; }
+.lens-collapse > :not(summary) { margin-left: 18px; margin-right: 18px; }
+@media (prefers-reduced-motion: reduce) { .lens-collapse > summary::before { transition: none; } }

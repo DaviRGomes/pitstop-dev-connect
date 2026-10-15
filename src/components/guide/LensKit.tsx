@@ -216,41 +216,49 @@ export function LensSection({ lens, copy }: { lens: GuideLens; copy: LensCopy })
         <Paragraphs items={lens.bridge} />
       </div>
 
-      <h3>{copy.mappingTitle}</h3>
-      <p className="lens-note">
-        <Md text={lens.mappingNote} />
-      </p>
-      <div className="lens-scroll">
-        <table className="lens-table">
-          <thead>
-            <tr>
-              <th scope="col">{copy.headers[0]}</th>
-              <th scope="col">{copy.headers[1]}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lens.mapping.map((m) => (
-              <tr key={m.term}>
-                <th scope="row">
-                  <Md text={m.term} />
-                </th>
-                <td>
-                  <Md text={m.plain} />
-                </td>
+      <details className="lens-collapse">
+        <summary>
+          <h3>{copy.mappingTitle}</h3>
+          <span className="lens-collapse-count">{lens.mapping.length}</span>
+        </summary>
+        <p className="lens-note">
+          <Md text={lens.mappingNote} />
+        </p>
+        <div className="lens-scroll">
+          <table className="lens-table">
+            <thead>
+              <tr>
+                <th scope="col">{copy.headers[0]}</th>
+                <th scope="col">{copy.headers[1]}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {lens.mapping.map((m) => (
+                <tr key={m.term}>
+                  <th scope="row">
+                    <Md text={m.term} />
+                  </th>
+                  <td>
+                    <Md text={m.plain} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
 
       {lens.limits.length > 0 && (
-        <>
-          <h3>{copy.limitsTitle}</h3>
+        <details className="lens-collapse">
+          <summary>
+            <h3>{copy.limitsTitle}</h3>
+            <span className="lens-collapse-count">{lens.limits.length}</span>
+          </summary>
           <p className="lens-note">
             <Md text={lens.limitsIntro} />
           </p>
           <Paragraphs items={lens.limits.map((l) => `- ${l}`)} />
-        </>
+        </details>
       )}
     </section>
   );
