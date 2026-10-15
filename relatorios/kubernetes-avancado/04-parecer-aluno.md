@@ -1,66 +1,107 @@
-# Parecer do aluno — Kubernetes Avançado · Guia Prático (Fase 2) · Edição Transmissão ao Vivo
+# Parecer do aluno: Kubernetes Avançado: operando clusters de verdade, da saúde dos pods ao deploy em produção
+
+> 2º ciclo de revisão (último). Reli o arquivo `03-comentarista.md` inteiro, da abertura às Notas do professor, e conferi cada conserto pedido no 1º ciclo.
 
 ## Veredito
-APROVADO COM RESSALVAS — nota 8.5. O conteúdo técnico é sólido, na ordem certa e quase todo praticável, mas um exercício da Etapa 01 tem um bug que impede o resultado prometido, e em vários pontos o excesso de jargão de F1 e de narração de transmissão obriga a reler o parágrafo pra achar o conceito.
+
+APROVADO. Nota 9,0/10.
+
+Os 15 consertos técnicos do professor foram aplicados e funcionam: os laboratórios agora se comportam como o texto diz, a liveness é demonstrada de verdade e não sobrou metáfora de carro dentro das etapas. Os gates de travessão, de tom e de F1 fora da lente passaram limpos. Nada bloqueia a publicação. Os três ajustes da lente pedidos ao piloto **não estão no arquivo** (ver "Conferência do 1º ciclo"). Eles eram sugestões de clareza, não ressalvas obrigatórias, e por isso não mudam o veredito, mas o coordenador precisa saber que essa parte não foi aplicada.
+
+## O que bloqueia a publicação
+
+Nada.
+
+## O que é só sugestão (não bloqueia)
+
+1. **[Lente, piloto] Dividir o primeiro parágrafo.** A linha 15 continua sendo um bloco único de cerca de 350 palavras, juntando probes, recursos, clipping e prioridade. Sugestão: quebrar em três parágrafos (saúde, recursos, prioridade). Responsável: **piloto**.
+2. **[Lente, piloto] Amarrar reserva e teto no mesmo recurso.** A reserva continua sendo "espaço, energia elétrica e mecânicos" da garagem e o teto continua sendo "energia por volta" na pista. A linha 21 repete a separação ("a reserva de espaço e de mecânicos da garagem é o request, o teto de energia com clipping é o limit"). Sugestão: "a energia que a garagem garante a cada carro é a reserva; o limite de energia que o regulamento permite gastar é o teto". Responsável: **piloto**.
+3. **[Lente, piloto] Justificar o Recreate.** O exemplo "um assoalho novo que exige outra suspensão" (linha 17) fala de incompatibilidade entre peças do mesmo carro, mas o Recreate existe porque as duas versões não podem rodar ao mesmo tempo. O item da Etapa 03 em "Onde a comparação para" (linha 77) também não fala disso. Sugestão: uma frase no item da Etapa 03, por exemplo "na F1, dois carros com especificações diferentes convivem sem problema; no Recreate, o motivo da troca total é que a versão antiga e a nova não podem atender ao mesmo tempo (por exemplo, por uma mudança de banco de dados)". Responsável: **piloto**.
+4. **[Etapa 03, professor] "maxUnavailable: o piso de capacidade".** A linha 678 chama o `maxUnavailable` de "o piso de capacidade" e explica logo em seguida que ele é "quantos Pods podem ficar indisponíveis". O piso, a rigor, é N menos esse número. As linhas 703 e 818 já dizem "define o piso", que é o correto. Sugestão: trocar "é o piso de capacidade" por "define o piso de capacidade" na linha 678. Responsável: **professor**.
+5. **[Etapa 01, professor] Tempo do `liveness-falha`.** Com `initialDelaySeconds: 5`, `periodSeconds: 5`, `failureThreshold: 3` e o arquivo apagado aos 20 s, o reinício costuma vir por volta de 30 a 35 s. O texto diz "cerca de 40 segundos". Como a saída está marcada como aproximada, isso não engana ninguém, mas "entre 30 e 40 segundos" seria mais exato. Responsável: **professor**.
+
+## Conferência do 1º ciclo
+
+| Conserto pedido | Situação |
+|---|---|
+| Frase de disponibilidade ("multiplicam as chances de falha") | Aplicado (linha 119, com o cálculo 0,01 × 0,01). Agora está claro. |
+| Definir p99 | Aplicado (linha 117, e p95/p99 também na linha 1161). |
+| `/panic` atribuído à liveness, Pod explícito, liveness real | Aplicado. O conceito explica o `restartPolicy` (linha 100), o exemplo usa nomes de Pod explícitos (linhas 203 a 211), há o novo exemplo `liveness-falha` (linhas 299 a 342) e o checklist ganhou dois itens. É o melhor conserto do ciclo. |
+| Parênteses do 2 e 2 / 3 e 1 | Aplicado (linha 391). |
+| Drain com `web` ainda aplicado | Aplicado (linhas 592, 628 e passo 3). |
+| Contexto do `kubectl` depois de `minikube delete -p lab` | Aplicado (passo 5, linha 656, e Notas). Também entrou o `minikube stop` antes do perfil de 2 nós. |
+| Dois arquivos de Pod num bloco só | Aplicado (blocos separados, linhas 473 a 514). |
+| λ, μ e c antes da fórmula na Etapa 03 | Aplicado (linha 685). |
+| "Freio/potência" nas etapas | Aplicado. Não sobra nenhuma ocorrência no arquivo. |
+| KEDA zerando direto ao fim do cooldown | Aplicado (linhas 1547, 1560, passo 4 e checklist). Agora a teoria e o laboratório batem. |
+| Saída do `redis-cli` | Aplicado (linhas 1691 e 1702). |
+| Secrets do cert-manager e `openssl` | Aplicado (passos 5 e 7, linha 1906). |
+| Limpeza da Etapa 10 e `helm template` do canário | Aplicado (passos 2 e 8, linha 2233). |
+| Comando para conferir tags do podinfo | Aplicado (`docker manifest inspect`, linhas 134, 2174 e passo 3). |
+| Glossário: revisão e rollback, disrupção, zona, RBAC | Aplicado (linhas 40, 44, 50 e 65). As quatro entradas estão em palavras simples e corretas. |
+| Lente: dividir o primeiro parágrafo | **Não aplicado.** A linha 15 está idêntica à do 1º ciclo (também em `02-piloto.md`). |
+| Lente: reserva e teto no mesmo recurso | **Não aplicado.** As linhas 15 e 21 estão sem mudança. |
+| Lente: justificativa do Recreate | **Não aplicado.** Continuam iguais a linha 17 ("assoalho") e o item da Etapa 03 na linha 77. |
+
+Além disso, as Notas do professor foram reescritas para o leitor: não falam mais do "bruto" e separam o que aparece no terminal, os comportamentos que surpreendem e o que conferir antes de executar. Ficou útil para quem estuda.
 
 ## O que aprendi (teste de recuperação)
-Kubernetes tem três sondas de saúde: liveness reinicia o container travado, readiness só o tira do balanceador sem reiniciar, e startup protege apps de boot lento. Requests/limits definem quanto cada container reserva e seu teto (estourar RAM = OOMKill, estourar CPU = throttling), e disso nasce a QoS que decide quem é despejado primeiro. Pra colocar o pod certo no nó certo uso taint (repele) + affinity (atrai) juntos. Atualizo sem downtime com RollingUpdate (maxUnavailable/maxSurge) e reverto instantâneo porque o ReplicaSet antigo fica zerado, não apagado; Helm empacota tudo como função pura (values → YAML), Blue/Green troca 100% num patch do selector e Canary migra o tráfego aos poucos com gate de SLO. Karpenter cria nós sob medida pra pods Pending, KEDA escala por evento até zero, e segurança é SA própria + Role de menor privilégio + tokens curtos (IRSA) + TLS automático via cert-manager, tudo sob Zero Trust.
 
-(Consegui escrever as 5 linhas sem olhar — o objetivo central do relatório foi cumprido.)
+1. Liveness reinicia o container quando o processo está vivo mas travado. Se o processo morre, quem reinicia é o `restartPolicy`. Readiness só tira o Pod do Service, e startup segura as outras duas até o app subir.
+2. Requests reservam e o scheduler usa esse valor. Limits são o teto: memória estourada dá OOMKill e CPU estourada dá throttling. A combinação dos dois define a classe de QoS, que entra na ordem de despejo.
+3. Taint repele e affinity atrai. Topology spread distribui com `maxSkew`. O PDB protege só as disrupções voluntárias (drain, upgrade, consolidação), nunca o despejo por pressão nem a retirada de uma instância Spot.
+4. No RollingUpdate, `maxSurge` dá folga de Pods extras e `maxUnavailable` define o piso; o Deployment avisa o rollout travado, mas o `undo` é meu. O Helm empacota com chart e values e registra revisões, com `--atomic` para desfazer sozinho. O Blue/Green troca o selector do Service, e o canário divide o tráfego por réplicas ou por peso.
+5. O Karpenter cria nós para Pods `Pending` e consolida os que sobram. O KEDA escala pela fila e zera direto ao fim do cooldown quando a fila esvazia. Na segurança: uma ServiceAccount por app, RBAC só com o que é concedido, credencial de nuvem curta e cert-manager renovando os certificados.
 
 ## Pontos confusos (por seção)
 
-- [Etapa 01 — Mão na massa] O exercício da liveness usa `kubectl run teste-liveness --restart=Never`. Com `restartPolicy: Never`, o kubelet **não reinicia** o container quando a liveness falha — ele mata o pod e ele vai pra `Failed`/`Error`, e a coluna `RESTARTS` **não sobe**. O texto promete "observe a coluna RESTARTS subindo a cada ~15s", que é justamente o que não acontece. Conserto: trocar por `--restart=Always` (ou criar via Deployment). **Persona: professor** (é erro de correção técnica do exercício, não de analogia). Este é o único ponto que reprovaria o hands-on se eu fosse rodar como está.
+Os pontos confusos do 1º ciclo nas etapas foram resolvidos. Os únicos que ainda travam um pouco a leitura estão na lente, e são os itens 1 a 3 da seção "O que é só sugestão" (responsável: **piloto**). Na minha releitura de agora, li o primeiro parágrafo da lente duas vezes de novo para separar saúde, recursos e prioridade.
 
-- [Etapa 01 — Conceitos/QoS] O texto define Guaranteed como `requests == limits`, mas o YAML de exemplo logo abaixo tem `requests` de CPU e memória e só `limit` de memória (sem limit de CPU) — ou seja, é Burstable. Como aluno, fiquei na dúvida em qual classe o exemplo cai, e o texto não fecha o laço. Conserto: uma frase dizendo "repare: este pod é Burstable porque abrimos mão do limit de CPU de propósito". **Persona: professor.**
+## Tom
 
-- [Etapa 01 — Requests/limits] A analogia "energia de ERS garantida por volta vs. cota / envelope térmico / derate / engine mapping" empilha quatro termos de F1 relativamente avançados num parágrafo só. Entendi requests/limits pela definição técnica, não pela analogia — tive que ignorar o ERS pra não travar. **Persona: piloto** (simplificar: bastava "combustível garantido vs. teto que não pode furar").
+Nenhum, aprovado. O grep de narração de transmissão (boa tarde, farol, apagaram, no verde, bandeir, não pisca, está no ar, com vocês) não encontrou nada, e o arquivo não tem nenhum ponto de exclamação. Também não há nomes de pilotos, equipes, circuitos ou GPs reais. As empresas citadas (Buffer, Shopify, Netflix, Nubank, Mercado Livre, Tinybird, Tesla) são casos de engenharia, apresentados como relatos públicos, não como analogia de F1. O tom é calmo, de guia de estudo, do começo ao fim.
 
-- [Etapa 02 — Narração] A chamada de entrada do "PIT STOP CRONOMETRADO" cita "a decisão de Schumacher em Magny-Cours 2004, estratégia de quatro paradas". Essa referência histórica não ilumina taint/affinity (o tema da etapa é reservar box, não número de paradas) — é enfeite que exige F1 avançada e me distraiu do exercício que vinha logo abaixo. **Persona: comentarista** (cortar ou trocar por uma imagem de "box reservado").
+## Travessões
 
-- [Etapa 06 — Vocabulário] O bloco "vocabulário que vale conhecer" despeja teste z de proporções, qui-quadrado, Mann-Whitney, SPRT de Wald, M/M/c, Lei de Little e Thompson Sampling em sequência. Para aluno iniciante-intermediário isso é uma parede de teoria; li em diagonal. Não trava a compreensão do canário em si (que está claro antes), mas soterra. Conserto: encolher pra 2-3 termos ou marcar explicitamente como "opcional/aprofundamento". **Persona: professor.**
+Nenhum, aprovado. O gate automático de travessão e meia-risca encontrou uma única ocorrência: a meia-risca do intervalo das aulas 1 a 9, na linha 3. É um intervalo numérico, que a regra permite. Não há nenhuma ocorrência na prosa.
 
-- [Etapa 05 — Mão na massa] A sequência faz `kubectl label deployment blue env=blue` e **depois** um `kubectl patch` que injeta `app=bg,env=blue` no template do pod. Rotular o Deployment e depois repatchar o template parece redundante e me deixou inseguro sobre qual label importa (a resposta: só a do template, porque o Service seleciona pods). Funciona, mas confunde. Conserto: remover os `kubectl label` no objeto Deployment (só o patch no template importa) ou explicar por que os dois. **Persona: professor.**
+## Formato (lente geral + etapas técnicas)
 
-- [Geral — Densidade de narração] Cada etapa tem chamada de entrada em caixa-alta, "VOLTA CRONOMETRADA/PIT STOP CRONOMETRADO" antes de cada exercício, e chamada de saída também em caixa-alta. Em blocos como Setor 1 e Setor 9 há três interrupções de narração antes de eu chegar ao conteúdo. Não impede a leitura, mas em maratona cansa e eu comecei a pular os quadros de transmissão. Conserto: reduzir o CAPS LOCK e enxugar uma das chamadas por etapa. **Persona: comentarista.**
+- **Lente geral:** presente logo depois da abertura e compreensível sozinha para quem não sabe software. As três perguntas do engenheiro de corrida, a placa na porta, a retirada ordenada de uma garagem, o segundo chassi com o número de corrida, a peça nova só no carro 1, o setup base com a folha por circuito e os passes temporários descrevem a operação sem exigir F1 avançada. Ficaram pendentes a densidade do primeiro parágrafo e o descasamento entre reserva e teto (sugestões ao piloto, não bloqueiam).
+- **Glossário:** a tabela `| Termo técnico | Em palavras simples |` agora cobre todos os termos centrais, incluindo zona, disrupção voluntária e involuntária, e revisão e rollback. A linha do RBAC está correta ("não há regra que proíba, e o que não foi dado está negado"). Não usa F1 nem jargão.
+- **Onde a comparação para:** um item por etapa, da 01 à 10, todos precisos.
+- **F1 vazando nas etapas:** nenhum. Da Etapa 01 em diante não aparece carro, garagem, piloto, pista, mureta, chassi, freio nem potência. As etapas são puramente técnicas.
 
 ## Analogias
 
-- **Pod = carro / Node = box / Cluster = equipe** (quadro de-para) — ajudou muito. É consistente da Etapa 01 à 09 e o texto avisa "Pod é o carro do começo ao fim", o que me deu um chão estável. Melhor decisão do guia.
-- **Liveness = chamar pro box / readiness = ceder posição sem parar** — ajudou bastante; a comparação "perde 22s no box vs. só recuar" fixa a diferença que costuma confundir. O caso Antonelli pole→P15 (vivo mas sem ritmo) é a melhor analogia do documento.
-- **Taint repele / affinity atrai, precisa dos dois** — ajudou; "credencial pra entrar no box não obriga a entrar; só a ordem manda ir" tornou óbvio por que toleration sozinha não isola. O texto marca honestamente onde a analogia é fiel.
-- **maxUnavailable = freio / maxSurge = potência** — ajudou; simples e memorável.
-- **Blue/Green = T-car quente / rollback = virar a chave** — ajudou, e o guia é honesto ao marcar onde a analogia PARA (schema do banco "reescreve o traçado da pista"). Esse aviso de limite foi exatamente o que evitou que a analogia me enganasse.
-- **Helm = fôrma do carro + folha de setup / `helm template` = simulador** — ajudou; "função pura = mesmo setup, mesmo resultado no simulador" caiu bem.
-- **QoS = ordem de quem a equipe sacrifica sob safety car** — meio atrapalhou: exige saber a hierarquia de decisão de uma equipe sob safety car, que não é intuitiva pra fã casual. A definição técnica (BestEffort morre primeiro) foi mais clara que a analogia.
-- **Requests/limits = ERS/derate/envelope** — atrapalhou (ver ponto confuso da Etapa 01): F1 avançada demais.
+- **Três perguntas do engenheiro (probes):** ajudou muito, e agora combina com o laboratório, que mostra separadamente o processo morto (restartPolicy) e o processo travado (liveness), exatamente como o "reset sem trocar o carro".
+- **Clipping como throttling:** ajudou, e o "Onde a comparação para" avisa que a memória não tem par.
+- **Reserva na garagem e teto na pista:** ajudou em parte, pelo mesmo motivo do 1º ciclo (sugestão 2).
+- **Placa na porta e autorização (taint, toleration, affinity):** continua sendo a melhor analogia do guia.
+- **Retirada ordenada sem descer do mínimo (drain e PDB):** ajudou, e o laboratório agora mostra a recusa sem ruído.
+- **Um carro de cada vez / conjunto inteiro (RollingUpdate e Recreate):** o RollingUpdate ajudou; o Recreate continua sem explicar por que as duas versões não podem conviver (sugestão 3).
+- **Segundo chassi com o número de corrida (Blue/Green):** ajudou bastante.
+- **Peça nova só no carro 1 (canário):** ajudou.
+- **Setup base e folha por circuito (chart e values):** ajudou.
+- **Logística e equipe de apoio (Karpenter e KEDA):** ajudou. "Sem pedidos, ninguém fica de plantão" agora bate com o laboratório, que zera direto.
+- **Passes e credenciais (segurança):** ajudou.
 
 ## Exercícios
 
-- **Etapa 01 (liveness)** — NÃO consegui como está: `--restart=Never` não produz os restarts prometidos. Precisa de conserto antes de rodar (ver ponto confuso).
-- **Etapa 02 (taint repele pod)** — consegui seguir. Passos claros, sei o que rodar e que verei `Pending` + `had untolerated taint`, e a limpeza com o `-` no fim está explicada. Executável em minikube/kind de 1 nó.
-- **Etapa 03 (rollout + undo)** — consegui. Muito bom ver os dois ReplicaSets e entender que o antigo fica zerado. Comandos autoexplicativos.
-- **Etapa 04 (helm template)** — consegui, e é o exercício mais limpo: não toca cluster nenhum, só `helm create` + `helm template --set`. Sei exatamente o que esperar (replicas 1 → 4).
-- **Etapa 05 (Blue/Green)** — consegui, com a ressalva de que os `kubectl label` extras me confundiram (ver acima). O resultado (endpoints mudando de IP) é observável.
-- **Etapa 06 (canário por réplicas)** — consegui. Boa a honestidade de dizer que só dá frações grosseiras e que por isso service mesh é superior.
-- **Etapa 07 (Karpenter — pod Pending)** — consegui. Inteligente reproduzir só o *gatilho* (pod Pending por CPU) em qualquer cluster, já que Karpenter exige nuvem. Sei que verei `FailedScheduling / Insufficient cpu`.
-- **Etapa 08 (KEDA cron scale-to-zero)** — consegui, mas exige instalar o KEDA via Helm primeiro (o pré-requisito está no comando, ok). Único exercício com dependência pesada; poderia avisar que a janela cron faz esperar até o minuto 0 da hora pra ver o efeito.
-- **Etapa 09 (auth can-i)** — consegui. Rápido, sem nuvem, e o contraste yes/no prova o menor privilégio de forma convincente.
-
----
+- **Etapa 01:** consegui seguir todos os passos. Usar nomes de Pod explícitos acabou com a dúvida de qual Pod recebe o `/panic`, e o `liveness-falha` mostra o `Killing` com o processo vivo.
+- **Etapa 02:** consegui seguir todos os passos. O drain recusa só por causa do `fixo`, e o passo 5 me devolve ao cluster padrão antes da Etapa 03.
+- **Etapa 03:** consegui seguir.
+- **Etapa 04:** consegui seguir.
+- **Etapa 05:** consegui seguir.
+- **Etapa 06:** consegui seguir.
+- **Etapa 07:** consegui seguir a parte executável. O resto está claramente marcado como só leitura.
+- **Etapa 08:** consegui seguir, e o passo 4 agora explica por que a descida é de 4 direto para 0 em uns 30 s.
+- **Etapa 09:** consegui seguir, com uma alternativa para quem não tem `openssl` e a limpeza completa.
+- **Etapa 10:** consegui seguir. Conferir as tags antes de instalar, o `helm template` do canário explicado e a limpeza coerente com o passo 7 tiraram as dúvidas que eu tinha.
 
 ## Resumo dos consertos por persona
 
-**Professor (didática/técnica):**
-- Etapa 01: corrigir o exercício de liveness — trocar `--restart=Never` por `--restart=Always`, senão RESTARTS não sobe (bug que quebra o hands-on).
-- Etapa 01: fechar o laço da QoS do YAML de exemplo (é Burstable, não Guaranteed).
-- Etapa 05: remover/explicar os `kubectl label` redundantes no objeto Deployment.
-- Etapa 06: encolher ou marcar como "opcional" o bloco de estatística/teoria de filas.
-
-**Piloto (analogia):**
-- Etapa 01: simplificar a analogia de requests/limits (ERS/derate/envelope é F1 avançada demais); "combustível garantido vs. teto" basta.
-- Etapa 01: suavizar a analogia de QoS (hierarquia de sacrifício sob safety car não é intuitiva).
-
-**Comentarista (narração):**
-- Etapa 02: cortar/trocar a referência a Schumacher em Magny-Cours 2004, que não ilumina taint/affinity.
-- Geral: reduzir o CAPS LOCK e enxugar para uma chamada de transmissão por etapa; três interrupções antes do conteúdo cansam na maratona.
+- **Bloqueiam publicação:** nenhum.
+- **Piloto (sugestões, não aplicadas neste ciclo apesar do aviso de que tinham sido):** (1) dividir o primeiro parágrafo da lente; (2) amarrar reserva e teto ao mesmo recurso nas linhas 15 e 21; (3) justificar o Recreate na linha 17 ou no item da Etapa 03 de "Onde a comparação para".
+- **Professor (sugestões):** (4) "define o piso" em vez de "é o piso" na linha 678; (5) "entre 30 e 40 segundos" no `liveness-falha`.
+- **Comentarista:** nada a consertar. Tom, abertura e gates aprovados.

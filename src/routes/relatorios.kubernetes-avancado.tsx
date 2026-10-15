@@ -1,11 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ANALOGY_NOTES, DE_PARA, LESSONS } from "@/data/kubernetesavancado";
+import { CHECKLIST, INTRO, LENS, LESSONS, NOTES } from "@/data/kubernetesavancado";
+import { GuideProgress, GuideRail } from "@/components/guide/GuideKit";
 import {
-  DeParaDetails,
-  GuideProgress,
-  GuideRail,
-  LessonSection,
-} from "@/components/guide/GuideKit";
+  ChecklistSection,
+  LensSection,
+  Md,
+  TechLessonSection,
+  type TechCopy,
+} from "@/components/guide/LensKit";
 import { useGuideProgress, useScrollSpy, useSectionReveal } from "@/components/guide/hooks";
 import { f1Logo } from "@/assets/brand/paths";
 import { reportHead } from "@/lib/seo";
@@ -16,7 +18,7 @@ export const Route = createFileRoute("/relatorios/kubernetes-avancado")({
       locale: "pt",
       title: "Kubernetes avançado: da saúde à segurança | pitstop.dev",
       description:
-        "Guia avançado de Kubernetes com 9 etapas da Fase 2 e um capstone de produção sobre probes, scheduling, rollouts, Helm, autoscaling e segurança.",
+        "Guia avançado de Kubernetes em 9 etapas e um bônus de produção: probes e recursos, agendamento, rollouts, Helm, Blue/Green, canário, Karpenter, KEDA e segurança, com uma lente geral de Fórmula 1.",
       ptPath: "/relatorios/kubernetes-avancado",
       enPath: "/en/relatorios/kubernetes-avancado",
     }),
@@ -25,14 +27,15 @@ export const Route = createFileRoute("/relatorios/kubernetes-avancado")({
 
 const NAV = [
   { id: "inicio", num: "00", title: "Início" },
+  { id: "lente", num: "F1", title: "A lente de F1" },
   ...LESSONS.map((l) => ({ id: l.id, num: l.num, title: l.navTitle })),
+  { id: "checklist", num: "11", title: "Checklist" },
 ];
 
-const PROGRESS_KEY = "pitstop-progress-avancado";
-
-const LESSON_COPY = {
+const LESSON_COPY: TechCopy = {
   stage: "Etapa",
-  howItWorks: "Como funciona",
+  problem: "O problema",
+  howItWorks: "O conceito",
   commandsTitle: "Comandos essenciais desta etapa",
   handsOn: "Mão na massa",
   tip: "Dica:",
@@ -42,11 +45,12 @@ const LESSON_COPY = {
 };
 
 function Index() {
-  const [done, setDone] = useGuideProgress(PROGRESS_KEY);
+  const [done, setDone] = useGuideProgress("pitstop-progress-avancado");
   useSectionReveal();
   const activeId = useScrollSpy(NAV.map((n) => n.id));
 
   const doneCount = LESSONS.filter((l) => done[l.id]).length;
+  const [opening, ...howTo] = INTRO;
 
   return (
     <div className="shell">
@@ -68,48 +72,37 @@ function Index() {
         <div className="wrap">
           <header className="hero" id="inicio">
             <p className="kicker">
-              transmissão ao vivo · <b>o gp do kubernetes avançado, etapa por etapa</b>
+              guia de estudo · <b>kubernetes avançado em 9 etapas + bônus</b>
             </p>
             <h1 className="htitle">
               Kubernetes avançado
               <br />
-              direto do <span className="b">paddock</span>.
+              pela lente da <span className="b">F1</span>.
             </h1>
             <p className="narration">
-              De volta à pista, e agora é campeonato de gente grande! Nove etapas da Fase 2: saúde e
-              recursos, agendamento fino, rollouts, Helm, Blue/Green, Canary, Karpenter, KEDA e
-              segurança, mais um pit stop bônus onde o podinfo da Etapa 09 do módulo básico sobe da
-              academia pra equipe principal. Você já sabe pilotar o carro. Aqui a gente afina o
-              setup pra vencer o mundial. Farol apagado, o piloto assume.
+              <Md text={opening} />
             </p>
-            <p className="lead">
-              Este é o guia da <strong>Fase 2</strong>: assume que você já domina o básico (Pods,
-              Deployments, Services, kubectl) e sobe o nível pra operar clusters de verdade:{" "}
-              <strong>o problema que cada peça resolve</strong>, a analogia de F1 honesta, o YAML
-              comentado, os comandos com a saída esperada e um <strong>mão na massa</strong> por
-              etapa. Na Etapa 10, tudo isso se junta pra evoluir o exemplo profissional que fechou o
-              módulo básico.
-            </p>
-            <DeParaDetails
-              summaryLabel="O quadro de-para: cole isto no volante"
-              intro={
-                <>
-                  A mesma analogia vale do início ao fim do guia.{" "}
-                  <b>Não tente decorar esta tabela agora.</b> Ela é o mapa do circuito, não a prova:
-                  siga direto para a Etapa 01 e volte aqui sempre que uma analogia aparecer no
-                  texto.
-                </>
-              }
-              headers={["Kubernetes", "Fórmula 1"]}
-              mapping={DE_PARA.map((m) => ({ left: m.k8s, right: m.f1 }))}
-              breaksLabel="Onde as analogias quebram (piloto que esconde limitação do carro quebra no muro):"
-              notes={ANALOGY_NOTES}
-            />
+            {howTo.map((p, i) => (
+              <p className="lead" key={i}>
+                <Md text={p} />
+              </p>
+            ))}
             <GuideProgress doneCount={doneCount} total={LESSONS.length} label="SEU PROGRESSO" />
           </header>
 
+          <LensSection
+            lens={LENS}
+            copy={{
+              eyebrow: "A lente de F1 deste guia",
+              title: "A operação fina da equipe de F1",
+              mappingTitle: "Os termos em palavras simples",
+              headers: ["Termo técnico", "Em palavras simples"],
+              limitsTitle: "Onde a comparação para",
+            }}
+          />
+
           {LESSONS.map((lesson) => (
-            <LessonSection
+            <TechLessonSection
               key={lesson.id}
               lesson={lesson}
               done={!!done[lesson.id]}
@@ -117,6 +110,15 @@ function Index() {
               copy={LESSON_COPY}
             />
           ))}
+
+          <ChecklistSection
+            id="checklist"
+            eyebrow="Etapa 11 · revisão"
+            title="Checklist de autoavaliação"
+            groups={CHECKLIST}
+            notesTitle="Notas do professor: precisões técnicas"
+            notes={NOTES}
+          />
 
           <footer>
             <span className="foot-brand">

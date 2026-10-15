@@ -1,11 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ANALOGY_NOTES, DE_PARA, LESSONS } from "@/data/kubernetesavancado.en";
+import { CHECKLIST, INTRO, LENS, LESSONS, NOTES } from "@/data/kubernetesavancado.en";
+import { GuideProgress, GuideRail } from "@/components/guide/GuideKit";
 import {
-  DeParaDetails,
-  GuideProgress,
-  GuideRail,
-  LessonSection,
-} from "@/components/guide/GuideKit";
+  ChecklistSection,
+  LensSection,
+  Md,
+  TechLessonSection,
+  type TechCopy,
+} from "@/components/guide/LensKit";
 import { useGuideProgress, useScrollSpy, useSectionReveal } from "@/components/guide/hooks";
 import { f1Logo } from "@/assets/brand/paths";
 import { reportHead } from "@/lib/seo";
@@ -16,7 +18,7 @@ export const Route = createFileRoute("/en/relatorios/kubernetes-avancado")({
       locale: "en",
       title: "Advanced Kubernetes: from health checks to security | pitstop.dev",
       description:
-        "An advanced Kubernetes guide with 9 Phase 2 stages plus a production capstone covering probes, scheduling, rollouts, Helm, autoscaling, and security.",
+        "An advanced Kubernetes guide in 9 stages plus a production bonus: probes and resources, scheduling, rollouts, Helm, Blue/Green, canary, Karpenter, KEDA and security, with a general Formula 1 lens.",
       ptPath: "/relatorios/kubernetes-avancado",
       enPath: "/en/relatorios/kubernetes-avancado",
     }),
@@ -25,14 +27,15 @@ export const Route = createFileRoute("/en/relatorios/kubernetes-avancado")({
 
 const NAV = [
   { id: "inicio", num: "00", title: "Start" },
+  { id: "lente", num: "F1", title: "The F1 lens" },
   ...LESSONS.map((l) => ({ id: l.id, num: l.num, title: l.navTitle })),
+  { id: "checklist", num: "11", title: "Checklist" },
 ];
 
-const PROGRESS_KEY = "pitstop-progress-avancado-en";
-
-const LESSON_COPY = {
+const LESSON_COPY: TechCopy = {
   stage: "Stage",
-  howItWorks: "How it works",
+  problem: "The problem",
+  howItWorks: "The concept",
   commandsTitle: "Essential commands for this stage",
   handsOn: "Hands-on",
   tip: "Tip:",
@@ -42,11 +45,12 @@ const LESSON_COPY = {
 };
 
 function Index() {
-  const [done, setDone] = useGuideProgress(PROGRESS_KEY);
+  const [done, setDone] = useGuideProgress("pitstop-progress-avancado-en");
   useSectionReveal();
   const activeId = useScrollSpy(NAV.map((n) => n.id));
 
   const doneCount = LESSONS.filter((l) => done[l.id]).length;
+  const [opening, ...howTo] = INTRO;
 
   return (
     <div className="shell">
@@ -68,47 +72,37 @@ function Index() {
         <div className="wrap">
           <header className="hero" id="inicio">
             <p className="kicker">
-              live broadcast · <b>the advanced Kubernetes GP, stage by stage</b>
+              study guide · <b>advanced Kubernetes in 9 stages + bonus</b>
             </p>
             <h1 className="htitle">
               Advanced Kubernetes
               <br />
-              live from the <span className="b">paddock</span>.
+              through the <span className="b">F1</span> lens.
             </h1>
             <p className="narration">
-              Back on track, and now it's the grown-ups' championship! Nine stages from Phase 2:
-              health and resources, fine-grained scheduling, rollouts, Helm, Blue/Green, Canary,
-              Karpenter, KEDA and security, plus a bonus pit stop where the basic module's podinfo
-              graduates to the main team. You already know how to drive the car. Here we tune the
-              setup to win the title. Lights out, the driver takes over.
+              <Md text={opening} />
             </p>
-            <p className="lead">
-              This is the <strong>Phase 2</strong> guide: it assumes you already know the basics
-              (Pods, Deployments, Services, kubectl) and raises the level to operate real clusters:{" "}
-              <strong>the problem each piece solves</strong>, an honest F1 analogy, commented YAML,
-              commands with the expected output, and a <strong>hands-on</strong> section per stage.
-              In Stage 10, it all comes together to evolve the production example that closed the
-              basic module.
-            </p>
-            <DeParaDetails
-              summaryLabel="The cheat sheet: pin this to your visor"
-              intro={
-                <>
-                  The same analogy holds from the first stage to the last.{" "}
-                  <b>Don't try to memorize this table now.</b> It's the track map, not the exam: go
-                  straight to Stage 01 and come back here whenever an analogy shows up in the text.
-                </>
-              }
-              headers={["Kubernetes", "Formula 1"]}
-              mapping={DE_PARA.map((m) => ({ left: m.k8s, right: m.f1 }))}
-              breaksLabel="Where the analogies break down (a driver who hides the car's limits crashes into the wall):"
-              notes={ANALOGY_NOTES}
-            />
+            {howTo.map((p, i) => (
+              <p className="lead" key={i}>
+                <Md text={p} />
+              </p>
+            ))}
             <GuideProgress doneCount={doneCount} total={LESSONS.length} label="YOUR PROGRESS" />
           </header>
 
+          <LensSection
+            lens={LENS}
+            copy={{
+              eyebrow: "The F1 lens of this guide",
+              title: "The fine-grained operation of an F1 team",
+              mappingTitle: "The terms in plain words",
+              headers: ["Technical term", "In plain words"],
+              limitsTitle: "Where the comparison stops",
+            }}
+          />
+
           {LESSONS.map((lesson) => (
-            <LessonSection
+            <TechLessonSection
               key={lesson.id}
               lesson={lesson}
               done={!!done[lesson.id]}
@@ -117,13 +111,22 @@ function Index() {
             />
           ))}
 
+          <ChecklistSection
+            id="checklist"
+            eyebrow="Stage 11 · review"
+            title="Self-assessment checklist"
+            groups={CHECKLIST}
+            notesTitle="Teacher's notes: technical precisions"
+            notes={NOTES}
+          />
+
           <footer>
             <span className="foot-brand">
               <img src={f1Logo} alt="" width={38} height={19} />
               <span>
                 <b>pitstop.dev</b> · advanced Kubernetes guide, stage by stage, based on lessons 1–9
-                of the DevOps and Cloud Architecture module (Phase 2, FIAP), plus a bonus production
-                capstone.
+                of the DevOps and Cloud Architecture module (Phase 2, FIAP), with a bonus stage of
+                professional application.
               </span>
             </span>
           </footer>
