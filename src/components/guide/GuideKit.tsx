@@ -17,7 +17,6 @@ export type GuideLesson = {
   navTitle: string;
   tag: string;
   title: string;
-  narration: string;
   lead: string;
   concept: string[];
   points: GuidePoint[];
@@ -29,7 +28,6 @@ export type GuideLesson = {
   handsOn: string[];
   tip: string;
   takeaway: string;
-  outro: string;
 };
 export type GuideMapping = { left: string; right: string };
 export type GuideNavItem = { id: string; num: string; title: string };
@@ -74,7 +72,7 @@ function ShLine({ line }: { line: string }) {
   return <div className="code-line tk-output">{line || " "}</div>;
 }
 
-function CodeBlock({ example }: { example: GuideExample }) {
+export function CodeBlock({ example }: { example: GuideExample }) {
   const lines = useMemo(() => example.code.split("\n"), [example.code]);
   return (
     <div>
@@ -90,7 +88,7 @@ function CodeBlock({ example }: { example: GuideExample }) {
   );
 }
 
-function ExampleTabs({ examples }: { examples: GuideExample[] }) {
+export function ExampleTabs({ examples }: { examples: GuideExample[] }) {
   const [active, setActive] = useState(0);
   return (
     <div>
@@ -112,7 +110,7 @@ function ExampleTabs({ examples }: { examples: GuideExample[] }) {
   );
 }
 
-function CommandList({ commands }: { commands: GuideCommand[] }) {
+export function CommandList({ commands }: { commands: GuideCommand[] }) {
   return (
     <div className="cmd-list">
       {commands.map((c) => (
@@ -154,7 +152,6 @@ export function LessonSection({
         {copy.stage} {lesson.num} <span className="tag">{lesson.tag}</span>
       </p>
       <h2>{lesson.title}</h2>
-      <p className="narration">{lesson.narration}</p>
       <p className="lead">{lesson.lead}</p>
 
       <h3>{copy.howItWorks}</h3>
@@ -201,8 +198,6 @@ export function LessonSection({
           <b>{copy.takeaway}</b> {lesson.takeaway}
         </p>
       </div>
-
-      <p className="narration outro">{lesson.outro}</p>
 
       <button className={`btn-done ${done ? "on" : ""}`} onClick={onToggleDone}>
         {done ? (

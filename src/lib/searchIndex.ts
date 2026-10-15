@@ -6,7 +6,15 @@ export type Locale = "pt" | "en";
 
 export type SearchDoc = {
   guideSlug:
-    "kubernetes" | "kubernetes-avancado" | "servidores-web" | "containers" | "escalabilidade";
+    | "kubernetes"
+    | "kubernetes-avancado"
+    | "servidores-web"
+    | "containers"
+    | "escalabilidade"
+    | "cultura-devops"
+    | "arquitetura-aplicacoes"
+    | "arquitetura-cloud"
+    | "aws-azure";
   guideTitle: string;
   hash: string;
   num: string;
@@ -29,6 +37,35 @@ type LessonLike = {
   takeaway: string;
   tip: string;
 };
+
+// O guia de Escalabilidade tem formato próprio (pergunta, sintoma, analogias, trade-offs);
+// aqui ele é traduzido para a forma que o índice já entende.
+type ScaleLessonLike = Omit<LessonLike, "lead" | "pointsTitle" | "points" | "takeaway" | "tip"> & {
+  question: string;
+  symptom: string;
+  pitScene: string;
+  answer: string;
+  analogies: { term: string; f1: string }[];
+  tradeoffs: { option: string; gain: string; cost: string }[];
+  rule: string;
+};
+
+function fromScaleLessons(mod: { LESSONS: ScaleLessonLike[] }): { LESSONS: LessonLike[] } {
+  return {
+    LESSONS: mod.LESSONS.map((l) => ({
+      id: l.id,
+      num: l.num,
+      title: l.title,
+      tag: l.tag,
+      lead: `${l.question} ${l.answer}`,
+      concept: [...l.concept, l.pitScene, ...l.analogies.map((a) => `${a.term}: ${a.f1}`)],
+      pointsTitle: l.symptom,
+      points: l.tradeoffs.map((t) => ({ t: t.option, d: `${t.gain} ${t.cost}` })),
+      takeaway: l.rule,
+      tip: "",
+    })),
+  };
+}
 
 type GuideConfig = {
   slug: SearchDoc["guideSlug"];
@@ -73,11 +110,43 @@ const GUIDES_PT: GuideConfig[] = [
   },
   {
     slug: "escalabilidade",
-    title: "Escalabilidade nos servidores: do box ao pico",
+    title: "Escalabilidade nos servidores: seis perguntas antes do pico",
     overview:
-      "6 etapas: desempenho x escala, load balancers, aplicações stateless, filas e workers, CDN, réplicas de banco, CAP e observabilidade.",
+      "6 perguntas: desempenho x escala, load balancers, aplicações stateless, filas e workers, CDN, réplicas de banco, CAP e observabilidade, com trade-offs e laboratórios.",
     overviewTag: "visão geral",
-    loader: () => import("@/data/escalabilidade"),
+    loader: () => import("@/data/escalabilidade").then(fromScaleLessons),
+  },
+  {
+    slug: "cultura-devops",
+    title: "Cultura DevOps: da fábrica à pista",
+    overview:
+      "4 etapas: fundamentos, métricas DORA, IaC, CI/CD, canary, observabilidade, cultura organizacional e automação, com AWS e Azure lado a lado.",
+    overviewTag: "visão geral",
+    loader: () => import("@/data/culturadevops"),
+  },
+  {
+    slug: "arquitetura-aplicacoes",
+    title: "Arquitetura de aplicações: do monolito aos microsserviços",
+    overview:
+      "4 etapas: monolito e camadas, microsserviços, banco por serviço, sagas, Event Sourcing, gateway e filas, com AWS e Azure lado a lado.",
+    overviewTag: "visão geral",
+    loader: () => import("@/data/arquiteturaaplicacoes"),
+  },
+  {
+    slug: "arquitetura-cloud",
+    title: "Arquitetura Cloud: da garagem própria ao circuito global",
+    overview:
+      "6 etapas: computação em nuvem, IaaS/PaaS/SaaS/FaaS, regiões e zonas, provedores, VPC e VNet, segurança, custos e FinOps, com AWS e Azure lado a lado.",
+    overviewTag: "visão geral",
+    loader: () => import("@/data/arquiteturacloud"),
+  },
+  {
+    slug: "aws-azure",
+    title: "AWS e Azure lado a lado: do IAM ao Route 53",
+    overview:
+      "11 etapas: identidade, redes, VMs, containers, bancos, serverless, monitoramento, CDN, segredos, DNS e certificações, sempre nos dois provedores.",
+    overviewTag: "visão geral",
+    loader: () => import("@/data/awsazure"),
   },
 ];
 
@@ -116,11 +185,43 @@ const GUIDES_EN: GuideConfig[] = [
   },
   {
     slug: "escalabilidade",
-    title: "Server Scalability: from pit box to peak load",
+    title: "Server Scalability: six questions before the peak",
     overview:
-      "6 stages: performance vs scale, load balancers, stateless apps, queues and workers, CDNs, database replicas, CAP, and observability.",
+      "6 questions: performance vs scale, load balancers, stateless apps, queues and workers, CDNs, database replicas, CAP, and observability, with trade-offs and labs.",
     overviewTag: "overview",
-    loader: () => import("@/data/escalabilidade.en"),
+    loader: () => import("@/data/escalabilidade.en").then(fromScaleLessons),
+  },
+  {
+    slug: "cultura-devops",
+    title: "DevOps Culture: from factory to track",
+    overview:
+      "4 stages: fundamentals, DORA metrics, IaC, CI/CD, canary, observability, organizational culture, and automation, with AWS and Azure side by side.",
+    overviewTag: "overview",
+    loader: () => import("@/data/culturadevops.en"),
+  },
+  {
+    slug: "arquitetura-aplicacoes",
+    title: "Application Architecture: from monolith to microservices",
+    overview:
+      "4 stages: monolith and layers, microservices, database per service, sagas, Event Sourcing, gateways, and queues, with AWS and Azure side by side.",
+    overviewTag: "overview",
+    loader: () => import("@/data/arquiteturaaplicacoes.en"),
+  },
+  {
+    slug: "arquitetura-cloud",
+    title: "Cloud Architecture: from your own garage to the global circuit",
+    overview:
+      "6 stages: cloud computing, IaaS/PaaS/SaaS/FaaS, regions and zones, providers, VPC and VNet, security, costs, and FinOps, with AWS and Azure side by side.",
+    overviewTag: "overview",
+    loader: () => import("@/data/arquiteturacloud.en"),
+  },
+  {
+    slug: "aws-azure",
+    title: "AWS and Azure side by side: from IAM to Route 53",
+    overview:
+      "11 stages: identity, networking, VMs, containers, databases, serverless, monitoring, CDN, secrets, DNS, and certifications, always on both providers.",
+    overviewTag: "overview",
+    loader: () => import("@/data/awsazure.en"),
   },
 ];
 
@@ -131,6 +232,14 @@ function normalize(s: string) {
     .toLocaleLowerCase()
     .replace(/[^a-z0-9+#.]+/g, " ")
     .trim();
+}
+
+// Alguns guias guardam markdown inline (`código`, **negrito**) no texto das etapas.
+function plain(s: string) {
+  return s
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\s+/g, " ");
 }
 
 function truncate(s: string, n: number) {
@@ -178,8 +287,8 @@ async function buildIndex(locale: Locale): Promise<SearchDoc[]> {
         num: l.num,
         title: l.title,
         tag: l.tag,
-        snippet: truncate(l.lead, 140),
-        text: normalize(body),
+        snippet: truncate(plain(l.lead), 140),
+        text: normalize(plain(body)),
         url: `${url}#${l.id}`,
       });
     }
