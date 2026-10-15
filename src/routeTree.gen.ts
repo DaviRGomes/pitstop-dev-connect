@@ -15,12 +15,20 @@ import { Route as RelatoriosServidoresWebRouteImport } from './routes/relatorios
 import { Route as RelatoriosKubernetesAvancadoRouteImport } from './routes/relatorios.kubernetes-avancado'
 import { Route as RelatoriosKubernetesRouteImport } from './routes/relatorios.kubernetes'
 import { Route as RelatoriosEscalabilidadeRouteImport } from './routes/relatorios.escalabilidade'
+import { Route as RelatoriosCulturaDevopsRouteImport } from './routes/relatorios.cultura-devops'
 import { Route as RelatoriosContainersRouteImport } from './routes/relatorios.containers'
+import { Route as RelatoriosAwsAzureRouteImport } from './routes/relatorios.aws-azure'
+import { Route as RelatoriosArquiteturaCloudRouteImport } from './routes/relatorios.arquitetura-cloud'
+import { Route as RelatoriosArquiteturaAplicacoesRouteImport } from './routes/relatorios.arquitetura-aplicacoes'
 import { Route as EnRelatoriosServidoresWebRouteImport } from './routes/en.relatorios.servidores-web'
 import { Route as EnRelatoriosKubernetesAvancadoRouteImport } from './routes/en.relatorios.kubernetes-avancado'
 import { Route as EnRelatoriosKubernetesRouteImport } from './routes/en.relatorios.kubernetes'
 import { Route as EnRelatoriosEscalabilidadeRouteImport } from './routes/en.relatorios.escalabilidade'
+import { Route as EnRelatoriosCulturaDevopsRouteImport } from './routes/en.relatorios.cultura-devops'
 import { Route as EnRelatoriosContainersRouteImport } from './routes/en.relatorios.containers'
+import { Route as EnRelatoriosAwsAzureRouteImport } from './routes/en.relatorios.aws-azure'
+import { Route as EnRelatoriosArquiteturaCloudRouteImport } from './routes/en.relatorios.arquitetura-cloud'
+import { Route as EnRelatoriosArquiteturaAplicacoesRouteImport } from './routes/en.relatorios.arquitetura-aplicacoes'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -54,11 +62,33 @@ const RelatoriosEscalabilidadeRoute =
     path: '/relatorios/escalabilidade',
     getParentRoute: () => rootRouteImport,
   } as any)
+const RelatoriosCulturaDevopsRoute = RelatoriosCulturaDevopsRouteImport.update({
+  id: '/relatorios/cultura-devops',
+  path: '/relatorios/cultura-devops',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RelatoriosContainersRoute = RelatoriosContainersRouteImport.update({
   id: '/relatorios/containers',
   path: '/relatorios/containers',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RelatoriosAwsAzureRoute = RelatoriosAwsAzureRouteImport.update({
+  id: '/relatorios/aws-azure',
+  path: '/relatorios/aws-azure',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RelatoriosArquiteturaCloudRoute =
+  RelatoriosArquiteturaCloudRouteImport.update({
+    id: '/relatorios/arquitetura-cloud',
+    path: '/relatorios/arquitetura-cloud',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const RelatoriosArquiteturaAplicacoesRoute =
+  RelatoriosArquiteturaAplicacoesRouteImport.update({
+    id: '/relatorios/arquitetura-aplicacoes',
+    path: '/relatorios/arquitetura-aplicacoes',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const EnRelatoriosServidoresWebRoute =
   EnRelatoriosServidoresWebRouteImport.update({
     id: '/en/relatorios/servidores-web',
@@ -82,21 +112,52 @@ const EnRelatoriosEscalabilidadeRoute =
     path: '/en/relatorios/escalabilidade',
     getParentRoute: () => rootRouteImport,
   } as any)
+const EnRelatoriosCulturaDevopsRoute =
+  EnRelatoriosCulturaDevopsRouteImport.update({
+    id: '/en/relatorios/cultura-devops',
+    path: '/en/relatorios/cultura-devops',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const EnRelatoriosContainersRoute = EnRelatoriosContainersRouteImport.update({
   id: '/en/relatorios/containers',
   path: '/en/relatorios/containers',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EnRelatoriosAwsAzureRoute = EnRelatoriosAwsAzureRouteImport.update({
+  id: '/en/relatorios/aws-azure',
+  path: '/en/relatorios/aws-azure',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EnRelatoriosArquiteturaCloudRoute =
+  EnRelatoriosArquiteturaCloudRouteImport.update({
+    id: '/en/relatorios/arquitetura-cloud',
+    path: '/en/relatorios/arquitetura-cloud',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const EnRelatoriosArquiteturaAplicacoesRoute =
+  EnRelatoriosArquiteturaAplicacoesRouteImport.update({
+    id: '/en/relatorios/arquitetura-aplicacoes',
+    path: '/en/relatorios/arquitetura-aplicacoes',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/relatorios/arquitetura-aplicacoes': typeof RelatoriosArquiteturaAplicacoesRoute
+  '/relatorios/arquitetura-cloud': typeof RelatoriosArquiteturaCloudRoute
+  '/relatorios/aws-azure': typeof RelatoriosAwsAzureRoute
   '/relatorios/containers': typeof RelatoriosContainersRoute
+  '/relatorios/cultura-devops': typeof RelatoriosCulturaDevopsRoute
   '/relatorios/escalabilidade': typeof RelatoriosEscalabilidadeRoute
   '/relatorios/kubernetes': typeof RelatoriosKubernetesRoute
   '/relatorios/kubernetes-avancado': typeof RelatoriosKubernetesAvancadoRoute
   '/relatorios/servidores-web': typeof RelatoriosServidoresWebRoute
   '/en/': typeof EnIndexRoute
+  '/en/relatorios/arquitetura-aplicacoes': typeof EnRelatoriosArquiteturaAplicacoesRoute
+  '/en/relatorios/arquitetura-cloud': typeof EnRelatoriosArquiteturaCloudRoute
+  '/en/relatorios/aws-azure': typeof EnRelatoriosAwsAzureRoute
   '/en/relatorios/containers': typeof EnRelatoriosContainersRoute
+  '/en/relatorios/cultura-devops': typeof EnRelatoriosCulturaDevopsRoute
   '/en/relatorios/escalabilidade': typeof EnRelatoriosEscalabilidadeRoute
   '/en/relatorios/kubernetes': typeof EnRelatoriosKubernetesRoute
   '/en/relatorios/kubernetes-avancado': typeof EnRelatoriosKubernetesAvancadoRoute
@@ -104,13 +165,21 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/relatorios/arquitetura-aplicacoes': typeof RelatoriosArquiteturaAplicacoesRoute
+  '/relatorios/arquitetura-cloud': typeof RelatoriosArquiteturaCloudRoute
+  '/relatorios/aws-azure': typeof RelatoriosAwsAzureRoute
   '/relatorios/containers': typeof RelatoriosContainersRoute
+  '/relatorios/cultura-devops': typeof RelatoriosCulturaDevopsRoute
   '/relatorios/escalabilidade': typeof RelatoriosEscalabilidadeRoute
   '/relatorios/kubernetes': typeof RelatoriosKubernetesRoute
   '/relatorios/kubernetes-avancado': typeof RelatoriosKubernetesAvancadoRoute
   '/relatorios/servidores-web': typeof RelatoriosServidoresWebRoute
   '/en': typeof EnIndexRoute
+  '/en/relatorios/arquitetura-aplicacoes': typeof EnRelatoriosArquiteturaAplicacoesRoute
+  '/en/relatorios/arquitetura-cloud': typeof EnRelatoriosArquiteturaCloudRoute
+  '/en/relatorios/aws-azure': typeof EnRelatoriosAwsAzureRoute
   '/en/relatorios/containers': typeof EnRelatoriosContainersRoute
+  '/en/relatorios/cultura-devops': typeof EnRelatoriosCulturaDevopsRoute
   '/en/relatorios/escalabilidade': typeof EnRelatoriosEscalabilidadeRoute
   '/en/relatorios/kubernetes': typeof EnRelatoriosKubernetesRoute
   '/en/relatorios/kubernetes-avancado': typeof EnRelatoriosKubernetesAvancadoRoute
@@ -119,13 +188,21 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/relatorios/arquitetura-aplicacoes': typeof RelatoriosArquiteturaAplicacoesRoute
+  '/relatorios/arquitetura-cloud': typeof RelatoriosArquiteturaCloudRoute
+  '/relatorios/aws-azure': typeof RelatoriosAwsAzureRoute
   '/relatorios/containers': typeof RelatoriosContainersRoute
+  '/relatorios/cultura-devops': typeof RelatoriosCulturaDevopsRoute
   '/relatorios/escalabilidade': typeof RelatoriosEscalabilidadeRoute
   '/relatorios/kubernetes': typeof RelatoriosKubernetesRoute
   '/relatorios/kubernetes-avancado': typeof RelatoriosKubernetesAvancadoRoute
   '/relatorios/servidores-web': typeof RelatoriosServidoresWebRoute
   '/en/': typeof EnIndexRoute
+  '/en/relatorios/arquitetura-aplicacoes': typeof EnRelatoriosArquiteturaAplicacoesRoute
+  '/en/relatorios/arquitetura-cloud': typeof EnRelatoriosArquiteturaCloudRoute
+  '/en/relatorios/aws-azure': typeof EnRelatoriosAwsAzureRoute
   '/en/relatorios/containers': typeof EnRelatoriosContainersRoute
+  '/en/relatorios/cultura-devops': typeof EnRelatoriosCulturaDevopsRoute
   '/en/relatorios/escalabilidade': typeof EnRelatoriosEscalabilidadeRoute
   '/en/relatorios/kubernetes': typeof EnRelatoriosKubernetesRoute
   '/en/relatorios/kubernetes-avancado': typeof EnRelatoriosKubernetesAvancadoRoute
@@ -135,13 +212,21 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/relatorios/arquitetura-aplicacoes'
+    | '/relatorios/arquitetura-cloud'
+    | '/relatorios/aws-azure'
     | '/relatorios/containers'
+    | '/relatorios/cultura-devops'
     | '/relatorios/escalabilidade'
     | '/relatorios/kubernetes'
     | '/relatorios/kubernetes-avancado'
     | '/relatorios/servidores-web'
     | '/en/'
+    | '/en/relatorios/arquitetura-aplicacoes'
+    | '/en/relatorios/arquitetura-cloud'
+    | '/en/relatorios/aws-azure'
     | '/en/relatorios/containers'
+    | '/en/relatorios/cultura-devops'
     | '/en/relatorios/escalabilidade'
     | '/en/relatorios/kubernetes'
     | '/en/relatorios/kubernetes-avancado'
@@ -149,13 +234,21 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/relatorios/arquitetura-aplicacoes'
+    | '/relatorios/arquitetura-cloud'
+    | '/relatorios/aws-azure'
     | '/relatorios/containers'
+    | '/relatorios/cultura-devops'
     | '/relatorios/escalabilidade'
     | '/relatorios/kubernetes'
     | '/relatorios/kubernetes-avancado'
     | '/relatorios/servidores-web'
     | '/en'
+    | '/en/relatorios/arquitetura-aplicacoes'
+    | '/en/relatorios/arquitetura-cloud'
+    | '/en/relatorios/aws-azure'
     | '/en/relatorios/containers'
+    | '/en/relatorios/cultura-devops'
     | '/en/relatorios/escalabilidade'
     | '/en/relatorios/kubernetes'
     | '/en/relatorios/kubernetes-avancado'
@@ -163,13 +256,21 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/relatorios/arquitetura-aplicacoes'
+    | '/relatorios/arquitetura-cloud'
+    | '/relatorios/aws-azure'
     | '/relatorios/containers'
+    | '/relatorios/cultura-devops'
     | '/relatorios/escalabilidade'
     | '/relatorios/kubernetes'
     | '/relatorios/kubernetes-avancado'
     | '/relatorios/servidores-web'
     | '/en/'
+    | '/en/relatorios/arquitetura-aplicacoes'
+    | '/en/relatorios/arquitetura-cloud'
+    | '/en/relatorios/aws-azure'
     | '/en/relatorios/containers'
+    | '/en/relatorios/cultura-devops'
     | '/en/relatorios/escalabilidade'
     | '/en/relatorios/kubernetes'
     | '/en/relatorios/kubernetes-avancado'
@@ -178,13 +279,21 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  RelatoriosArquiteturaAplicacoesRoute: typeof RelatoriosArquiteturaAplicacoesRoute
+  RelatoriosArquiteturaCloudRoute: typeof RelatoriosArquiteturaCloudRoute
+  RelatoriosAwsAzureRoute: typeof RelatoriosAwsAzureRoute
   RelatoriosContainersRoute: typeof RelatoriosContainersRoute
+  RelatoriosCulturaDevopsRoute: typeof RelatoriosCulturaDevopsRoute
   RelatoriosEscalabilidadeRoute: typeof RelatoriosEscalabilidadeRoute
   RelatoriosKubernetesRoute: typeof RelatoriosKubernetesRoute
   RelatoriosKubernetesAvancadoRoute: typeof RelatoriosKubernetesAvancadoRoute
   RelatoriosServidoresWebRoute: typeof RelatoriosServidoresWebRoute
   EnIndexRoute: typeof EnIndexRoute
+  EnRelatoriosArquiteturaAplicacoesRoute: typeof EnRelatoriosArquiteturaAplicacoesRoute
+  EnRelatoriosArquiteturaCloudRoute: typeof EnRelatoriosArquiteturaCloudRoute
+  EnRelatoriosAwsAzureRoute: typeof EnRelatoriosAwsAzureRoute
   EnRelatoriosContainersRoute: typeof EnRelatoriosContainersRoute
+  EnRelatoriosCulturaDevopsRoute: typeof EnRelatoriosCulturaDevopsRoute
   EnRelatoriosEscalabilidadeRoute: typeof EnRelatoriosEscalabilidadeRoute
   EnRelatoriosKubernetesRoute: typeof EnRelatoriosKubernetesRoute
   EnRelatoriosKubernetesAvancadoRoute: typeof EnRelatoriosKubernetesAvancadoRoute
@@ -235,11 +344,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RelatoriosEscalabilidadeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/relatorios/cultura-devops': {
+      id: '/relatorios/cultura-devops'
+      path: '/relatorios/cultura-devops'
+      fullPath: '/relatorios/cultura-devops'
+      preLoaderRoute: typeof RelatoriosCulturaDevopsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/relatorios/containers': {
       id: '/relatorios/containers'
       path: '/relatorios/containers'
       fullPath: '/relatorios/containers'
       preLoaderRoute: typeof RelatoriosContainersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/relatorios/aws-azure': {
+      id: '/relatorios/aws-azure'
+      path: '/relatorios/aws-azure'
+      fullPath: '/relatorios/aws-azure'
+      preLoaderRoute: typeof RelatoriosAwsAzureRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/relatorios/arquitetura-cloud': {
+      id: '/relatorios/arquitetura-cloud'
+      path: '/relatorios/arquitetura-cloud'
+      fullPath: '/relatorios/arquitetura-cloud'
+      preLoaderRoute: typeof RelatoriosArquiteturaCloudRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/relatorios/arquitetura-aplicacoes': {
+      id: '/relatorios/arquitetura-aplicacoes'
+      path: '/relatorios/arquitetura-aplicacoes'
+      fullPath: '/relatorios/arquitetura-aplicacoes'
+      preLoaderRoute: typeof RelatoriosArquiteturaAplicacoesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/en/relatorios/servidores-web': {
@@ -270,6 +407,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EnRelatoriosEscalabilidadeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/en/relatorios/cultura-devops': {
+      id: '/en/relatorios/cultura-devops'
+      path: '/en/relatorios/cultura-devops'
+      fullPath: '/en/relatorios/cultura-devops'
+      preLoaderRoute: typeof EnRelatoriosCulturaDevopsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/en/relatorios/containers': {
       id: '/en/relatorios/containers'
       path: '/en/relatorios/containers'
@@ -277,18 +421,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EnRelatoriosContainersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/en/relatorios/aws-azure': {
+      id: '/en/relatorios/aws-azure'
+      path: '/en/relatorios/aws-azure'
+      fullPath: '/en/relatorios/aws-azure'
+      preLoaderRoute: typeof EnRelatoriosAwsAzureRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/en/relatorios/arquitetura-cloud': {
+      id: '/en/relatorios/arquitetura-cloud'
+      path: '/en/relatorios/arquitetura-cloud'
+      fullPath: '/en/relatorios/arquitetura-cloud'
+      preLoaderRoute: typeof EnRelatoriosArquiteturaCloudRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/en/relatorios/arquitetura-aplicacoes': {
+      id: '/en/relatorios/arquitetura-aplicacoes'
+      path: '/en/relatorios/arquitetura-aplicacoes'
+      fullPath: '/en/relatorios/arquitetura-aplicacoes'
+      preLoaderRoute: typeof EnRelatoriosArquiteturaAplicacoesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  RelatoriosArquiteturaAplicacoesRoute: RelatoriosArquiteturaAplicacoesRoute,
+  RelatoriosArquiteturaCloudRoute: RelatoriosArquiteturaCloudRoute,
+  RelatoriosAwsAzureRoute: RelatoriosAwsAzureRoute,
   RelatoriosContainersRoute: RelatoriosContainersRoute,
+  RelatoriosCulturaDevopsRoute: RelatoriosCulturaDevopsRoute,
   RelatoriosEscalabilidadeRoute: RelatoriosEscalabilidadeRoute,
   RelatoriosKubernetesRoute: RelatoriosKubernetesRoute,
   RelatoriosKubernetesAvancadoRoute: RelatoriosKubernetesAvancadoRoute,
   RelatoriosServidoresWebRoute: RelatoriosServidoresWebRoute,
   EnIndexRoute: EnIndexRoute,
+  EnRelatoriosArquiteturaAplicacoesRoute:
+    EnRelatoriosArquiteturaAplicacoesRoute,
+  EnRelatoriosArquiteturaCloudRoute: EnRelatoriosArquiteturaCloudRoute,
+  EnRelatoriosAwsAzureRoute: EnRelatoriosAwsAzureRoute,
   EnRelatoriosContainersRoute: EnRelatoriosContainersRoute,
+  EnRelatoriosCulturaDevopsRoute: EnRelatoriosCulturaDevopsRoute,
   EnRelatoriosEscalabilidadeRoute: EnRelatoriosEscalabilidadeRoute,
   EnRelatoriosKubernetesRoute: EnRelatoriosKubernetesRoute,
   EnRelatoriosKubernetesAvancadoRoute: EnRelatoriosKubernetesAvancadoRoute,

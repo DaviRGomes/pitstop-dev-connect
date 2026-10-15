@@ -72,7 +72,7 @@ function Index() {
         <div className="wrap">
           <header className="hero" id="inicio">
             <p className="kicker">
-              live broadcast · <b>the Containers GP, stage by stage</b>
+              study guide · <b>containers and Docker in 13 stages</b>
             </p>
             <h1 className="htitle">
               Containers and Docker
@@ -80,10 +80,14 @@ function Index() {
               live from the <span className="b">paddock</span>.
             </h1>
             <p className="narration">
-              Good afternoon, everyone! The car has left the garage, and now every component must
-              carry the same setup from the driver's machine to the production grid. Thirteen stages
-              cover containers, images, Dockerfiles, networking, volumes, Docker Compose, security,
-              and troubleshooting. Lights out, the driver takes over.
+              This guide teaches containers and Docker in thirteen stages, from the idea to
+              production. You study what a container isolates and how it differs from a virtual
+              machine, how images are built with a Dockerfile and reuse cached layers, how to
+              persist data with volumes, connect services through internal networks and DNS,
+              orchestrate everything with Docker Compose, bring the image into CI, harden security,
+              handle secrets, and troubleshoot problems. Through the F1 lens, the image is the car's
+              build specification and the container is the car assembled from it: the same setup
+              holds from the developer's machine to the production grid.
             </p>
             <p className="lead">
               Every concept is read the way a team prepares a car to race on any circuit:{" "}

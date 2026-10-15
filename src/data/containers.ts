@@ -16,7 +16,6 @@ export type Lesson = {
   navTitle: string;
   tag: string;
   title: string;
-  narration: string;
   lead: string;
   concept: string[];
   points: Point[];
@@ -28,7 +27,6 @@ export type Lesson = {
   handsOn: string[];
   tip: string;
   takeaway: string;
-  outro: string;
 };
 
 export type Mapping = { docker: string; f1: string };
@@ -71,8 +69,6 @@ export const LESSONS: Lesson[] = [
     navTitle: "Por que containers",
     tag: "fundamentos",
     title: "Por que containers existem",
-    narration:
-      "Começa a volta de instalação. Antes de buscar tempo, precisamos entender por que carregar um sistema operacional inteiro para cada aplicação pode ser peso demais.",
     lead: "Containers tornam o ambiente reproduzível e isolam processos com menos sobrecarga que uma máquina virtual completa.",
     concept: [
       "Um container é um conjunto de processos isolados no nível do sistema operacional. Namespaces controlam o que esses processos enxergam; cgroups medem e limitam CPU, memória e entrada ou saída.",
@@ -116,8 +112,6 @@ exited 0`,
     tip: "Um container permanece ativo somente enquanto seu processo principal permanece em execução.",
     takeaway:
       "Container é um processo isolado e limitado pelo kernel, não uma máquina virtual pequena.",
-    outro:
-      "Fundamentos no verde. Agora vamos separar a especificação do carro da instância que entra na pista.",
   },
   {
     id: "ct2",
@@ -125,8 +119,6 @@ exited 0`,
     navTitle: "Imagem e ciclo",
     tag: "imagem + runtime",
     title: "Imagem, container e ciclo de vida",
-    narration:
-      "Imagem e container precisam ocupar colunas diferentes no painel. Confundir receita com execução custa reprodutibilidade.",
     lead: "A imagem é o artefato imutável e versionado; o container acrescenta uma camada gravável e executa o comando configurado.",
     concept: [
       "A mesma imagem pode originar várias instâncias independentes. Pull baixa, run cria e inicia, stop solicita a parada, start retoma a mesma instância, rm remove o container e rmi remove a imagem sem uso.",
@@ -180,8 +172,6 @@ $ docker rm pagina`,
     tip: "Use tags explícitas e guarde credenciais de registry fora do histórico do shell.",
     takeaway:
       "Imagem é o artefato reproduzível; container é uma execução descartável dessa imagem.",
-    outro:
-      "A diferença ficou nítida. Na próxima curva, a especificação ganha uma receita versionada.",
   },
   {
     id: "ct3",
@@ -189,8 +179,6 @@ $ docker rm pagina`,
     navTitle: "Dockerfile",
     tag: "build reproduzível",
     title: "Dockerfile como receita reproduzível",
-    narration:
-      "Entramos no trecho em que improviso perde para procedimento. Conhecimento de oficina precisa virar processo repetível.",
     lead: "O Dockerfile registra em código cada decisão necessária para reconstruir uma imagem sem depender da memória de alguém.",
     concept: [
       "FROM escolhe a base, WORKDIR define o diretório, COPY leva arquivos do contexto, RUN executa durante a construção e CMD define o processo padrão no runtime.",
@@ -243,8 +231,6 @@ $ docker run --rm --publish 3000:3000 minha-api:1.0`,
     ],
     tip: "Prefira imagens base com versão explícita e copie apenas o necessário.",
     takeaway: "Dockerfile transforma decisões manuais em construção repetível e versionável.",
-    outro:
-      "Receita registrada. O próximo desafio é cortar tempo de build e peso sem retirar uma peça necessária.",
   },
   {
     id: "ct4",
@@ -252,8 +238,6 @@ $ docker run --rm --publish 3000:3000 minha-api:1.0`,
     navTitle: "Camadas e cache",
     tag: "otimização",
     title: "Camadas, cache e multistage build",
-    narration:
-      "Cada ordem no Dockerfile muda o cache, e cada ferramenta levada ao runtime precisa justificar o próprio peso.",
     lead: "Ordene camadas pela frequência de mudança e separe o ambiente de construção da imagem final de execução.",
     concept: [
       "O Docker reutiliza uma camada enquanto a instrução e suas entradas não mudam. Copiar manifestos e instalar dependências antes do código preserva o cache.",
@@ -315,8 +299,6 @@ CMD ["node", "dist/index.js"]`,
     tip: "Não remova ferramentas ou bibliotecas que o runtime precisa apenas para reduzir megabytes.",
     takeaway:
       "Ordene camadas pela frequência de mudança e deixe ferramentas de build fora do runtime.",
-    outro:
-      "Imagem mais eficiente e setor limpo. Agora precisamos preservar os dados fora da instância.",
   },
   {
     id: "ct5",
@@ -324,8 +306,6 @@ CMD ["node", "dist/index.js"]`,
     navTitle: "Persistência",
     tag: "volumes + mounts",
     title: "Persistência com volumes, bind mounts e tmpfs",
-    narration:
-      "Trocar a instância sem perder o que importa exige separar estado descartável de dado persistente.",
     lead: "A camada gravável acompanha o container; volumes vivem fora desse ciclo e podem ser ligados à próxima instância.",
     concept: [
       "Volumes nomeados são administrados pelo Docker. Bind mounts expõem um caminho do host. tmpfs mantém dados temporários na memória.",
@@ -364,8 +344,6 @@ $ docker volume inspect dados-demo`,
     ],
     tip: "Use comandos Docker para administrar volumes e faça backup antes de qualquer remoção.",
     takeaway: "Dado que precisa sobreviver não pode depender da camada gravável do container.",
-    outro:
-      "Troca concluída sem abandonar o dado nos boxes. O próximo setor exige comunicação previsível.",
   },
   {
     id: "ct6",
@@ -373,8 +351,6 @@ $ docker volume inspect dados-demo`,
     navTitle: "Redes e DNS",
     tag: "conectividade",
     title: "Redes, DNS interno e publicação de portas",
-    narration:
-      "Serviços precisam se encontrar por uma identificação estável e expor para fora somente o necessário.",
     lead: "Uma bridge criada pelo usuário oferece DNS interno por nome; publicação de porta abre um caminho controlado pelo host.",
     concept: [
       "Bridge conecta containers no mesmo host, host compartilha a pilha do sistema, none desliga a rede e overlay liga múltiplos hosts orquestrados.",
@@ -422,8 +398,6 @@ $ docker network inspect rede-demo`,
     tip: "Não publique banco ou serviço interno apenas para facilitar descoberta entre containers.",
     takeaway:
       "Na mesma rede personalizada, use nomes; publique somente portas acessadas pelo host.",
-    outro:
-      "Canal interno confirmado. Agora toda a operação será registrada em um plano reproduzível.",
   },
   {
     id: "ct7",
@@ -431,8 +405,6 @@ $ docker network inspect rede-demo`,
     navTitle: "Docker Compose",
     tag: "multicontainer",
     title: "Docker Compose para aplicações multicontainer",
-    narration:
-      "Serviço, rede, volume e configuração passam a fazer parte de um único plano operacional versionado.",
     lead: "Compose substitui comandos frágeis por uma definição YAML que toda a equipe consegue revisar.",
     concept: [
       "services descreve containers; build ou image define a origem; ports, volumes, networks, environment e secrets completam a aplicação.",
@@ -480,8 +452,6 @@ volumes:
     ],
     tip: "Use docker compose logs --follow para correlacionar serviços relacionados.",
     takeaway: "Compose transforma comandos soltos em uma definição versionável.",
-    outro:
-      "A equipe agora trabalha com um plano comum. O próximo setor trata variações e recuperação.",
   },
   {
     id: "ct8",
@@ -489,8 +459,6 @@ volumes:
     navTitle: "Ambientes e CI",
     tag: "operações",
     title: "Ambientes, reinício, escala e CI",
-    narration:
-      "A configuração precisa responder a treino, teste e produção sem duplicar o plano original.",
     lead: "Arquivos adicionais alteram só o que varia; políticas de reinício e saúde definem reação a falhas.",
     concept: [
       "Compose combina arquivos na ordem de -f. Use config para ver o resultado. no, on-failure, always e unless-stopped controlam reinícios.",
@@ -539,7 +507,6 @@ volumes:
     ],
     tip: "Se --wait não existir, acompanhe compose ps até healthy; Up não prova prontidão.",
     takeaway: "Overrides controlam ambientes; reinício não substitui saúde.",
-    outro: "Estratégia ajustada sem duplicar o plano. Agora entramos na proteção da stack.",
   },
   {
     id: "ct9",
@@ -547,8 +514,6 @@ volumes:
     navTitle: "Segurança",
     tag: "menor privilégio",
     title: "Segurança em camadas",
-    narration:
-      "Cada permissão retirada reduz opções para uma exploração, mas nenhuma camada garante proteção sozinha.",
     lead: "Usuário, capabilities, seccomp, filesystem, imagem e mounts precisam cooperar.",
     concept: [
       "Namespaces isolam visibilidade, capabilities dividem privilégios, seccomp filtra chamadas e um usuário não root reduz impacto.",
@@ -585,7 +550,6 @@ ok`,
     ],
     tip: "Evite chmod 777, modo privileged e montagem do socket da Engine.",
     takeaway: "Segurança depende de controles pequenos e combinados.",
-    outro: "Privilégios reduzidos. Falta impedir material indevido no build.",
   },
   {
     id: "ct10",
@@ -593,8 +557,6 @@ ok`,
     navTitle: "Contexto e segredos",
     tag: "supply chain",
     title: "Contexto de build, segredos e análise de imagem",
-    narration:
-      "Tudo que entra no contexto afeta tempo, cache, tamanho e exposição. A triagem acontece antes do build.",
     lead: "O .dockerignore reduz o material enviado ao builder e evita que arquivos locais ou credenciais sejam registrados em camadas.",
     concept: [
       "Apagar um segredo numa instrução posterior não o elimina de uma camada anterior. env_file não cria um segredo e ARG serve apenas para parâmetros não confidenciais.",
@@ -651,8 +613,6 @@ $ docker images minha-app:analise`,
     ],
     tip: "Não use ARG, ENV ou arquivos versionados para transportar tokens e senhas.",
     takeaway: "Segredo que não entra no contexto não pode vazar por uma camada do build.",
-    outro:
-      "Vistoria concluída. Se algo falhar, precisamos de uma sequência confiável de investigação.",
   },
   {
     id: "ct11",
@@ -660,8 +620,6 @@ $ docker images minha-app:analise`,
     navTitle: "Troubleshooting",
     tag: "diagnóstico",
     title: "Troubleshooting com uma ordem de investigação",
-    narration:
-      "Bandeira amarela. A velocidade certa agora é a do diagnóstico disciplinado, antes de qualquer palpite.",
     lead: "Investigue estado, logs, configuração, eventos e recursos nessa ordem, preservando a evidência até fechar a causa.",
     concept: [
       "docker ps mostra estado; logs lê stdout e stderr; inspect revela comando, mounts, rede e código; events mostra cronologia; top e stats mostram processos e consumo.",
@@ -704,7 +662,6 @@ configuração ausente`,
     ],
     tip: "Mude uma variável por vez e anote estado, hipótese, teste e resultado.",
     takeaway: "Diagnóstico começa por evidências; reiniciar não é investigar.",
-    outro: "Causa antes de correção. Agora precisamos distinguir processo ativo de serviço pronto.",
   },
   {
     id: "ct12",
@@ -712,8 +669,6 @@ configuração ausente`,
     navTitle: "Saúde e logs",
     tag: "observabilidade",
     title: "Logs, healthcheck e prontidão operacional",
-    narration:
-      "Motor ligado não significa carro pronto. O serviço precisa provar que cumpre sua função.",
     lead: "O estado do processo indica presença; healthcheck verifica uma condição funcional e logs explicam o comportamento.",
     concept: [
       "Healthcheck classifica starting, healthy ou unhealthy, mas não corrige a aplicação. O teste deve representar a função certa com custo controlado.",
@@ -763,7 +718,6 @@ configuração ausente`,
     ],
     tip: "Um endpoint raso pode ficar verde enquanto uma função importante está quebrada.",
     takeaway: "Processo ativo pergunta se roda; healthcheck pergunta se cumpre sua função.",
-    outro: "Painel e telemetria contam histórias complementares. Só falta reuni-las no capstone.",
   },
   {
     id: "ct13",
@@ -771,8 +725,6 @@ configuração ausente`,
     navTitle: "Capstone",
     tag: "stack defensiva",
     title: "Capstone: uma stack pequena e defensiva",
-    narration:
-      "Última volta. Construção, rede, persistência, segredo, saúde e evidência precisam cruzar a linha como um conjunto.",
     lead: "A stack combina API Node sem root, PostgreSQL persistente, rede interna, segredo em arquivo, limites, logs e healthchecks.",
     concept: [
       "A API localiza db por DNS e testa a porta do PostgreSQL. O banco usa volume, recebe senha por arquivo e libera a API após seu healthcheck.",
@@ -841,6 +793,5 @@ secrets:
     tip: "Use down --volumes somente quando a perda definitiva dos dados for intencional.",
     takeaway:
       "Maturidade combina construção reproduzível, menor privilégio, persistência, saúde e evidência.",
-    outro: "Bandeirada. O tempo final veio de decisões pequenas, verificáveis e coordenadas.",
   },
 ];

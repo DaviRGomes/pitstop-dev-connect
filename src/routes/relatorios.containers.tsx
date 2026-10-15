@@ -72,7 +72,7 @@ function Index() {
         <div className="wrap">
           <header className="hero" id="inicio">
             <p className="kicker">
-              transmissão ao vivo · <b>o gp dos containers, etapa por etapa</b>
+              guia de estudo · <b>containers e docker em 13 etapas</b>
             </p>
             <h1 className="htitle">
               Containers e Docker
@@ -80,10 +80,14 @@ function Index() {
               direto do <span className="b">paddock</span>.
             </h1>
             <p className="narration">
-              Boa tarde a todos! O carro saiu da garagem e agora cada componente precisa viajar com
-              o mesmo acerto, da máquina do piloto até o grid de produção. São treze etapas para
-              entender containers, imagens, Dockerfile, redes, volumes, Docker Compose, segurança e
-              diagnóstico. Farol apagado, o piloto assume a narrativa.
+              Este guia ensina containers e Docker em treze etapas, da ideia à produção. Você estuda
+              o que um container isola e como ele difere de uma máquina virtual, como imagens são
+              construídas com Dockerfile e reaproveitam camadas em cache, como persistir dados com
+              volumes, conectar serviços por redes e DNS internos, orquestrar tudo com Docker
+              Compose, levar a imagem para o CI, reforçar a segurança, tratar segredos e
+              diagnosticar problemas. Na lente da F1, a imagem é a especificação de montagem do
+              carro e o container é o carro montado a partir dela: o mesmo acerto vale da máquina do
+              desenvolvedor ao grid de produção.
             </p>
             <p className="lead">
               Cada conceito é lido como uma equipe prepara o carro para correr em qualquer circuito:{" "}

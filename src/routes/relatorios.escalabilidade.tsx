@@ -1,11 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ANALOGY_NOTES, DE_PARA, LESSONS } from "@/data/escalabilidade";
-import {
-  DeParaDetails,
-  GuideProgress,
-  GuideRail,
-  LessonSection,
-} from "@/components/guide/GuideKit";
+import { LESSONS, OBSERVABILITY_NODE, SYSTEM_MAP } from "@/data/escalabilidade";
+import { GuideProgress, GuideRail } from "@/components/guide/GuideKit";
+import { ScaleLessonSection, SystemMap, type ScaleCopy } from "@/components/guide/ScaleKit";
 import { useGuideProgress, useScrollSpy, useSectionReveal } from "@/components/guide/hooks";
 import { f1Logo } from "@/assets/brand/paths";
 import { reportHead } from "@/lib/seo";
@@ -14,9 +10,9 @@ export const Route = createFileRoute("/relatorios/escalabilidade")({
   head: () =>
     reportHead({
       locale: "pt",
-      title: "Escalabilidade nos servidores: do box ao pico | pitstop.dev",
+      title: "Escalabilidade nos servidores: seis perguntas antes do pico | pitstop.dev",
       description:
-        "Guia imersivo sobre escalabilidade: escala vertical e horizontal, load balancers, aplicações stateless, filas, CDN, réplicas de banco, CAP e observabilidade, com laboratórios locais.",
+        "Guia de escalabilidade em seis perguntas: escala vertical e horizontal, load balancers, aplicações stateless, filas, CDN, réplicas de banco, CAP e observabilidade, com trade-offs e laboratórios locais.",
       ptPath: "/relatorios/escalabilidade",
       enPath: "/en/relatorios/escalabilidade",
     }),
@@ -24,7 +20,7 @@ export const Route = createFileRoute("/relatorios/escalabilidade")({
 });
 
 const NAV = [
-  { id: "inicio", num: "00", title: "Início" },
+  { id: "inicio", num: "00", title: "O mapa" },
   ...LESSONS.map((lesson) => ({
     id: lesson.id,
     num: lesson.num,
@@ -34,15 +30,33 @@ const NAV = [
 
 const PROGRESS_KEY = "pitstop-progress-escalabilidade";
 
-const LESSON_COPY = {
-  stage: "Etapa",
+const READING_ORDER = [
+  "Pergunta",
+  "Sintoma",
+  "Conceito",
+  "Analogia",
+  "Ganha × paga",
+  "Laboratório",
+];
+
+const LESSON_COPY: ScaleCopy = {
+  question: "Pergunta",
+  symptom: "Sintoma",
+  pitScene: "No box:",
+  answer: "Resposta curta",
   howItWorks: "Como funciona",
-  commandsTitle: "Comandos essenciais desta etapa",
-  handsOn: "Mão na massa",
-  tip: "Dica:",
-  takeaway: "Anota aí:",
-  doneLabel: (num: string) => `etapa ${num} concluída (clique p/ desfazer)`,
-  markDoneLabel: (num: string) => `marcar etapa ${num} como concluída`,
+  analogies: "Na linguagem do paddock",
+  analogyLimit: "Onde a analogia quebra:",
+  tradeoffs: "Ganha × paga",
+  tradeoffHeaders: ["Opção", "Ganha", "Paga"],
+  lab: "Laboratório",
+  labCommands: "Comandos",
+  labSteps: "Roteiro",
+  rule: "Regra de bolso:",
+  pitRule: "Na pista:",
+  selfCheck: "Teste rápido:",
+  doneLabel: (num: string) => `pergunta ${num} respondida (clique p/ desfazer)`,
+  markDoneLabel: (num: string) => `marcar pergunta ${num} como respondida`,
 };
 
 function Index() {
@@ -58,10 +72,10 @@ function Index() {
         nav={NAV}
         activeId={activeId}
         done={done}
-        ariaLabel="Etapas"
+        ariaLabel="Perguntas"
         railFoot={
           <>
-            guia interativo · react
+            guia técnico · react
             <br />
             conteúdo das Aulas 01 a 06
           </>
@@ -70,50 +84,47 @@ function Index() {
 
       <main>
         <div className="wrap">
-          <header className="hero" id="inicio">
+          <header className="hero sc-hero" id="inicio">
             <p className="kicker">
-              transmissão ao vivo · <b>o gp da escalabilidade, setor por setor</b>
+              guia técnico · <b>6 perguntas, 6 laboratórios locais</b>
             </p>
             <h1 className="htitle">
-              Escalabilidade nos servidores
+              Escalabilidade
               <br />
-              direto do <span className="b">pit lane</span>.
+              <span className="b">antes do pico.</span>
             </h1>
-            <p className="narration">
-              Boa tarde a todos! Está no ar o GP da Escalabilidade: um sistema que aguenta o pico
-              sem cair, do primeiro usuário ao milionésimo. São seis setores, um por aula:
-              fundamentos, load balancers, stateless e filas, CDN, banco de dados e a arquitetura
-              completa com a telemetria ligada. Farol apagado, o piloto assume a narrativa.
-            </p>
             <p className="lead">
-              Cada conceito é lido como o pit lane de um GP:{" "}
-              <strong>o problema que cada peça resolve</strong>, uma analogia de F1 tecnicamente
-              honesta, configurações comentadas, comandos com a saída esperada e um{" "}
-              <strong>mão na massa</strong> por etapa que roda na sua máquina, sem conta de nuvem.
+              Escalar não é comprar uma máquina maior. É decidir, peça por peça, onde a carga entra,
+              onde o estado mora, o que pode esperar e o que pode ser copiado. Este guia responde{" "}
+              <strong>seis perguntas</strong>, uma por aula, e cada resposta acrescenta uma peça ao
+              mapa abaixo. Cada peça tem um equivalente no box de F1, e a analogia acompanha todas
+              as etapas para fixar o conceito, não para substituí-lo. Os laboratórios rodam com
+              Docker na sua máquina, sem conta de nuvem.
             </p>
-            <DeParaDetails
-              summaryLabel="O quadro de-para: cole isto no volante"
-              intro={
-                <>
-                  A mesma analogia vale do início ao fim do guia.{" "}
-                  <b>Não tente decorar esta tabela agora.</b> Ela é o mapa do circuito, não a prova:
-                  siga direto para a Etapa 01 e volte aqui sempre que uma analogia aparecer no
-                  texto.
-                </>
-              }
-              headers={["Escalabilidade", "Fórmula 1"]}
-              mapping={DE_PARA.map((mapping) => ({
-                left: mapping.tema,
-                right: mapping.f1,
-              }))}
-              breaksLabel="Onde as analogias quebram (piloto que esconde limitação do carro quebra no muro):"
-              notes={ANALOGY_NOTES}
+
+            <p className="sc-map-title">O caminho de uma requisição</p>
+            <SystemMap
+              nodes={SYSTEM_MAP}
+              observability={OBSERVABILITY_NODE}
+              done={done}
+              stageLabel="pergunta"
             />
-            <GuideProgress doneCount={doneCount} total={LESSONS.length} label="SEU PROGRESSO" />
+
+            <ol className="sc-reading" aria-label="Como cada pergunta está organizada">
+              {READING_ORDER.map((step) => (
+                <li key={step}>{step}</li>
+              ))}
+            </ol>
+
+            <GuideProgress
+              doneCount={doneCount}
+              total={LESSONS.length}
+              label="PERGUNTAS RESPONDIDAS"
+            />
           </header>
 
           {LESSONS.map((lesson) => (
-            <LessonSection
+            <ScaleLessonSection
               key={lesson.id}
               lesson={lesson}
               done={!!done[lesson.id]}
@@ -128,7 +139,7 @@ function Index() {
             <span className="foot-brand">
               <img src={f1Logo} alt="" width={38} height={19} />
               <span>
-                <b>pitstop.dev</b> · guia Escalabilidade nos servidores, etapa por etapa, baseado
+                <b>pitstop.dev</b> · guia Escalabilidade nos servidores, em seis perguntas, baseado
                 nas Aulas 01 a 06 da disciplina.
               </span>
             </span>

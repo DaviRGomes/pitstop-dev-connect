@@ -1,11 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ANALOGY_NOTES, DE_PARA, LESSONS } from "@/data/escalabilidade.en";
-import {
-  DeParaDetails,
-  GuideProgress,
-  GuideRail,
-  LessonSection,
-} from "@/components/guide/GuideKit";
+import { LESSONS, OBSERVABILITY_NODE, SYSTEM_MAP } from "@/data/escalabilidade.en";
+import { GuideProgress, GuideRail } from "@/components/guide/GuideKit";
+import { ScaleLessonSection, SystemMap, type ScaleCopy } from "@/components/guide/ScaleKit";
 import { useGuideProgress, useScrollSpy, useSectionReveal } from "@/components/guide/hooks";
 import { f1Logo } from "@/assets/brand/paths";
 import { reportHead } from "@/lib/seo";
@@ -14,9 +10,9 @@ export const Route = createFileRoute("/en/relatorios/escalabilidade")({
   head: () =>
     reportHead({
       locale: "en",
-      title: "Server Scalability: from pit box to peak load | pitstop.dev",
+      title: "Server Scalability: six questions before the peak | pitstop.dev",
       description:
-        "An immersive guide to scalability: vertical and horizontal scaling, load balancers, stateless apps, queues, CDNs, database replicas, CAP, and observability, with local labs.",
+        "A scalability guide in six questions: vertical and horizontal scaling, load balancers, stateless apps, queues, CDNs, database replicas, CAP, and observability, with trade-offs and local labs.",
       ptPath: "/relatorios/escalabilidade",
       enPath: "/en/relatorios/escalabilidade",
     }),
@@ -24,7 +20,7 @@ export const Route = createFileRoute("/en/relatorios/escalabilidade")({
 });
 
 const NAV = [
-  { id: "inicio", num: "00", title: "Start" },
+  { id: "inicio", num: "00", title: "The map" },
   ...LESSONS.map((lesson) => ({
     id: lesson.id,
     num: lesson.num,
@@ -34,15 +30,26 @@ const NAV = [
 
 const PROGRESS_KEY = "pitstop-progress-escalabilidade-en";
 
-const LESSON_COPY = {
-  stage: "Stage",
+const READING_ORDER = ["Question", "Symptom", "Concept", "Analogy", "Gain × cost", "Lab"];
+
+const LESSON_COPY: ScaleCopy = {
+  question: "Question",
+  symptom: "Symptom",
+  pitScene: "In the pit box:",
+  answer: "Short answer",
   howItWorks: "How it works",
-  commandsTitle: "Essential commands for this stage",
-  handsOn: "Hands-on",
-  tip: "Tip:",
-  takeaway: "Takeaway:",
-  doneLabel: (num: string) => `stage ${num} completed (click to undo)`,
-  markDoneLabel: (num: string) => `mark stage ${num} as complete`,
+  analogies: "In paddock terms",
+  analogyLimit: "Where the analogy breaks:",
+  tradeoffs: "Gain × cost",
+  tradeoffHeaders: ["Option", "Gain", "Cost"],
+  lab: "Lab",
+  labCommands: "Commands",
+  labSteps: "Steps",
+  rule: "Rule of thumb:",
+  pitRule: "On track:",
+  selfCheck: "Quick check:",
+  doneLabel: (num: string) => `question ${num} answered (click to undo)`,
+  markDoneLabel: (num: string) => `mark question ${num} as answered`,
 };
 
 function Index() {
@@ -58,10 +65,10 @@ function Index() {
         nav={NAV}
         activeId={activeId}
         done={done}
-        ariaLabel="Stages"
+        ariaLabel="Questions"
         railFoot={
           <>
-            interactive guide · react
+            technical guide · react
             <br />
             content from Lessons 01 through 06
           </>
@@ -70,50 +77,47 @@ function Index() {
 
       <main>
         <div className="wrap">
-          <header className="hero" id="inicio">
+          <header className="hero sc-hero" id="inicio">
             <p className="kicker">
-              live broadcast · <b>the Scalability GP, sector by sector</b>
+              technical guide · <b>6 questions, 6 local labs</b>
             </p>
             <h1 className="htitle">
-              Server Scalability
+              Scalability
               <br />
-              live from the <span className="b">pit lane</span>.
+              <span className="b">before the peak.</span>
             </h1>
-            <p className="narration">
-              Good afternoon, everyone! The Scalability GP is on air: a system that handles the peak
-              without going down, from the first user to the millionth. Six sectors, one per lesson:
-              fundamentals, load balancers, stateless and queues, CDN, databases, and the full
-              architecture with the telemetry switched on. Lights out, the driver takes over.
-            </p>
             <p className="lead">
-              Every concept is read like the pit lane of a GP:{" "}
-              <strong>the problem each piece solves</strong>, a technically honest F1 analogy,
-              annotated configurations, commands with the expected output, and a{" "}
-              <strong>hands-on</strong> section per stage that runs on your machine, no cloud
-              account needed.
+              Scaling is not buying a bigger machine. It is deciding, piece by piece, where the load
+              comes in, where state lives, what can wait, and what can be copied. This guide answers{" "}
+              <strong>six questions</strong>, one per lesson, and each answer adds a piece to the
+              map below. Each piece has an equivalent in an F1 pit box, and the analogy runs through
+              every stage to anchor the concept, not to replace it. The labs run with Docker on your
+              machine, no cloud account needed.
             </p>
-            <DeParaDetails
-              summaryLabel="The cheat sheet: pin this to your visor"
-              intro={
-                <>
-                  The same analogy holds from the first stage to the last.{" "}
-                  <b>Don't try to memorize this table now.</b> It is the track map, not the exam: go
-                  straight to Stage 01 and come back here whenever an analogy shows up in the text.
-                </>
-              }
-              headers={["Scalability", "Formula 1"]}
-              mapping={DE_PARA.map((mapping) => ({
-                left: mapping.tema,
-                right: mapping.f1,
-              }))}
-              breaksLabel="Where the analogies break down (a driver who hides the car's limits crashes into the wall):"
-              notes={ANALOGY_NOTES}
+
+            <p className="sc-map-title">The path of a request</p>
+            <SystemMap
+              nodes={SYSTEM_MAP}
+              observability={OBSERVABILITY_NODE}
+              done={done}
+              stageLabel="question"
             />
-            <GuideProgress doneCount={doneCount} total={LESSONS.length} label="YOUR PROGRESS" />
+
+            <ol className="sc-reading" aria-label="How each question is organized">
+              {READING_ORDER.map((step) => (
+                <li key={step}>{step}</li>
+              ))}
+            </ol>
+
+            <GuideProgress
+              doneCount={doneCount}
+              total={LESSONS.length}
+              label="QUESTIONS ANSWERED"
+            />
           </header>
 
           {LESSONS.map((lesson) => (
-            <LessonSection
+            <ScaleLessonSection
               key={lesson.id}
               lesson={lesson}
               done={!!done[lesson.id]}
@@ -128,7 +132,7 @@ function Index() {
             <span className="foot-brand">
               <img src={f1Logo} alt="" width={38} height={19} />
               <span>
-                <b>pitstop.dev</b> · Server Scalability guide, stage by stage, based on Lessons 01
+                <b>pitstop.dev</b> · Server Scalability guide, in six questions, based on Lessons 01
                 through 06 of the course.
               </span>
             </span>

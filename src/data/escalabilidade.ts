@@ -1,5 +1,6 @@
-// Conteúdo das seis aulas da disciplina "Escalabilidade nos servidores" (Fase 2), uma etapa por aula,
-// tematizado com Fórmula 1 pelo pipeline /otimizar-relatorio (relatorios/escalabilidade/final.md).
+// Conteúdo das seis aulas da disciplina "Escalabilidade nos servidores" (Fase 2), uma etapa por aula.
+// Formato próprio deste guia: cada etapa parte de uma pergunta e de um sintoma, explica o conceito,
+// traz analogias conceituais de F1 (sem corridas reais), uma tabela de trade-offs e um laboratório local.
 
 export type Example = {
   label: string;
@@ -9,7 +10,12 @@ export type Example = {
 };
 
 export type Command = { cmd: string; note?: string };
-export type Point = { t: string; d: string; color?: string };
+
+/** Termo técnico, a analogia de F1 e, quando existe, onde a analogia deixa de valer. */
+export type Analogy = { term: string; f1: string; limit?: string };
+
+/** Uma linha da tabela "ganha x paga". */
+export type Tradeoff = { option: string; gain: string; cost: string };
 
 export type Lesson = {
   id: string;
@@ -17,95 +23,148 @@ export type Lesson = {
   navTitle: string;
   tag: string;
   title: string;
-  narration: string;
-  lead: string;
+  question: string;
+  symptom: string;
+  /** A mesma situação do sintoma, contada como uma cena de box. */
+  pitScene: string;
+  answer: string;
   concept: string[];
-  points: Point[];
-  pointsTitle: string;
-  examples: Example[];
+  analogies: Analogy[];
+  tradeoffs: Tradeoff[];
   examplesTitle: string;
+  examples: Example[];
   commands: Command[];
-  handsOnIntro?: string;
-  handsOn: string[];
-  tip: string;
-  takeaway: string;
-  outro: string;
+  labGoal: string;
+  labSteps: string[];
+  labNote?: string;
+  rule: string;
+  /** A regra de bolso dita na linguagem da pista. */
+  pitRule: string;
+  selfCheck: string;
 };
 
-export type Mapping = { tema: string; f1: string };
+/** Peças do mapa da arquitetura no topo do guia, na ordem em que a requisição passa por elas. */
+export type MapNode = {
+  id: string;
+  label: string;
+  detail: string;
+  /** O equivalente da peça no box de F1. */
+  f1: string;
+  stages: string[];
+};
 
-export const DE_PARA: Mapping[] = [
-  { tema: "Requisição", f1: "Um carro entrando no pit lane para ser atendido" },
-  { tema: "Servidor, instância ou réplica", f1: "Um box com a sua crew completa de pit stop" },
+export const SYSTEM_MAP: MapNode[] = [
   {
-    tema: "Ponto único de falha (SPOF)",
-    f1: "A unidade de potência: não tem reserva, falhou, acabou a corrida",
+    id: "usuario",
+    label: "Usuário",
+    detail: "a requisição nasce aqui",
+    f1: "o carro chegando ao pit lane",
+    stages: [],
   },
   {
-    tema: "Load balancer",
-    f1: "O controle de entrada do pit lane, que direciona cada carro a um box livre",
+    id: "borda",
+    label: "CDN / borda",
+    detail: "cache perto do usuário",
+    f1: "o estoque de peças no circuito",
+    stages: ["es4"],
   },
   {
-    tema: "Stateful e stateless",
-    f1: "O set-up na cabeça de um mecânico e o set-up anotado no painel central",
+    id: "lb",
+    label: "Load balancer",
+    detail: "um endereço, várias réplicas",
+    f1: "o controle de entrada do pit lane",
+    stages: ["es2"],
   },
   {
-    tema: "Redis (estado, fila e cache)",
-    f1: "O painel de dados ao vivo da garagem, compartilhado por todos os boxes",
+    id: "app",
+    label: "Réplicas stateless",
+    detail: "qualquer uma atende qualquer cliente",
+    f1: "boxes idênticos, set-up no painel",
+    stages: ["es1", "es3"],
   },
   {
-    tema: "Fila e worker",
-    f1: "A pilha de pneus usados esperando análise e o engenheiro da fábrica que a processa",
+    id: "fila",
+    label: "Redis, fila e workers",
+    detail: "estado e trabalho lento",
+    f1: "o painel da garagem e a pilha de pneus",
+    stages: ["es3"],
   },
-  { tema: "CDN (origem e borda)", f1: "A fábrica e o estoque de peças montado em cada circuito" },
   {
-    tema: "Banco primary e read replica",
-    f1: "O arquivo oficial na fábrica e a cópia somente leitura no circuito",
+    id: "banco",
+    label: "Banco primary + réplica",
+    detail: "escrita num lugar, leitura em vários",
+    f1: "o arquivo oficial e a cópia no circuito",
+    stages: ["es5"],
   },
-  { tema: "X-Request-ID", f1: "O transponder: o mesmo número em cada laço de cronometragem" },
 ];
 
-export const ANALOGY_NOTES: string[] = [
-  "Um box por equipe: na F1 real cada carro sempre para no box da própria equipe. Servidor não tem regulamento, e qualquer réplica pode atender qualquer requisição.",
-  "Um box de F1 atende um carro por vez. A capacidade 2 do laboratório é um box imaginário com duas posições de serviço.",
-  "Gente não sobe em segundos: a equipe é fixa no fim de semana, enquanto réplicas e workers nascem e morrem em minutos.",
-  "Com dois carros, o menor canary possível na F1 é metade da frota; no load balancer você escolhe 1%, 5% ou 10%.",
-  "Peça física muda de lugar; arquivo em cache é cópia, e a origem continua com o original.",
-  "O piloto decide na hora se segue ou recolhe quando o rádio cai; no banco, a escolha entre CP e AP é de projeto, feita antes da partição.",
-];
+export const OBSERVABILITY_NODE: MapNode = {
+  id: "obs",
+  label: "Observabilidade",
+  detail: "métricas, logs e traces atravessando todas as camadas",
+  f1: "telemetria, rádio e minissetores",
+  stages: ["es6"],
+};
 
 export const LESSONS: Lesson[] = [
   {
     id: "es1",
     num: "01",
-    navTitle: "Fundamentos",
+    navTitle: "Velocidade ou volume",
     tag: "desempenho x escala",
     title: "Fundamentos de escalabilidade moderna",
-    narration:
-      "Apagaram-se as luzes! A primeira curva já cobra uma decisão que muita equipe erra: o seu problema é velocidade ou é volume? Quem confunde as duas coisas gasta orçamento no lugar errado.",
-    lead: "Escalar aumenta quanto o sistema aguenta; otimizar faz cada tarefa custar menos. Antes de comprar servidor, descubra qual dos dois problemas você tem.",
+    question: "O seu problema é velocidade ou volume?",
+    symptom:
+      "O sistema fica lento quando muita gente chega ao mesmo tempo, e a primeira reação é comprar uma máquina maior.",
+    pitScene:
+      "A fila no pit lane cresce. Treinar a crew deixa cada parada mais curta; abrir mais boxes atende mais carros ao mesmo tempo. São remédios diferentes para problemas diferentes.",
+    answer:
+      "Escalar aumenta quanto o sistema aguenta; otimizar faz cada tarefa custar menos. Antes de comprar servidor, descubra qual dos dois problemas você tem.",
     concept: [
       "Desempenho é a latência de uma única tarefa. Otimização melhora esse desempenho sem adicionar recursos. Escalabilidade é aumentar o throughput proporcionalmente aos recursos adicionados: quando a fila fica gigantesca, não adianta o caixa mais rápido do mundo, é preciso abrir mais caixas.",
       "Escala vertical (scaling up) é um servidor maior: simples, mas tem teto físico e financeiro, costuma exigir downtime e cria um ponto único de falha. Escala horizontal (scaling out) é mais servidores dividindo a carga: teto muito maior e mais resiliência, desde que a aplicação seja stateless e exista um load balancer.",
       "Elasticidade é crescer e encolher conforme a carga; autoscaling é o mecanismo que a implementa. Por métrica (CPU acima de 70% por 5 minutos), agendado (subir às 8h55, descer às 18h05) ou preditivo (Machine Learning sobre o histórico). Performance, custo e complexidade formam um triângulo: não dá para maximizar os três.",
-      "Na pista: crew treinada baixa o tempo de cada pit stop (otimização); mais boxes aumentam quantos carros voltam à pista (escala). A unidade de potência é o ponto único de falha clássico: em Sepang, em 4 de outubro de 2026, o George Russell parou na reta nas voltas finais e a corrida acabou ali.",
     ],
-    pointsTitle: "O painel desta etapa",
-    points: [
+    analogies: [
       {
-        t: "Escalar não muda a latência",
-        d: "Mais réplicas aumentam o throughput, não aceleram uma requisição isolada.",
-        color: "blue",
+        term: "Otimização",
+        f1: "Treinar a crew para baixar o tempo de cada pit stop: o mesmo box atende cada carro mais rápido.",
       },
       {
-        t: "Vertical tem teto e SPOF",
-        d: "Um box maior continua sendo um box só: caiu, caiu tudo.",
-        color: "ember",
+        term: "Escala horizontal",
+        f1: "Abrir mais boxes: cada pit stop continua levando o mesmo tempo, mas mais carros voltam à pista no mesmo intervalo.",
       },
       {
-        t: "Quando NÃO escalar",
-        d: "Query ruim se otimiza; sistema interno de 50 pessoas não precisa de autoscaling.",
-        color: "signal",
+        term: "Capacidade da instância",
+        f1: "Quantas posições de serviço um box tem ao mesmo tempo.",
+        limit:
+          "Um box de F1 atende um carro por vez. A capacidade 2 do laboratório é um box imaginário com duas posições de serviço.",
+      },
+      {
+        term: "Ponto único de falha",
+        f1: "A unidade de potência: não existe reserva dentro do carro. Se ela falha, o carro para, por melhor que esteja todo o resto.",
+      },
+    ],
+    tradeoffs: [
+      {
+        option: "Otimizar",
+        gain: "Melhora latência e throughput de uma vez, sem custo de infraestrutura.",
+        cost: "Tem retorno decrescente: uma hora o código já está bom e a fila continua.",
+      },
+      {
+        option: "Escala vertical",
+        gain: "Simples: nada muda na aplicação.",
+        cost: "Teto físico e financeiro, downtime na troca e um ponto único de falha.",
+      },
+      {
+        option: "Escala horizontal",
+        gain: "Teto muito maior e resiliência à queda de uma máquina.",
+        cost: "Exige aplicação stateless e um load balancer na frente.",
+      },
+      {
+        option: "Autoscaling",
+        gain: "Paga só pela capacidade que a carga pede.",
+        cost: "Reage com atraso; picos instantâneos ainda precisam de folga.",
       },
     ],
     examplesTitle: "Uma loja com capacidade limitada",
@@ -152,51 +211,84 @@ $ docker run -d --name vert -p 8083:8080 -e CAPACIDADE=4 lab-app`,
       { cmd: "docker stop base", note: "derruba o servidor único e expõe o SPOF" },
       { cmd: "docker rm -f base otim vert h1 h2 h3", note: "limpeza da etapa" },
     ],
-    handsOnIntro: "Meça a diferença entre otimizar, escalar para cima e escalar para fora.",
-    handsOn: [
+    labGoal: "Meça a diferença entre otimizar, escalar para cima e escalar para fora.",
+    labSteps: [
       "Rode a linha de base e anote a latência de uma requisição e o tempo para 100.",
       "Repita com TRABALHO_MS=50 (otimização) e com CAPACIDADE=4 (vertical).",
       "Suba h1, h2 e h3 nas portas 8084 a 8086 e distribua a carga pelo módulo 3 do número da requisição.",
       "Compare: escalar não mexeu na latência isolada, otimizar mexeu nos dois.",
       "Derrube base e h1: veja 000 no servidor único e 000 200 200 na frota.",
     ],
-    tip: "Antes de escalar, meça. Um índice no banco pode valer mais que dez servidores.",
-    takeaway:
-      "Escalar aumenta quanto o sistema aguenta (throughput), otimizar faz cada tarefa custar menos.",
-    outro:
-      "Setor 1 no verde. Falta alguém na entrada do pit lane para perceber o box fechado e redirecionar: é a Etapa 02.",
+    rule: "Antes de escalar, meça. Um índice no banco pode valer mais que dez servidores.",
+    pitRule: "crew mais rápida não abre box novo, e box novo não deixa a parada mais curta.",
+    selfCheck:
+      "Você consegue explicar por que três réplicas não deixam uma requisição isolada mais rápida?",
   },
   {
     id: "es2",
     num: "02",
-    navTitle: "Load balancers",
+    navTitle: "Distribuir a carga",
     tag: "L4, L7 e deploy",
     title: "Load balancers na prática",
-    narration:
-      "Segundo setor, e o ritmo muda. Entra em cena o controle de entrada do pit lane: algoritmos, failover, canary e rollback na mesma reta. Olho na pista.",
-    lead: "O load balancer é o único ponto de entrada que distribui a carga, tira instâncias doentes de rotação e permite trocar versões sem derrubar ninguém.",
+    question: "Como espalhar a carga e trocar de versão sem ninguém perceber?",
+    symptom:
+      "Há várias réplicas, mas o cliente precisa de um endereço só; e quando uma réplica cai ou uma versão nova sai com bug, alguém tem de reagir em segundos.",
+    pitScene:
+      "Os carros entram todos pela mesma porta do pit lane. Se ninguém controla essa entrada, um box fecha e o próximo carro para na frente da porta dele, esperando à toa.",
+    answer:
+      "O load balancer é o único ponto de entrada que distribui a carga, tira instâncias doentes de rotação e permite trocar versões sem derrubar ninguém.",
     concept: [
       "Um load balancer é um proxy entre clientes e servidores: o cliente fala com um endereço só. O L4 (TCP/UDP) decide por IP e porta, é extremamente rápido e não enxerga o conteúdo (AWS NLB). O L7 (HTTP) lê caminho, cabeçalhos e cookies e roteia /api/pagamentos para um grupo e /blog para outro (AWS ALB).",
       "Algoritmos: round-robin (fila circular, ignora carga), weighted round-robin (pesos para máquinas maiores), least connections (quem tem menos conexões ativas) e IP hash (o mesmo IP sempre no mesmo servidor, com risco de desequilíbrio atrás de um proxy corporativo).",
       "Health checks testam cada servidor; falhou, ocorre o failover e o tráfego novo vai para os saudáveis. Connection draining deixa as conexões em andamento terminarem. Blue/Green vira 100% de uma vez com rollback instantâneo; canary manda 1% a 10% para a versão nova e aumenta aos poucos.",
-      "Na pista, o L4 é o laço de cronometragem que lê o transponder; o L7 é o engenheiro que ouve o rádio e entende o pedido. O IP hash é o pit lane real: cada carro sempre no box da própria equipe. Canary é o pacote de upgrade montado primeiro em um carro só.",
     ],
-    pointsTitle: "Peças do balanceamento",
-    points: [
+    analogies: [
       {
-        t: "L4 x L7",
-        d: "Velocidade bruta por IP e porta ou roteamento inteligente pelo conteúdo HTTP.",
-        color: "blue",
+        term: "Load balancer",
+        f1: "O controle de entrada do pit lane, que manda cada carro para um box livre.",
+        limit:
+          "Na F1 cada carro sempre para no box da própria equipe. Servidor não tem regulamento: qualquer réplica pode atender qualquer requisição.",
       },
       {
-        t: "Failover",
-        d: "Instância doente sai de rotação sem o cliente perceber.",
-        color: "signal",
+        term: "L4 x L7",
+        f1: "O L4 é o laço de cronometragem, que só lê o número do transponder; o L7 é o engenheiro que ouve o rádio e entende o pedido.",
       },
       {
-        t: "Canary e Blue/Green",
-        d: "Versão nova para poucos, ou virada total com volta em segundos.",
-        color: "ember",
+        term: "Health check e failover",
+        f1: "O fiscal que vê um box fechado e desvia o próximo carro para outro antes que ele pare na frente da porta.",
+      },
+      {
+        term: "Canary",
+        f1: "Um pacote de atualização montado primeiro em um carro só, para comparar com o outro antes de equipar os dois.",
+        limit:
+          "Com dois carros, o menor canary possível é metade da frota; no load balancer você escolhe 1%, 5% ou 10%.",
+      },
+    ],
+    tradeoffs: [
+      {
+        option: "Round-robin",
+        gain: "Simples e previsível.",
+        cost: "Ignora a carga real: um servidor lento recebe tanto quanto um rápido.",
+      },
+      {
+        option: "Least connections",
+        gain: "Acompanha a carga de verdade.",
+        cost: "Precisa contar conexões; requisições curtas e longas pesam igual.",
+      },
+      {
+        option: "IP hash",
+        gain: "O mesmo cliente cai sempre no mesmo servidor.",
+        cost: "Desequilibra atrás de um proxy corporativo, onde mil pessoas têm um IP só.",
+      },
+      {
+        option: "Blue/Green",
+        gain: "Virada e rollback instantâneos.",
+        cost: "Dobra a infraestrutura durante a troca.",
+      },
+      {
+        option: "Canary",
+        gain: "Um bug atinge só uma fração dos usuários.",
+        cost: "Exige métricas para decidir se avança ou volta.",
       },
     ],
     examplesTitle: "Nginx balanceando 3 réplicas",
@@ -274,51 +366,80 @@ $ seq 1 200 | xargs -P 10 -I{} curl -s localhost:8080/ | awk '{print $2}' | sort
         note: "valida e recarrega sem derrubar conexões",
       },
     ],
-    handsOnIntro: "Pit lane aberto: algoritmos, um box derrubado de propósito e um canary.",
-    handsOn: [
+    labGoal: "Veja os algoritmos em ação, derrube uma réplica de propósito e faça um canary.",
+    labSteps: [
       "Faça 30 requisições e confirme 10 para cada réplica (round-robin).",
       "Derrube uma réplica e confirme 20 respostas 200; depois suba de volta e recarregue o Nginx.",
       "Troque para least_conn e depois ip_hash; com ip_hash todas caem no mesmo servidor.",
       "Configure o canary de 10% e conte cerca de 180 v1 e 20 v2.",
       "Vire para 100% verde (blue/green) e faça o rollback para azul.",
     ],
-    tip: "No macOS, use gsed (brew install gnu-sed) no lugar de sed -i, ou edite o arquivo à mão.",
-    takeaway:
-      "O load balancer distribui a carga, tira instâncias doentes de rotação e troca versões sem derrubar ninguém.",
-    outro:
-      "Setor 2 no verde. Mas e se o set-up do carro estiver só na cabeça de um mecânico? Etapa 03 na sequência.",
+    labNote:
+      "No macOS, use gsed (brew install gnu-sed) no lugar de sed -i, ou edite o arquivo à mão.",
+    rule: "Todo deploy precisa de um caminho de volta que leve segundos, não minutos.",
+    pitRule:
+      "o controle de entrada nunca manda um carro para um box fechado, e toda peça nova tem como ser desmontada antes da próxima volta.",
+    selfCheck:
+      "Você sabe dizer o que acontece com as conexões em andamento quando uma réplica sai de rotação?",
   },
   {
     id: "es3",
     num: "03",
-    navTitle: "Stateless e filas",
+    navTitle: "Estado e filas",
     tag: "padrões de escala",
     title: "Padrões de escala horizontal em arquiteturas cloud",
-    narration:
-      "Sequência de curvas técnicas! O problema não está mais na entrada do pit lane: está dentro da aplicação, com estado guardado no lugar errado e trabalho lento no caminho da resposta.",
-    lead: "Se o estado mora no servidor, o servidor não pode morrer nem ser trocado. Tire o estado para fora e tire o trabalho lento do caminho da resposta.",
+    question: "Onde mora o estado, e quem faz o trabalho lento?",
+    symptom:
+      "O usuário adiciona itens ao carrinho e, na requisição seguinte, o carrinho aparece vazio; ou o checkout demora porque espera a nota fiscal e o e-mail ficarem prontos.",
+    pitScene:
+      "O set-up do carro está só na cabeça de um mecânico: ele sai do box e ninguém sabe o acerto. E o carro fica parado esperando a análise do pneu, que poderia ser feita depois.",
+    answer:
+      "Se o estado mora no servidor, o servidor não pode morrer nem ser trocado. Tire o estado para fora e tire o trabalho lento do caminho da resposta.",
     concept: [
       "Stateful guarda a sessão na memória do servidor: o LB manda o cliente para outra réplica e o carrinho some. Sticky sessions remendam, mas limitam a resiliência. Stateless externaliza o estado (Redis, banco): qualquer réplica atende qualquer cliente, e o failover não perde nada.",
       "Unidades de escala mantêm N cópias rodando: ReplicaSet no Kubernetes, Auto Scaling Group na AWS, deploy.replicas no Compose. Workers e filas desacoplam o trabalho pesado: o produtor publica na fila e responde 202 na hora; os workers consomem depois e escalam pelo tamanho da fila (é o que o KEDA automatiza).",
       "Padrões avançados: sidecar (contêiner auxiliar no mesmo Pod), ambassador (proxy para o exterior), sharding (dados particionados, Etapa 05). Resiliência: retry com backoff exponencial e fallback (plano B, como servir do cache). O circuit breaker para de chamar um serviço que falha repetidamente.",
-      "Na pista: o mecânico com o set-up na cabeça é stateful; o set-up no painel central da garagem é stateless. O box responde 'box confirmado' e o pneu usado vai para a pilha que os engenheiros da fábrica analisam depois.",
     ],
-    pointsTitle: "Os padrões",
-    points: [
+    analogies: [
       {
-        t: "Stateless",
-        d: "Estado no Redis ou no banco: qualquer réplica continua o trabalho.",
-        color: "blue",
+        term: "Stateful",
+        f1: "O set-up do carro guardado só na cabeça de um mecânico: se ele sai do box, a informação vai junto.",
       },
       {
-        t: "Fila e workers",
-        d: "Resposta imediata (202) e trabalho pesado assíncrono, escalado pela fila.",
-        color: "signal",
+        term: "Stateless com Redis",
+        f1: "O set-up anotado no painel central da garagem, que qualquer mecânico de qualquer box consulta.",
       },
       {
-        t: "Retry e fallback",
-        d: "Tente de novo esperando cada vez mais; tenha um plano B pronto.",
-        color: "ember",
+        term: "Fila e worker",
+        f1: "O box confirma a parada na hora; o pneu usado vai para a pilha que os engenheiros analisam depois, no ritmo deles.",
+        limit:
+          "Gente não sobe em segundos: a equipe é fixa no fim de semana, enquanto réplicas e workers nascem e morrem em minutos.",
+      },
+      {
+        term: "Circuit breaker",
+        f1: "Parar de pedir peça a um fornecedor que falhou várias vezes seguidas e usar o estoque reserva até ele se recuperar.",
+      },
+    ],
+    tradeoffs: [
+      {
+        option: "Sticky sessions",
+        gain: "Nada muda no código.",
+        cost: "A réplica que cai leva as sessões junto, e a carga fica desigual.",
+      },
+      {
+        option: "Estado no Redis ou no banco",
+        gain: "Qualquer réplica atende qualquer cliente.",
+        cost: "Mais um componente para operar, e ele também precisa escalar.",
+      },
+      {
+        option: "Fila e workers",
+        gain: "Resposta imediata e escala independente do trabalho pesado.",
+        cost: "O processamento é eventual e precisa de confirmação (ack) para não perder mensagem.",
+      },
+      {
+        option: "Retry com backoff",
+        gain: "Absorve falhas passageiras sem o usuário perceber.",
+        cost: "Sem limite e sem espera crescente, amplifica a sobrecarga que tentava contornar.",
       },
     ],
     examplesTitle: "Carrinho stateless e fila com workers",
@@ -382,52 +503,78 @@ services:
       { cmd: "docker compose up -d --scale worker=3", note: "escala só os workers" },
       { cmd: "docker compose exec redis redis-cli LLEN fila:pedidos", note: "tamanho da fila" },
     ],
-    handsOnIntro:
-      "Veja o carrinho sumir, leve-o para o Redis e mande o trabalho pesado para a fila.",
-    handsOn: [
+    labGoal: "Veja o carrinho sumir, leve-o para o Redis e mande o trabalho pesado para a fila.",
+    labSteps: [
       "Com MODO=memoria, adicione 3 itens e leia o carrinho 3 vezes: cada resposta tem um item só.",
       "Com MODO=redis, repita: as três respostas trazem os três itens.",
       "Derrube uma réplica e confirme que o carrinho continua completo; suba de volta e recarregue o Nginx.",
       "Ligue 1 worker, enfileire 12 pedidos e veja as respostas 202 instantâneas.",
       "Meça o tempo para esvaziar a fila com 1 worker (cerca de 12 s) e com 3 (cerca de 4 s).",
     ],
-    tip: "workers = ceil(LLEN / pedidos por worker no prazo). É a conta que o KEDA faz por você.",
-    takeaway:
-      "Estado para fora (Redis, banco) e trabalho lento fora do caminho da resposta (fila e workers).",
-    outro:
-      "Setor 3 no verde. Agora o calendário fica internacional: como entregar peça rápido tão longe da fábrica? Etapa 04.",
+    labNote:
+      "workers = ceil(LLEN / pedidos por worker no prazo). É a conta que o KEDA faz por você.",
+    rule: "Estado para fora (Redis, banco) e trabalho lento fora do caminho da resposta (fila e workers).",
+    pitRule: "o set-up vai para o painel, e a análise do pneu sai do caminho do pit stop.",
+    selfCheck: "Você consegue explicar por que o pedido responde 202, e não 200?",
   },
   {
     id: "es4",
     num: "04",
-    navTitle: "CDN e cache",
+    navTitle: "Distância e cache",
     tag: "performance global",
     title: "CDNs e performance global",
-    narration:
-      "Perna internacional do campeonato! Nenhum motor vence a física: nesta etapa a gente para de lutar contra a distância e passa a contorná-la, com estoque pré-posicionado no circuito.",
-    lead: "A CDN é cache perto do usuário; quem manda nela é o Cache-Control da origem, e a métrica que importa é o Cache Hit Ratio.",
+    question: "Como servir rápido quem está longe da origem?",
+    symptom:
+      "A página carrega bem perto do datacenter e mal do outro lado do mundo; e a origem gasta CPU entregando o mesmo arquivo milhares de vezes.",
+    pitScene:
+      "Toda peça de reposição sai da fábrica. Num circuito do outro lado do mundo, cada pedido demora, e a fábrica despacha a mesma peça várias vezes seguidas.",
+    answer:
+      "A CDN é cache perto do usuário; quem manda nela é o Cache-Control da origem, e a métrica que importa é o Cache Hit Ratio.",
     concept: [
       "Latência depende da velocidade da luz e da distância. Uma CDN é uma rede de servidores proxy (PoPs ou edge locations) que guarda cópias do conteúdo perto do usuário. O DNS inteligente devolve o IP do PoP mais próximo; o PoP responde do cache (hit) ou busca na origem e guarda a cópia (miss).",
       "O Cache-Control da origem define o TTL (max-age). Vencido o prazo, a borda revalida com a origem: se nada mudou, a origem responde 304 Not Modified e a cópia ganha mais prazo sem transferir o arquivo. A invalidação (purge) remove à força, mas cada purge obriga um novo miss.",
       "CDNs também escalam APIs (GETs públicos que mudam pouco), fazem WAF e TLS offload na borda e são medidas pelo Cache Hit Ratio. Dados de usuário logado nunca vão para uma borda compartilhada: use private, no-store.",
-      "Na pista: a origem é a fábrica, o PoP é o estoque de peças montado no circuito, o ETag é o número de revisão da peça e o purge é o recall. O X-Cache é a etiqueta que diz se a peça saiu da prateleira (HIT) ou veio da fábrica (MISS).",
     ],
-    pointsTitle: "O que ler nos cabeçalhos",
-    points: [
+    analogies: [
       {
-        t: "Cache-Control",
-        d: "A origem decide se e por quanto tempo a resposta pode ser guardada.",
-        color: "blue",
+        term: "Origem e PoP",
+        f1: "A fábrica e o estoque de peças montado em cada circuito.",
+        limit:
+          "Peça física muda de lugar; arquivo em cache é cópia, e a origem continua com o original.",
       },
       {
-        t: "ETag e 304",
-        d: "Revalidação barata: a cópia ainda vale, nada é reenviado.",
-        color: "signal",
+        term: "ETag e 304",
+        f1: "O número de revisão da peça: se a revisão no circuito é a mesma da fábrica, não é preciso mandar outra.",
       },
       {
-        t: "HIT, MISS, REVALIDATED",
-        d: "O veredito da borda; o hit ratio é hits sobre o total.",
-        color: "ember",
+        term: "Purge",
+        f1: "O recall: toda peça daquela revisão sai da prateleira, e a próxima precisa vir da fábrica.",
+      },
+      {
+        term: "X-Cache",
+        f1: "A etiqueta que diz se a peça saiu da prateleira (HIT) ou veio da fábrica (MISS).",
+      },
+    ],
+    tradeoffs: [
+      {
+        option: "TTL longo",
+        gain: "Hit ratio alto e origem descansada.",
+        cost: "Mudança demora a aparecer; funciona bem só com arquivos versionados.",
+      },
+      {
+        option: "TTL curto",
+        gain: "Mudança aparece rápido.",
+        cost: "Mais revalidações chegam à origem.",
+      },
+      {
+        option: "Purge",
+        gain: "Remove a cópia velha na hora.",
+        cost: "Cada purge gera uma onda de miss sobre a origem.",
+      },
+      {
+        option: "Cache de API na borda",
+        gain: "Absorve picos de leitura sem tocar na aplicação.",
+        cost: "Só serve para GET público que muda pouco.",
       },
     ],
     examplesTitle: "Origem e borda com Nginx",
@@ -488,52 +635,78 @@ X-Cache: HIT`,
         note: "purge simulado (depois, restart do edge)",
       },
     ],
-    handsOnIntro:
-      "Leia cabeçalhos como engenheiro lê telemetria: cada resposta conta de onde veio a peça.",
-    handsOn: [
+    labGoal: "Leia os cabeçalhos: cada resposta conta de onde a peça veio.",
+    labSteps: [
       "Inspecione Cache-Control e ETag direto na origem (porta 8082).",
       "Provoque um 304 mandando If-None-Match com o ETag.",
       "Peça 3 vezes pela borda (porta 8081): MISS, HIT, HIT.",
       "Faça 20 requisições: 20 HIT dentro do TTL, ou 1 REVALIDATED e 19 HIT depois dele.",
       "Mude o arquivo, espere o TTL e veja EXPIRED com o conteúdo novo; depois simule um purge.",
     ],
-    tip: "Bundle JavaScript versionado pode ter TTL de meses; saldo bancário nunca vai para a borda.",
-    takeaway:
-      "A CDN é cache perto do usuário, governado pelo Cache-Control da origem e medido pelo Cache Hit Ratio.",
-    outro:
-      "Setor 4 no verde. Agora vem a chicane mais temida do traçado: o banco de dados. Etapa 05, segura firme.",
+    rule: "Bundle JavaScript versionado pode ter TTL de meses; saldo bancário nunca vai para a borda.",
+    pitRule:
+      "peça de série fica no estoque do circuito; peça feita sob medida para um piloto não vai para a prateleira comum.",
+    selfCheck:
+      "Lendo só o Cache-Control, você consegue prever se a próxima requisição vai dar HIT, MISS ou REVALIDATED?",
   },
   {
     id: "es5",
     num: "05",
-    navTitle: "Banco de dados",
+    navTitle: "O banco de dados",
     tag: "réplicas, sharding, CAP",
     title: "Escalabilidade de banco de dados",
-    narration:
-      "Chegamos à chicane! Aqui não basta ligar mais três, porque o arquivo oficial de engenharia só aceita revisão num lugar. É a etapa mais densa do GP, e é nela que campeonato se decide.",
-    lead: "Leitura se escala com cache e réplicas; escrita só se escala particionando, e todo o resto é escolher, conscientemente, entre consistência e disponibilidade.",
+    question: "Como escalar a peça que não aceita cópias soltas?",
+    symptom:
+      "A aplicação já escala horizontalmente, mas todas as réplicas batem no mesmo banco, que vira o gargalo e o ponto único de falha.",
+    pitScene:
+      "Os boxes se multiplicaram, mas todos consultam e alteram o mesmo arquivo oficial de engenharia, e a fila para mexer nele vira o novo gargalo.",
+    answer:
+      "Leitura se escala com cache e réplicas; escrita só se escala particionando, e todo o resto é escolher, conscientemente, entre consistência e disponibilidade.",
     concept: [
       "O banco é stateful e precisa de consistência, concorrência segura e baixa latência. Para leitura (muitas vezes 100 leituras para 1 escrita): cache-aside com Redis (tenta o cache, no miss busca no banco e grava no cache) e read replicas (primary recebe as escritas e replica, em geral de forma assíncrona; a aplicação faz write splitting).",
       "Para escrita, sharding: por range (simples, mas cria hotspots) ou por hash (distribui melhor, mas dificulta consultas por faixa). Re-sharding é caro: de 2 para 3 shards por módulo, cerca de dois terços dos IDs mudam de lugar. DynamoDB, Cassandra e CockroachDB fazem isso de forma transparente.",
       "Teorema CAP: durante uma partição de rede, escolha entre consistência e disponibilidade (CP ou AP). AP leva à consistência eventual: por um tempo, nós diferentes respondem valores diferentes e depois convergem. Failover promove uma réplica; RPO é quanto dado se pode perder, RTO é quanto tempo se pode ficar fora.",
-      "Na pista: o primary é o arquivo oficial na fábrica, a réplica é a cópia consultada no circuito, o cache-aside é o painel da garagem. Partição é o rádio cair; failover é o reserva que ouvia tudo pelo fone assumir o rádio.",
     ],
-    pointsTitle: "As alavancas do banco",
-    points: [
+    analogies: [
       {
-        t: "Cache e réplicas",
-        d: "Escalam leitura; a escrita continua num lugar só.",
-        color: "blue",
+        term: "Primary e read replica",
+        f1: "O arquivo oficial de engenharia na fábrica e a cópia somente leitura consultada no circuito.",
       },
       {
-        t: "Sharding",
-        d: "Escala escrita, ao custo de complexidade e re-sharding doloroso.",
-        color: "ember",
+        term: "Cache-aside",
+        f1: "O painel da garagem: consulta-se ali primeiro; se a informação não está, busca-se no arquivo e anota-se no painel.",
       },
       {
-        t: "CAP, RPO, RTO",
-        d: "O negócio define quanto pode perder e quanto tempo pode ficar fora.",
-        color: "signal",
+        term: "Partição de rede (CAP)",
+        f1: "O rádio cai: ou o carro espera a comunicação voltar para agir (consistência), ou segue com a última instrução que recebeu (disponibilidade).",
+        limit:
+          "O piloto decide na hora; no banco, a escolha entre CP e AP é de projeto, feita antes da partição.",
+      },
+      {
+        term: "Failover",
+        f1: "O engenheiro reserva, que ouvia tudo pelo fone, assume o rádio quando o titular sai.",
+      },
+    ],
+    tradeoffs: [
+      {
+        option: "Cache-aside",
+        gain: "Tira a maior parte das leituras do banco.",
+        cost: "O dado pode ficar velho até o TTL vencer ou alguém invalidar.",
+      },
+      {
+        option: "Read replicas",
+        gain: "Escala leitura sem mexer no modelo de dados.",
+        cost: "Atraso de replicação: ler logo depois de escrever pode não mostrar o dado novo.",
+      },
+      {
+        option: "Sharding por range",
+        gain: "Consulta por faixa continua simples.",
+        cost: "Cria hotspots quando a carga se concentra numa faixa.",
+      },
+      {
+        option: "Sharding por hash",
+        gain: "Distribui a escrita de forma uniforme.",
+        cost: "Consulta por faixa precisa visitar todos os shards, e re-sharding move muitos dados.",
       },
     ],
     examplesTitle: "Postgres primary, réplica e Redis",
@@ -607,41 +780,71 @@ $ docker compose exec replica psql -U postgres -c "SELECT pg_wal_replay_resume()
         note: "failover manual",
       },
     ],
-    handsOnIntro:
-      "Veja a revisão chegar à cópia do circuito com atraso e aplique cache-aside na mão.",
-    handsOn: [
+    labGoal: "Veja a escrita chegar à réplica com atraso e aplique cache-aside na mão.",
+    labSteps: [
       "Confirme quem é primary (f) e quem é réplica (t), e que a replicação está em streaming async.",
       "Escreva no primary, leia na réplica e confirme que a réplica recusa INSERT.",
       "Pause a réplica, escreva no primary e veja 3 contra 2; retome e veja convergir.",
       "Rode o cache-aside: MISS Camiseta, depois HIT Camiseta; o TTL da chave é 30 s.",
       "Altere o dado e veja o cache servir o valor velho até você invalidar com DEL.",
     ],
-    tip: "Quem escreve precisa invalidar o cache, ou aceitar o TTL como janela de defasagem.",
-    takeaway:
-      "Leitura se escala com cache e réplicas; escrita, com sharding; e CAP é uma escolha consciente, feita antes da partição.",
-    outro:
-      "Setor 5 no verde. Falta a última volta: juntar todas as peças e ligar a telemetria. Etapa 06.",
+    rule: "Quem escreve precisa invalidar o cache, ou aceitar o TTL como janela de defasagem.",
+    pitRule:
+      "só a fábrica altera o arquivo oficial; o circuito lê a cópia sabendo que ela pode estar uma revisão atrás.",
+    selfCheck:
+      "Durante uma partição, o seu sistema prefere responder um valor velho ou não responder? Você sabe justificar a escolha?",
   },
   {
     id: "es6",
     num: "06",
-    navTitle: "Arquitetura completa",
+    navTitle: "Juntar e enxergar",
     tag: "mundo real + observabilidade",
     title: "Arquiteturas escaláveis no mundo real",
-    narration:
-      "Última etapa! Agora não é peça solta: é a operação integrada de um fim de semana de GP inteiro. E arquitetura sem telemetria é pilotar de olhos fechados.",
-    lead: "Arquitetura escalável é a combinação certa de peças simples, e só se mantém assim se você enxergar o sistema por métricas, logs e traces.",
+    question: "Como as peças se juntam, e como você enxerga o que acontece lá dentro?",
+    symptom:
+      "Cada peça funciona sozinha, mas quando algo fica lento em produção ninguém consegue dizer em qual camada o tempo está sendo gasto.",
+    pitScene:
+      "O carro está lento, mas sem telemetria, rádio e tempos de minissetor ninguém sabe dizer se o problema está no motor, nos pneus ou na aerodinâmica.",
+    answer:
+      "Arquitetura escalável é a combinação certa de peças simples, e só se mantém assim se você enxergar o sistema por métricas, logs e traces.",
     concept: [
       "Serverless (AWS Lambda) é a máxima abstração: o provedor escala e volta a zero, inclusive no custo. Um monolito stateless em ASG escala bem e é simples de testar e depurar; microsserviços dão escala granular e times independentes, ao preço de complexidade operacional, latência de rede e depuração distribuída. A Lei de Conway diz que a arquitetura reflete a organização.",
       "Observabilidade tem três pilares: métricas dizem o que está acontecendo e disparam alertas; logs dizem por que; traces dizem onde o tempo foi gasto ao longo dos serviços. SRE trata operação como software, com SLOs e error budgets: um SLO de 99,9% em 30 dias deixa 43,2 minutos de orçamento.",
       "O caso do e-commerce que caiu na Black Friday se resolve peça por peça: CDN na frente dos assets (Etapa 04), load balancer eliminando o SPOF (Etapa 02), aplicação stateless em ASG com fila para o trabalho lento (Etapas 01 e 03) e banco gerenciado com read replicas (Etapa 05).",
-      "Na pista: métricas são a telemetria ao vivo, logs são o rádio, traces são os tempos de minissetor e o X-Request-ID é o transponder que costura cada passagem.",
     ],
-    pointsTitle: "Os três pilares",
-    points: [
-      { t: "Métricas", d: "O que está acontecendo: CPU, latência, taxa de erros.", color: "blue" },
-      { t: "Logs", d: "Por que aconteceu: eventos discretos com timestamp.", color: "signal" },
-      { t: "Traces", d: "Onde o tempo foi gasto: a jornada de uma requisição.", color: "ember" },
+    analogies: [
+      {
+        term: "Métricas",
+        f1: "A telemetria ao vivo: velocidade, temperaturas e pressões em tempo real.",
+      },
+      { term: "Logs", f1: "O rádio: o registro do que foi dito e em que momento." },
+      { term: "Traces", f1: "Os tempos de minissetor: onde, exatamente, a volta perdeu tempo." },
+      {
+        term: "X-Request-ID",
+        f1: "O transponder: o mesmo número lido em cada laço de cronometragem, costurando a passagem do carro pelo circuito.",
+      },
+    ],
+    tradeoffs: [
+      {
+        option: "Serverless",
+        gain: "Escala sozinho e volta a zero, inclusive no custo.",
+        cost: "Cold start, limites de execução e dependência do provedor.",
+      },
+      {
+        option: "Monolito stateless",
+        gain: "Simples de testar, depurar e implantar.",
+        cost: "Tudo escala junto e sai no mesmo deploy.",
+      },
+      {
+        option: "Microsserviços",
+        gain: "Escala granular e times independentes.",
+        cost: "Latência de rede, depuração distribuída e mais operação.",
+      },
+      {
+        option: "SLO e error budget",
+        gain: "Decide com dado quando acelerar entregas ou frear.",
+        cost: "Só funciona com métricas confiáveis e combinadas com o negócio.",
+      },
     ],
     examplesTitle: "Borda, LB, réplicas, Redis e worker",
     examples: [
@@ -719,19 +922,17 @@ OK     pedido aceito de forma assíncrona (202)`,
         note: "trace: o mesmo rid no lb e na réplica",
       },
     ],
-    handsOnIntro:
-      "Volta de classificação: a stack completa sobe e o transponder costura cada passagem.",
-    handsOn: [
+    labGoal: "Suba a stack completa e siga uma requisição de ponta a ponta pelo X-Request-ID.",
+    labSteps: [
       "Suba a stack e rode verificar.sh até ver quatro linhas OK.",
       "Derrube uma réplica e confirme 20 respostas 200; suba de volta e recarregue o lb.",
       "Compare a carga contra a arquitetura (cerca de 1,7 s) e contra um monolito de uma instância (cerca de 5 s).",
       "Pare o monolito e veja o 000 do ponto único de falha.",
       "Pegue um rid nos logs do lb e encontre a mesma requisição nos logs do app.",
     ],
-    tip: "Comece com um monolito stateless; divida em serviços quando times e gargalos justificarem.",
-    takeaway:
-      "Borda, balanceador, aplicação stateless, fila e banco com réplicas, enxergados por métricas, logs e traces.",
-    outro:
-      "Bandeira quadriculada! Você largou sem saber se o problema era velocidade ou volume e cruzou a linha com a arquitetura completa e a telemetria ligada.",
+    rule: "Comece com um monolito stateless; divida em serviços quando times e gargalos justificarem.",
+    pitRule: "ninguém mexe no acerto sem olhar a telemetria primeiro.",
+    selfCheck:
+      "Dado um rid no log do load balancer, você consegue achar em segundos qual réplica atendeu a requisição?",
   },
 ];

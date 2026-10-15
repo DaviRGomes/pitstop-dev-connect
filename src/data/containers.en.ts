@@ -16,7 +16,6 @@ export type Lesson = {
   navTitle: string;
   tag: string;
   title: string;
-  narration: string;
   lead: string;
   concept: string[];
   points: Point[];
@@ -28,7 +27,6 @@ export type Lesson = {
   handsOn: string[];
   tip: string;
   takeaway: string;
-  outro: string;
 };
 
 export type Mapping = { docker: string; f1: string };
@@ -71,8 +69,6 @@ export const LESSONS: Lesson[] = [
     navTitle: "Why containers",
     tag: "foundations",
     title: "Why containers exist",
-    narration:
-      "The installation lap begins. Before chasing time, we need to understand why carrying a full operating system for every application can be too much weight.",
     lead: "Containers make environments repeatable and isolate processes with less overhead than a complete virtual machine.",
     concept: [
       "A container is a set of processes isolated at the operating-system level. Namespaces control what those processes can see; cgroups measure and limit CPU, memory, and input or output.",
@@ -126,8 +122,6 @@ exited 0`,
     ],
     tip: "A container stays active only while its main process is running.",
     takeaway: "A container is a kernel-isolated and limited process, not a small virtual machine.",
-    outro:
-      "Foundations are green. Now we will separate the car specification from the instance that takes the track.",
   },
   {
     id: "ct2",
@@ -135,8 +129,6 @@ exited 0`,
     navTitle: "Image and lifecycle",
     tag: "image + runtime",
     title: "Image, container, and lifecycle",
-    narration:
-      "Images and containers need separate columns on the timing screen. Confusing the recipe with its execution costs reproducibility.",
     lead: "The image is the immutable, versioned artifact; the container adds a writable layer and runs the configured command.",
     concept: [
       "The same image can create several independent instances. Pull downloads, run creates and starts, stop requests shutdown, start resumes the same instance, rm removes the container, and rmi removes an unused image.",
@@ -185,8 +177,6 @@ $ docker rm pagina`,
     ],
     tip: "Use explicit tags and keep registry credentials out of shell history.",
     takeaway: "An image is the reproducible artifact; a container is a disposable execution of it.",
-    outro:
-      "The distinction is clear. At the next corner, the specification gains a versioned recipe.",
   },
   {
     id: "ct3",
@@ -194,8 +184,6 @@ $ docker rm pagina`,
     navTitle: "Dockerfile",
     tag: "repeatable build",
     title: "Dockerfile as a repeatable recipe",
-    narration:
-      "We enter the section where procedure beats improvisation. Workshop knowledge needs to become a repeatable process.",
     lead: "A Dockerfile records every decision required to rebuild an image without relying on someone's memory.",
     concept: [
       "FROM selects the base, WORKDIR sets the directory, COPY brings in build-context files, RUN executes during construction, and CMD defines the default runtime process.",
@@ -251,8 +239,6 @@ $ docker run --rm --publish 3000:3000 minha-api:1.0`,
     ],
     tip: "Prefer explicitly versioned base images and copy only what is required.",
     takeaway: "A Dockerfile turns manual decisions into a repeatable, versioned build.",
-    outro:
-      "The recipe is recorded. Next we cut build time and image weight without removing a required part.",
   },
   {
     id: "ct4",
@@ -260,8 +246,6 @@ $ docker run --rm --publish 3000:3000 minha-api:1.0`,
     navTitle: "Layers and cache",
     tag: "optimization",
     title: "Layers, cache, and multistage builds",
-    narration:
-      "Every Dockerfile instruction changes cache behavior, and every tool shipped to runtime must justify its weight.",
     lead: "Order layers by change frequency and separate the build environment from the final runtime image.",
     concept: [
       "Docker reuses a layer while its instruction and inputs remain unchanged. Copying manifests and installing dependencies before source code preserves cache reuse.",
@@ -315,8 +299,6 @@ CMD ["node", "dist/index.js"]`,
     ],
     tip: "Do not remove tools or libraries the runtime truly needs just to save megabytes.",
     takeaway: "Order layers by change frequency and keep build tools out of runtime.",
-    outro:
-      "The image is more efficient and the sector is clean. Now data must survive outside the instance.",
   },
   {
     id: "ct5",
@@ -324,8 +306,6 @@ CMD ["node", "dist/index.js"]`,
     navTitle: "Persistence",
     tag: "volumes + mounts",
     title: "Persistence with volumes, bind mounts, and tmpfs",
-    narration:
-      "Replacing an instance without losing what matters requires separating disposable state from persistent data.",
     lead: "The writable layer follows the container; volumes live outside that lifecycle and can be attached to the next instance.",
     concept: [
       "Named volumes are managed by Docker. Bind mounts expose a host path. tmpfs keeps temporary data in memory.",
@@ -365,8 +345,6 @@ $ docker volume inspect dados-demo`,
     ],
     tip: "Use Docker commands to manage volumes and back up data before any removal.",
     takeaway: "Data that must survive cannot depend on the container's writable layer.",
-    outro:
-      "The stop is complete without leaving data behind. The next sector requires predictable communication.",
   },
   {
     id: "ct6",
@@ -374,8 +352,6 @@ $ docker volume inspect dados-demo`,
     navTitle: "Networks and DNS",
     tag: "connectivity",
     title: "Networks, internal DNS, and port publishing",
-    narration:
-      "Services need stable identities for finding each other and should expose only what is required.",
     lead: "A user-created bridge provides internal DNS by name; port publishing opens a controlled path through the host.",
     concept: [
       "Bridge connects containers on one host, host shares the system stack, none disables networking, and overlay links multiple orchestrated hosts.",
@@ -426,8 +402,6 @@ $ docker network inspect rede-demo`,
     ],
     tip: "Do not publish a database or internal service just to simplify container discovery.",
     takeaway: "Use names on the same custom network; publish only ports the host must access.",
-    outro:
-      "The internal channel is confirmed. Now the complete operation will become a repeatable plan.",
   },
   {
     id: "ct7",
@@ -435,8 +409,6 @@ $ docker network inspect rede-demo`,
     navTitle: "Docker Compose",
     tag: "multi-container",
     title: "Docker Compose for multi-container applications",
-    narration:
-      "Services, networks, volumes, and configuration become part of one versioned operations plan.",
     lead: "Compose replaces fragile commands with a YAML definition that the whole team can review.",
     concept: [
       "services describes containers; build or image defines their source; ports, volumes, networks, environment, and secrets complete the application.",
@@ -491,7 +463,6 @@ volumes:
     ],
     tip: "Use docker compose logs --follow to correlate related services.",
     takeaway: "Compose turns loose commands into a versioned application definition.",
-    outro: "The team now works from a shared plan. The next sector covers variation and recovery.",
   },
   {
     id: "ct8",
@@ -499,8 +470,6 @@ volumes:
     navTitle: "Environments and CI",
     tag: "operations",
     title: "Environments, restarts, scaling, and CI",
-    narration:
-      "Configuration must adapt to practice, testing, and production without duplicating the original plan.",
     lead: "Additional files change only what varies; restart and health policies define responses to failure.",
     concept: [
       "Compose combines files in -f order. Use config to inspect the result. no, on-failure, always, and unless-stopped control restarts.",
@@ -557,7 +526,6 @@ volumes:
     ],
     tip: "If --wait is unavailable, follow compose ps until healthy; Up does not prove readiness.",
     takeaway: "Overrides control environments; restart does not replace health checks.",
-    outro: "Strategy changed without duplicating the plan. Now we enter stack protection.",
   },
   {
     id: "ct9",
@@ -565,8 +533,6 @@ volumes:
     navTitle: "Security",
     tag: "least privilege",
     title: "Layered security",
-    narration:
-      "Every removed permission reduces an attacker's options, but no single layer guarantees protection.",
     lead: "Users, capabilities, seccomp, filesystems, images, and mounts must work together.",
     concept: [
       "Namespaces isolate visibility, capabilities split privileges, seccomp filters system calls, and a non-root user reduces impact.",
@@ -607,7 +573,6 @@ ok`,
     ],
     tip: "Avoid chmod 777, privileged mode, and mounting the Engine socket.",
     takeaway: "Container security depends on small, combined controls.",
-    outro: "Privileges are reduced. We still need to keep unwanted material out of the build.",
   },
   {
     id: "ct10",
@@ -615,8 +580,6 @@ ok`,
     navTitle: "Context and secrets",
     tag: "supply chain",
     title: "Build context, secrets, and image analysis",
-    narration:
-      "Everything in the context affects time, cache, size, and exposure. Screening happens before the build.",
     lead: ".dockerignore reduces what is sent to the builder and keeps local files or credentials out of image layers.",
     concept: [
       "Deleting a secret in a later instruction does not remove it from an earlier layer. env_file does not create a secret, and ARG is only for non-confidential parameters.",
@@ -677,7 +640,6 @@ $ docker images minha-app:analise`,
     ],
     tip: "Do not use ARG, ENV, or versioned files to transport tokens and passwords.",
     takeaway: "A secret that never enters the context cannot leak through a build layer.",
-    outro: "Inspection is complete. If something fails, we need a reliable investigation sequence.",
   },
   {
     id: "ct11",
@@ -685,7 +647,6 @@ $ docker images minha-app:analise`,
     navTitle: "Troubleshooting",
     tag: "diagnostics",
     title: "Troubleshooting with an investigation order",
-    narration: "Yellow flag. The right speed now is disciplined diagnosis before any guesswork.",
     lead: "Investigate state, logs, configuration, events, and resources in order, preserving evidence until the cause is clear.",
     concept: [
       "docker ps shows state; logs reads stdout and stderr; inspect reveals commands, mounts, networking, and exit code; events shows the timeline; top and stats show processes and consumption.",
@@ -732,8 +693,6 @@ configuração ausente`,
     ],
     tip: "Change one variable at a time and record state, hypothesis, test, and result.",
     takeaway: "Diagnosis starts with evidence; restarting is not investigation.",
-    outro:
-      "Cause before correction. Now we must distinguish a running process from a ready service.",
   },
   {
     id: "ct12",
@@ -741,8 +700,6 @@ configuração ausente`,
     navTitle: "Health and logs",
     tag: "observability",
     title: "Logs, healthchecks, and operational readiness",
-    narration:
-      "An engine running does not mean a car is ready. The service must prove it can do its job.",
     lead: "Process state signals presence; a healthcheck tests a functional condition, and logs explain behavior over time.",
     concept: [
       "A healthcheck classifies starting, healthy, or unhealthy, but does not repair the application. The test must represent the right function at controlled cost.",
@@ -797,7 +754,6 @@ configuração ausente`,
     tip: "A shallow endpoint can stay green while an important function is broken.",
     takeaway:
       "A running process asks whether it is alive; a healthcheck asks whether it can do its job.",
-    outro: "Dashboard and telemetry tell complementary stories. Only the capstone remains.",
   },
   {
     id: "ct13",
@@ -805,8 +761,6 @@ configuração ausente`,
     navTitle: "Capstone",
     tag: "defensive stack",
     title: "Capstone: a small, defensive stack",
-    narration:
-      "Final lap. Build, networking, persistence, secrets, health, and evidence must cross the line as one system.",
     lead: "The stack combines a non-root Node API, persistent PostgreSQL, an internal network, a file secret, limits, logs, and healthchecks.",
     concept: [
       "The API resolves db through DNS and tests the PostgreSQL port. The database uses a volume, reads its password from a file, and releases the API after its healthcheck.",
@@ -883,6 +837,5 @@ secrets:
     tip: "Use down --volumes only when permanent loss of the data is intentional.",
     takeaway:
       "Maturity combines repeatable builds, least privilege, persistence, health, and evidence.",
-    outro: "Checkered flag. The final time came from small, verifiable, coordinated decisions.",
   },
 ];
