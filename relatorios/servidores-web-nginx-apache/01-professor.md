@@ -1,123 +1,217 @@
-# Servidores Web e Balanceamento de Carga: da borda à alta disponibilidade
+# Servidores Web e Balanceamento de Carga: da borda do sistema à alta disponibilidade
 
-> Versão didática do relatório bruto (`00-bruto.md`), baseada na Aula 01 do material de origem, sobre servidores web, a evolução do protocolo HTTP e as arquiteturas do Apache HTTP Server e do Nginx.
+> Baseado nas aulas 1–5 do módulo de Servidores Web e Balanceamento de Carga (Nginx, Apache, Kubernetes, Istio e segurança da borda), reorganizado em 14 etapas progressivas.
 
-**O que você vai saber fazer ao final deste guia:** explicar o papel de um servidor web dentro de uma infraestrutura real (e por que ele não deveria estar dentro do código da sua aplicação); dizer qual problema cada versão do HTTP resolveu, de 1.1 até o 3/QUIC; diferenciar forward proxy de reverse proxy e saber, na hora, qual dos dois um cenário pede; escolher o MPM certo do Apache conforme a necessidade (estabilidade total ou concorrência alta); e explicar, com propriedade técnica, por que o Nginx costuma vencer o Apache em cenários de muita concorrência simultânea. Cada etapa parte de um problema concreto antes de mostrar a ferramenta, e fecha com um exercício mínimo pra você rodar no seu terminal.
+Este guia ensina o caminho de uma requisição desde o navegador até a aplicação, e como cada peça desse caminho é configurada. Ao final dele você será capaz de explicar o papel de um servidor web e por que ele não deve viver dentro do código da aplicação, dizer qual problema cada versão do HTTP resolveu, diferenciar forward proxy de reverse proxy, escolher o modelo de processamento do Apache (MPM) e explicar por que o Nginx escala conexões de outro jeito. Depois disso você configura balanceamento de carga com algoritmos diferentes, detecta backends doentes e faz failover, publica serviços em um cluster Kubernetes com Ingress e TLS automático, controla tráfego, identidade e telemetria com Istio, calcula metas de disponibilidade (SLO) e testa um failover de IP virtual, e protege a borda com WAF, limite de taxa e HSTS.
 
-**Como usar este guia:** tenha um terminal com `curl` disponível. Para a Etapa 01, basta ter Docker instalado: os comandos `docker run -d -p 8080:80 nginx:latest` e `docker run -d -p 8081:80 httpd:latest` já aparecem no texto daquela etapa e bastam para o que ela pede. Os comandos de linha de comando deste guia assumem Linux (Ubuntu/Debian), mas os conceitos valem para qualquer sistema.
+Cada etapa só depende do que foi explicado antes dela e termina com um exercício pequeno que prova que você entendeu. Servidores se aprendem derrubando e religando peças de propósito, então não pule os blocos "Mão na massa".
 
-> **Docker (Etapa 01) x instalação local (Etapas 03 a 05):** os exercícios de "mão na massa" das Etapas 03, 04 e 05 usam comandos que atuam diretamente sobre o processo do servidor instalado no host (`nginx -s reload`, `a2enmod`, `apachectl`) e um `proxy_pass` apontando para `127.0.0.1:8000`. Dentro de um container, `127.0.0.1` aponta para o próprio container, não para um processo rodando no seu host, então os containers `nginx:latest`/`httpd:latest` da Etapa 01 não servem para completar esses exercícios sem ajuste. Duas saídas possíveis:
-> 1. **Instalação local (recomendada, mais simples):** `sudo apt install nginx apache2` num Ubuntu/Debian. Os comandos do texto funcionam exatamente como estão escritos.
-> 2. **Continuar no Docker:** suba os containers com `--network host` (recurso do Docker no Linux), por exemplo `docker run -d --network host nginx:latest`, para que `127.0.0.1` dentro do container aponte para o host; edite os arquivos de configuração e rode `nginx -s reload`/`a2enmod` de dentro do próprio container, com `docker exec -it <container> sh`.
->
-> A Etapa 04 também usa o utilitário `ab` (Apache Bench) para gerar carga. Se ele não estiver disponível no seu terminal, instale com `sudo apt install apache2-utils` antes de chegar naquele exercício.
+**Como usar este guia:** mantenha um terminal aberto ao lado do texto. Os laboratórios assumem Linux (Ubuntu ou Debian), Docker com Compose v2 (comando `docker compose`), `curl`, `python3` e `openssl`. O utilitário `ab` (Apache Bench) vem no pacote `apache2-utils` (`sudo apt install apache2-utils`). Organize os arquivos em uma pasta por etapa (`etapa01/`, `etapa02/` e assim por diante), porque nomes como `compose.yaml` e `nginx.conf` se repetem, e rode `docker compose down` no fim de cada etapa antes de seguir. Quando um exemplo mostra a saída esperada, compare com a sua: versões, IPs, tempos e contagens vão variar, e a estrutura da saída é o que importa. Saídas abreviadas estão marcadas com `(...)` e saídas que dependem de versão ou de ambiente aparecem como aproximadas.
+
+**O que roda onde:** as Etapas 01 a 07, 13 e 14 rodam em Docker (Compose), sem instalar nginx nem apache2 no seu computador. A Etapa 04 traz, além do caminho em Docker, os comandos equivalentes para um Apache instalado no host (`sudo apt install apache2`), e a Etapa 05 pode ser repetida com um Nginx instalado no host (`sudo apt install nginx`). As Etapas 08 e 09 rodam no Minikube (com o addon `ingress` e o cert-manager instalado por Helm). As Etapas 10, 11 e 12 rodam no Minikube com o Istio instalado por `istioctl`; recomenda-se um perfil com 4 CPUs e 8 GB de memória, ajustado ao que a sua máquina tem. Ficam só como leitura: a emissão de certificados reais com Let's Encrypt (exige domínio público), a política de circuit breaking com ejeção de endpoints e a coleta de traces com Jaeger (exige configurar um provedor de tracing). A Etapa 13 usa Docker em Linux, com permissão de rede (`NET_ADMIN`) para o Keepalived.
+
+## Os termos em palavras simples
+
+O quadro abaixo traduz cada termo técnico do guia para uma ideia do dia a dia, sem F1 e sem jargão. Não precisa decorar; volte a ele quando um termo aparecer no texto.
+
+| Termo técnico | Em palavras simples |
+|---|---|
+| Servidor web | O balcão de atendimento de um prédio: recebe quem chega, entrega na hora o que já está pronto (folhetos, formulários) e encaminha os pedidos mais complicados para o setor responsável. |
+| Backend (servidor de aplicação) | O setor que de fato resolve o pedido, como o departamento que calcula o preço de uma entrega. Fica atrás do balcão e não precisa lidar com a fila. |
+| Conteúdo estático | Material que é igual para todo mundo, como um folheto impresso: basta entregar o arquivo, sem calcular nada. |
+| Requisição e resposta | O pedido que o cliente faz e a resposta que volta, como entregar um formulário no balcão e receber o carimbo de volta. |
+| Cabeçalho e código de status | Cabeçalho é a etiqueta colada na correspondência, com informações sobre ela (quem enviou, tipo de conteúdo). Código de status é o resultado resumido em um número: 200 "tudo certo", 404 "não achei", 502 e 504 "o setor de trás falhou ou demorou". |
+| Terminação TLS | Abrir o envelope lacrado (criptografado) em um único guichê na entrada, em vez de cada setor ter que saber abrir envelopes. |
+| Cache | Uma gaveta com cópias de respostas que se repetem, para não ir ao arquivo a cada pedido. |
+| Sem estado (stateless) | Cada atendimento começa do zero, como um balcão que não reconhece quem já passou ali. Por isso o cliente carrega um comprovante (cookie) que o identifica. |
+| Cookie e sessão | O comprovante que o cliente apresenta a cada visita (cookie) e a ficha que o prédio guarda sobre ele (sessão). |
+| Conexão persistente (keep-alive) | Deixar a linha telefônica aberta entre uma pergunta e outra, em vez de ligar de novo a cada pergunta. |
+| Head-of-line blocking | Uma fila de caixa única em que o primeiro cliente demora e todos atrás esperam, mesmo com pedidos simples. |
+| Multiplexação | Vários pedidos andando juntos pela mesma linha, cada um com seu número, de modo que a resposta de um não precise esperar a do outro. |
+| HTTP/1.1, HTTP/2 e HTTP/3 | Três gerações das regras de conversa entre cliente e servidor, cada uma criada para eliminar um tipo de espera da geração anterior. |
+| QUIC | Uma forma de entregar as mensagens em que cada conversa tem a sua própria esteira, então uma encomenda perdida em uma esteira não para as outras. |
+| Proxy | Um intermediário que recebe um pedido e o repassa a outro lugar em nome de alguém. |
+| Forward proxy | A portaria de saída de uma empresa: os funcionários só falam com o exterior por ela, e o exterior só enxerga a portaria. |
+| Reverse proxy | A recepção de uma empresa: quem vem de fora fala só com a recepção, que encaminha cada pedido ao setor certo sem que o visitante saiba quantos setores existem. |
+| Upstream | O grupo de setores de trás, para onde a recepção encaminha os pedidos. |
+| X-Forwarded-For | Um bilhete que a recepção anexa ao pedido dizendo quem o enviou de verdade, já que o setor de trás só vê a recepção entregando. |
+| Processo e thread | Processo é uma sala de trabalho independente, com mesa e arquivos próprios. Thread é uma pessoa trabalhando dentro de uma sala, dividindo mesa e arquivos com os colegas. |
+| Thread-safe | Uma ferramenta que várias pessoas podem usar ao mesmo tempo sem se atrapalhar. Uma ferramenta que não é thread-safe só funciona bem quando uma pessoa a usa por vez. |
+| MPM | A regra que o Apache usa para organizar o atendimento: uma sala por cliente, poucas salas com várias pessoas, ou pessoas que vigiam vários clientes em espera. |
+| Prefork, Worker e Event | As três regras de organização do Apache: uma sala isolada por cliente; poucas salas com várias pessoas cada; e a segunda regra com um jeito de não prender uma pessoa a um cliente que só está esperando. |
+| mod_php e PHP-FPM | No primeiro, o programa PHP trabalha dentro da sala do Apache. No segundo, ele é um setor separado que o Apache chama quando precisa. |
+| I/O não bloqueante e event loop | Em vez de ficar parado diante de um cliente esperando uma resposta, o atendente anota "me avise quando chegar" e atende outro. O event loop é o ciclo de olhar a lista de avisos, tratar o que está pronto e voltar à lista. |
+| Worker (Nginx) | Cada atendente que executa esse ciclo; costuma haver um por núcleo do processador. |
+| Balanceador de carga | O funcionário que, na entrada, indica a cada cliente o guichê com menos fila. |
+| Camada 4 e camada 7 | Camada 4 decide olhando só endereço e porta, como separar cartas pelo CEP sem abrir o envelope. Camada 7 abre e lê o conteúdo para decidir. |
+| Round Robin, weight, least_conn e ip_hash | Revezamento em ordem; revezamento dando mais vezes ao guichê mais forte; escolher o guichê com menos clientes agora; e mandar o mesmo cliente sempre ao mesmo guichê, a partir do endereço dele. |
+| Afinidade de sessão | Preferir que o mesmo cliente seja sempre atendido no mesmo guichê, porque a ficha dele está lá. |
+| Health check passivo e ativo | Passivo: perceber que um guichê está falhando porque clientes reais reclamaram. Ativo: alguém passar de tempos em tempos perguntando a cada guichê se ele está funcionando. |
+| Failover e servidor backup | Failover é redirecionar o atendimento quando um guichê falha. O backup é um guichê reserva, que só abre quando os principais estão fechados. |
+| Percentil (p95) | Dizer que 95% dos atendimentos foram mais rápidos que um certo tempo. Mostra a experiência dos mais lentos, que a média esconde. |
+| stub_status | Um painel simples do balcão que mostra quantos clientes estão sendo atendidos agora. |
+| Ingress e Ingress Controller | O Ingress é o quadro de avisos na portaria de um condomínio ("bloco A vai para o prédio 1, bloco B para o prédio 2"). O Controller é o porteiro que lê o quadro e age. Sem porteiro, o quadro não muda nada. |
+| ClusterIP, NodePort e LoadBalancer | Três jeitos de dar um endereço estável a um grupo de programas: só para uso interno; uma porta em cada máquina; ou um endereço externo próprio. |
+| Annotation | Observação extra colada em um recurso, que só é lida por quem sabe interpretá-la. |
+| Certificado, ACME e Let's Encrypt | Certificado é o documento que prova que o site é quem diz ser. ACME é o protocolo automático para pedir e renovar esse documento. Let's Encrypt é uma entidade gratuita que o emite. |
+| Issuer, ClusterIssuer e Certificate | Issuer é o cartório que emite documentos para uma área; ClusterIssuer é o cartório de todas as áreas; Certificate é o pedido de um documento específico. |
+| HTTP-01 e DNS-01 | Duas formas de provar ao cartório que o domínio é seu: publicar um arquivo no site ou publicar um registro no cadastro de endereços (DNS). |
+| Secret | Um cofre pequeno para senhas e chaves. O conteúdo é apenas codificado; quem protege é o controle de quem pode abrir o cofre. |
+| Service mesh | Uma rede de fiscais ao lado de cada programa, que cuidam da comunicação entre eles (reenvio, criptografia, medição) para que os programas não precisem cuidar disso. |
+| Sidecar e Envoy | Sidecar é o assistente que trabalha ao lado do programa, na mesma mesa. Envoy é o assistente que o Istio usa. |
+| Data plane e control plane | Control plane é a central que decide as regras; data plane são os assistentes que as aplicam a cada pedido. |
+| Istiod | A central do Istio: distribui regras, endereços e identidades aos assistentes. |
+| VirtualService e DestinationRule | O primeiro define para onde cada pedido vai (rotas e porcentagens). O segundo dá nome aos grupos de destino e define regras sobre eles. |
+| Subset | Um subgrupo nomeado de programas iguais com uma etiqueta em comum, por exemplo "versão 1". |
+| Canary, A/B e mirroring | Canário: testar com poucos clientes antes de liberar para todos. A/B: dar versões diferentes a grupos escolhidos por alguma característica. Mirroring: mandar uma cópia do pedido à versão nova só para observar, sem entregar a resposta dela ao cliente. |
+| Retry e timeout | Retry é tentar de novo um pedido que falhou. Timeout é o tempo máximo de espera antes de desistir. |
+| Circuit breaking | O disjuntor: parar de enviar pedidos a um destino que está falhando, para não piorar a situação. |
+| mTLS | As duas pontas mostram o crachá uma à outra antes de conversar, e a conversa é em código. |
+| PeerAuthentication e AuthorizationPolicy | A primeira exige crachá na conversa. A segunda é a lista de quem, com crachá, pode pedir o quê. |
+| Tracing distribuído | Um número de protocolo que acompanha um pedido por todos os setores, para ver onde ele demorou mais. |
+| SLA e SLO | SLA é a promessa escrita ao cliente, com consequências se falhar. SLO é a meta interna, em geral mais rigorosa. |
+| Orçamento de erro | A quantidade de falha que a meta permite no período, como um limite de faltas. |
+| SPOF | Um ponto único de falha: a única chave de uma porta. Se ela se perde, ninguém entra. |
+| Ativo-passivo e ativo-ativo | Uma recepção principal com uma reserva parada, ou duas recepções trabalhando juntas. |
+| VRRP, Keepalived e IP virtual | Dois atendentes combinam um número de telefone compartilhado. O telefone toca no que está de plantão e passa para o outro se ele sair. |
+| RTO e RPO | O tempo máximo aceito para voltar a atender e a quantidade máxima de informação (medida em tempo) que se aceita perder. |
+| HA e DR | HA é manter o atendimento quando uma peça falha. DR é o plano para recomeçar depois de um desastre grande, como a perda de todo o prédio. |
+| Chaos engineering | Um simulado de incêndio: provocar uma falha controlada, com hipótese e hora para parar, para ver se o plano funciona. |
+| WAF | Segurança de portaria que lê o conteúdo do pedido procurando golpes conhecidos, além de conferir documentos. |
+| ModSecurity e OWASP CRS | O mecanismo que aplica as regras de segurança e o livro de regras mantido pela comunidade. |
+| Pontuação de anomalia e modo de detecção | Cada suspeita soma pontos e só quem passa de um limite é barrado. No modo de detecção, o segurança apenas anota o que barraria, sem barrar, para calibrar. |
+| Rate limiting | Um limite de quantos pedidos por minuto cada pessoa pode fazer. |
+| HSTS | O aviso que o site dá ao navegador: "daqui para a frente, só fale comigo pela via segura". |
+| Defesa em camadas | Várias barreiras em sequência (portaria, catraca, porta), de modo que a falha de uma não deixe tudo exposto. |
 
 ---
 
-## Etapa 01: para que serve um servidor web
+## Etapa 01: Para que serve um servidor web
 
 ### O problema
 
-Imagine uma equipe que sobe uma aplicação Node.js e a deixa atendendo diretamente na porta 3000, sem nada na frente dela. No começo funciona bem. Só que, conforme o produto cresce, uma série de dores aparece, e nenhuma delas tem a ver com a lógica de negócio da aplicação:
+Uma equipe publica uma aplicação Node.js e a deixa atendendo diretamente na porta 3000, sem nada na frente dela. No começo funciona bem. Conforme o produto cresce, aparecem dores que não têm relação com a regra de negócio. As imagens e os arquivos CSS e JavaScript do site passam a competir pelo mesmo processo que executa a lógica da aplicação, e tudo fica mais lento.
 
-1. O time quer servir imagens e arquivos estáticos do site (CSS, JavaScript, fotos de produto). Cada uma dessas requisições passa a competir pelo mesmo processo que está executando a lógica de negócio, deixando tudo mais lento.
-2. Chega a hora de renovar o certificado HTTPS. Como ele está configurado dentro do código da aplicação, toda renovação exige mexer no app e reiniciar o processo, mesmo que nada tenha mudado na regra de negócio.
-3. O tráfego cresce e uma única instância do Node não aguenta mais sozinha. Colocar mais réplicas ajuda, mas alguém precisa decidir, requisição a requisição, para qual réplica mandar cada uma.
-4. Um bot começa a fazer scraping agressivo no catálogo de produtos. Não existe nenhuma camada filtrando esse tráfego antes de ele bater direto na aplicação.
+Chega a hora de renovar o certificado HTTPS, e como ele está configurado dentro do código, a renovação exige mexer na aplicação e reiniciar o processo mesmo sem nenhuma mudança de regra de negócio. O tráfego sobe e uma única instância não aguenta mais, mas distribuir o tráfego entre réplicas vira uma decisão manual a cada requisição. Por fim, um bot começa a fazer scraping agressivo do catálogo, e não existe camada nenhuma filtrando esse tráfego antes de ele bater direto na aplicação.
 
-Cada um desses problemas é de infraestrutura de borda, não de regra de negócio. Resolver todos dentro do próprio código da aplicação mistura responsabilidades que deveriam estar separadas, e é exatamente esse conjunto de responsabilidades que um servidor web como o Apache HTTP Server ou o Nginx assume.
+Todos esses problemas são de infraestrutura de borda, não de regra de negócio. Resolvê-los dentro do código da aplicação mistura responsabilidades que deveriam estar separadas, e é exatamente esse conjunto de responsabilidades que um servidor web como o Apache HTTP Server ou o Nginx assume.
 
 ### O conceito
 
-**Analogia:** pense na recepção de um prédio comercial. Sem ela, cada visitante teria que descobrir sozinho a sala certa, cada escritório precisaria cuidar da própria segurança e climatização, e não haveria ninguém filtrando quem não deveria nem entrar no prédio. Com uma recepção central, o visitante fala com um único ponto, que decide para onde encaminhá-lo, barra quem não deveria passar e cuida de tarefas comuns (identificação, recados) sem envolver cada escritório individualmente. O servidor web é essa recepção da sua infraestrutura: o ponto por onde toda requisição HTTP entra antes de chegar (ou não) até a sua aplicação.
+Um servidor web é o ponto por onde toda requisição HTTP entra antes de chegar (ou não) à aplicação. A aplicação, também chamada de backend ou servidor de aplicação (Node.js, PHP-FPM, Tomcat, Gunicorn), executa a lógica de negócio. O servidor web cuida de tudo o que está ao redor dela. Um servidor web moderno assume, tipicamente, seis funções:
 
-Um servidor web moderno assume, tipicamente, seis funções:
+- **Servir conteúdo estático**: entrega HTML, CSS, JavaScript, imagens e vídeos direto do disco, sem acionar código de aplicação.
+- **Fazer proxy para aplicações dinâmicas**: encaminha requisições para PHP-FPM, Tomcat, Node.js, Gunicorn e similares.
+- **Balancear carga**: distribui as requisições entre vários servidores de aplicação.
+- **Terminar TLS**: gerencia certificados e criptografia em um ponto central, em vez de espalhar essa tarefa por cada instância.
+- **Fazer cache**: guarda respostas já produzidas para entregá-las mais rápido depois, sem repetir o trabalho.
+- **Controlar acesso e segurança**: filtra tráfego malicioso e aplica autenticação antes que o ataque chegue perto da aplicação.
 
-- **Servir conteúdo estático**: entregar HTML, CSS, JavaScript, imagens e vídeos diretamente do disco, sem acionar nenhum código de aplicação. O Nginx se destaca aqui pela arquitetura otimizada que você vai ver na Etapa 05.
-- **Fazer proxy para aplicações dinâmicas**: encaminhar requisições para os processos que de fato rodam a lógica de negócio (PHP-FPM, Apache Tomcat, Node.js, Python com Gunicorn, etc.). Você aprofunda esse conceito na Etapa 03.
-- **Balanceamento de carga**: distribuir requisições entre múltiplos servidores de aplicação, garantindo alta disponibilidade.
-- **Terminação SSL/TLS**: gerenciar certificados e criptografia num único ponto central, em vez de espalhar essa responsabilidade por cada instância da aplicação.
-- **Caching**: guardar respostas já processadas para entregar mais rápido em requisições futuras, sem repetir trabalho.
-- **Controle de acesso e segurança**: filtrar tráfego malicioso, aplicar regras de autenticação e proteger a aplicação de ataques antes que eles cheguem perto dela.
+O Apache HTTP Server teve seu primeiro lançamento em 1995, então a categoria tem mais de três décadas de uso. Quando o servidor web responde antes de qualquer aplicação existir (por exemplo, um 404 para um arquivo inexistente), ele mostra que é uma camada própria, e o cabeçalho `Server` da resposta identifica qual software atendeu. As etapas seguintes aprofundam cada função: proxy na Etapa 03, MPMs do Apache na Etapa 04, arquitetura do Nginx na Etapa 05 e balanceamento na Etapa 06.
 
-### Exemplo comentado: o cabeçalho `Server` denuncia quem está te atendendo
+### Os conceitos-chave
+
+- **Servidor web**: software na borda que recebe as requisições HTTP e decide se responde sozinho ou encaminha à aplicação.
+- **Backend**: o processo que executa a regra de negócio; não deveria cuidar de TLS, arquivos estáticos nem filtragem de tráfego.
+- **Conteúdo estático**: arquivo pronto servido direto do disco, sem código de aplicação.
+- **Proxy para aplicação dinâmica**: o servidor web repassa ao backend o que só ele sabe responder.
+- **Terminação TLS**: a criptografia é aberta em um único ponto, e a renovação de certificado deixa de tocar na aplicação.
+- **Cabeçalho `Server`**: identifica o software que respondeu e permite descobrir rapidamente quem está na frente.
+
+### Exemplo comentado: um servidor web mínimo e o cabeçalho Server
+
+O bloco abaixo mostra a sintaxe de uma configuração Nginx que serve uma página estática. Ele é ilustrativo: a imagem oficial do Nginx já sobe com uma configuração equivalente, então você não precisa criar este arquivo para fazer o exercício desta etapa.
 
 ```nginx
-# /etc/nginx/conf.d/default.conf
+# default.conf
 server {
     listen 80;                       # a porta que o Nginx escuta
-    server_name localhost;           # o domínio que este bloco atende
+    server_name localhost;           # o nome que este bloco atende
 
-    location / {
+    location / {                     # regra para todas as URLs que começam com "/"
         root /usr/share/nginx/html;  # a pasta onde estão os arquivos estáticos
-        index index.html;           # arquivo servido quando a URL termina em "/"
+        index index.html;            # arquivo servido quando a URL termina em "/"
     }
 }
 ```
 
-Cada `location` desse arquivo é uma regra de roteamento: "requisições que batem em `/`, sirva o arquivo `index.html` desta pasta". Ainda não há nenhuma aplicação por trás; é puro conteúdo estático, servido diretamente pelo servidor web.
-
-> **Nota:** este bloco é ilustrativo, mostra a sintaxe de um arquivo de configuração Nginx, mas você não precisa criá-lo nem editá-lo à mão para completar o mão na massa desta etapa. A imagem oficial `nginx:latest` já sobe com uma configuração equivalente pronta, servindo uma página estática padrão por conta própria. Você vai editar um arquivo de verdade como esse a partir da Etapa 03.
+Cada `location` é uma regra de roteamento. Aqui não há aplicação nenhuma por trás: é conteúdo estático servido diretamente pelo servidor web. O comando `curl -I` mostra só os cabeçalhos da resposta, e o `Server` revela quem atendeu.
 
 ```sh
+# saída aproximada: as versões variam
 $ curl -I http://localhost:8080
 HTTP/1.1 200 OK
-Server: nginx/1.27.0
+Server: nginx/1.xx.x
 Content-Type: text/html
 Content-Length: 615
 
 $ curl -I http://localhost:8081
 HTTP/1.1 200 OK
-Server: Apache/2.4.58 (Unix)
+Server: Apache/2.4.xx (Unix)
 Content-Type: text/html
 ```
 
-Repare no cabeçalho `Server`: é o próprio servidor web se apresentando, e ele responde antes mesmo de qualquer aplicação existir por trás dele.
+São dois softwares diferentes cumprindo a mesma tarefa (entregar uma página), e ambos responderam antes de qualquer aplicação existir.
+
+### Comandos essenciais
+
+- `docker run -d --name nginx-lab -p 8080:80 nginx:stable`: sobe um Nginx de exemplo na porta 8080 (a tag `stable` é móvel; fixe a versão quando precisar reproduzir um resultado).
+- `docker run -d --name apache-lab -p 8081:80 httpd:2.4`: sobe um Apache de exemplo na porta 8081.
+- `curl -I http://localhost:8080`: mostra só os cabeçalhos, sem baixar o corpo.
+- `curl -I http://localhost:8080/nao-existe`: confirma o 404 vindo do servidor web.
+- `docker logs nginx-lab`: mostra o registro de acessos que o próprio servidor web mantém.
 
 ### Mão na massa
 
-1. Suba um container Nginx (`docker run -d -p 8080:80 nginx:latest`) e um container Apache (`docker run -d -p 8081:80 httpd:latest`).
-2. Rode `curl -I http://localhost:8080` e `curl -I http://localhost:8081`. **Observe** o cabeçalho `Server` de cada um: são dois softwares diferentes respondendo pela mesma tarefa (entregar uma página).
-3. Peça um caminho que não existe em cada um (`curl -I http://localhost:8080/nao-existe`) e **observe** o `404 Not Found`. Repare que essa resposta veio do servidor web, sem nenhuma aplicação ter sido acionada.
+1. Suba os dois containers: `docker run -d --name nginx-lab -p 8080:80 nginx:stable` e `docker run -d --name apache-lab -p 8081:80 httpd:2.4`.
+2. Rode `curl -I http://localhost:8080` e `curl -I http://localhost:8081`. **Observe** o cabeçalho `Server` de cada um e o `200 OK`.
+3. Peça um caminho que não existe (`curl -I http://localhost:8080/nao-existe`) e **observe** o `404 Not Found`. Essa resposta veio do servidor web, sem nenhuma aplicação ter sido acionada.
+4. Rode `docker logs nginx-lab` e **observe** as linhas de acesso com as suas requisições, inclusive a que resultou em 404.
+5. Limpe: `docker rm -f nginx-lab apache-lab`.
+
+### Dica
+
+Use `curl -I` para inspecionar só os cabeçalhos. É o jeito mais rápido de descobrir qual servidor está respondendo antes de aprofundar uma investigação. Lembre que o cabeçalho `Server` também informa a versão do software, o que é útil para você e para quem ataca; a Etapa 14 mostra como ocultar a versão.
 
 ### Anota aí
 
-> Um servidor web não roda a lógica de negócio da sua aplicação: ele cuida de tudo que está ao redor dela (estático, proxy, TLS, cache, segurança) para que a aplicação não precise se preocupar com isso.
+> Um servidor web não executa a regra de negócio: ele cuida de tudo ao redor dela (estático, proxy, TLS, cache, segurança) para que a aplicação não precise cuidar disso.
 
 ---
 
-## Etapa 02: HTTP e sua evolução, de 1.1 a QUIC/HTTP-3
+## Etapa 02: HTTP e sua evolução, de 1.1 a HTTP/3
 
 ### O problema
 
-Duas cenas explicam por que o protocolo HTTP precisou evoluir.
+Duas cenas explicam por que o HTTP precisou evoluir. Na primeira, a página de um produto de e-commerce carrega o HTML principal e mais 40 miniaturas de imagem. Mesmo com conexões persistentes (keep-alive), o HTTP/1.1 processa uma requisição de cada vez dentro de uma conexão: a segunda imagem só começa a baixar depois que a resposta da primeira terminar de chegar. Os navegadores contornam parcialmente isso abrindo várias conexões TCP em paralelo com o mesmo domínio (em geral cerca de seis), mas isso apenas troca um custo por outro, porque agora há várias conexões para gerenciar.
 
-**Cena 1.** A página de um produto de e-commerce carrega o HTML principal e mais 40 miniaturas de imagem. O navegador abre uma conexão TCP com o servidor e, mesmo usando conexões persistentes (keep-alive), o HTTP/1.1 processa uma requisição de cada vez dentro daquela conexão: a segunda imagem só começa a ser baixada depois que a resposta da primeira terminar de chegar por completo. (Na prática, os navegadores contornam parcialmente isso abrindo várias conexões TCP em paralelo com o mesmo domínio, mas isso só troca um custo por outro: agora são várias conexões para gerenciar.) O resultado é uma página perceptivelmente lenta para carregar algo tão simples quanto ícones.
+Na segunda cena, mesmo com a primeira resolvida, um usuário em uma rede móvel instável ainda sente lentidão. Basta um único pacote se perder no caminho para que o carregamento inteiro trave até a retransmissão chegar, mesmo que todos os outros pacotes já tenham chegado ao destino.
 
-**Cena 2.** Mesmo depois de resolvido o problema da cena 1 (você vai ver como, mais adiante), um usuário acessando pelo celular numa rede móvel instável ainda sente lentidão: basta um único pacote se perder no meio do caminho para que o carregamento inteiro da página trave por um instante, mesmo que todos os outros pacotes já tenham chegado ao destino.
-
-A cena 1 motivou a criação do HTTP/2. A cena 2 motivou a criação do HTTP/3.
+A primeira cena motivou o HTTP/2. A segunda motivou o HTTP/3.
 
 ### O conceito
 
-Antes das versões, um fato estrutural do próprio HTTP: ele é um protocolo sem estado (stateless). Cada requisição é tratada de forma completamente independente, sem memória de requisições anteriores, como uma carta enviada pelo correio, que não carrega lembrança de cartas anteriores. Essa característica torna o protocolo mais simples de escalar, mas exige mecanismos por cima dele (cookies, sessões) para simular contexto entre requisições de um mesmo usuário.
+Antes das versões, um fato estrutural: o HTTP é um protocolo **sem estado** (stateless). Cada requisição é tratada de forma independente, sem memória das anteriores. Isso simplifica a escala, mas exige mecanismos por cima do protocolo (cookies e sessões) para manter o contexto de um mesmo usuário.
 
-**HTTP/1.1, a versão clássica (1997).** Introduziu conexões persistentes (keep-alive), permitindo várias requisições e respostas na mesma conexão TCP, o que reduziu bastante a sobrecarga de abrir conexão nova a cada recurso. A limitação é o **head-of-line blocking**: se a primeira requisição demora, todas as seguintes, naquela mesma conexão, ficam esperando.
+- **HTTP/1.1 (1997)**: introduziu conexões persistentes (keep-alive), permitindo várias requisições e respostas na mesma conexão TCP e reduzindo o custo de abrir uma conexão nova por recurso. A limitação é o **head-of-line blocking**: se a primeira requisição demora, as seguintes na mesma conexão esperam.
+- **HTTP/2 (2015)**: resolve o head-of-line blocking da primeira cena, na camada de aplicação. Várias requisições e respostas (streams) trafegam ao mesmo tempo pela mesma conexão TCP, sem uma bloquear a outra. Também trouxe priorização de recursos, compressão de cabeçalhos (HPACK) e o Server Push, que caiu em desuso porque os principais navegadores removeram ou restringiram o suporte, já que o ganho raramente compensava a complexidade. Na web, o HTTP/2 é usado sobre TLS, e cliente e servidor combinam a versão durante o handshake TLS (extensão ALPN).
+- **HTTP/3 (QUIC sobre UDP)**: o HTTP/2 resolveu o problema na aplicação, mas o TCP garante que os bytes cheguem em ordem estrita. Se um pacote se perde, tudo o que veio depois dele espera a retransmissão, mesmo que pertença a outro stream. O HTTP/3 troca o TCP pelo QUIC, que roda sobre UDP: cada stream é independente, e a perda de um pacote só atrasa o stream afetado. O QUIC também combina o handshake de transporte com o de TLS 1.3, o que tende a estabelecer a conexão mais rápido. O ganho é maior em redes com perda de pacotes ou latência alta, como conexões móveis.
 
-**HTTP/2, a multiplexação (2015).** Resolve o head-of-line blocking da cena 1, na camada de aplicação: várias requisições e respostas trafegam simultaneamente pela mesma conexão TCP, sem uma bloquear a outra. Além disso trouxe: priorização de recursos (o cliente indica o que é mais importante), compressão de cabeçalhos via HPACK (reduz sobrecarga) e Server Push (o servidor podia enviar recursos antes de o cliente pedir; veja a nota do professor ao final sobre o estado atual desse recurso). O ganho de performance é mais perceptível justamente em páginas com muitos recursos pequenos, exatamente como a da cena 1.
+Na prática, o cliente descobre que o servidor oferece HTTP/3 pelo cabeçalho de resposta `Alt-Svc`. Redes que bloqueiam UDP na porta 443 fazem o cliente voltar para HTTP/2 ou HTTP/1.1.
 
-**HTTP/3, QUIC sobre UDP (a evolução mais recente).** O HTTP/2 resolveu o head-of-line blocking na aplicação, mas o problema da cena 2 continua existindo numa camada abaixo: o TCP garante que os bytes cheguem em ordem estrita, então, se um pacote se perde, tudo que veio depois dele espera pela retransmissão, mesmo que pertença a um stream HTTP/2 diferente do que travou. O **HTTP/3** ataca esse problema trocando o TCP pelo **QUIC** (Quick UDP Internet Connections, desenvolvido originalmente pelo Google), que roda sobre UDP. Cada stream QUIC é independente: a perda de um pacote de um stream não trava os demais. O estabelecimento da conexão também tende a ser mais rápido, porque o QUIC combina em menos idas e vindas o que o TCP e o TLS tradicionalmente fazem em etapas separadas. O ganho é maior justamente em redes com perda de pacotes ou latência alta, o cenário típico de conexões móveis.
+### Os conceitos-chave
 
-| Versão | Transporte | Problema que resolveu | Como |
-|---|---|---|---|
-| HTTP/1.1 | TCP | Reabrir conexão a cada requisição | Conexões persistentes (keep-alive) |
-| HTTP/2 | TCP | Head-of-line blocking na aplicação | Multiplexação de streams numa única conexão |
-| HTTP/3 | UDP (QUIC) | Head-of-line blocking do próprio TCP | Streams independentes sobre UDP |
+- **Stateless**: cada requisição é independente; cookies e sessões simulam contexto por cima.
+- **Keep-alive (HTTP/1.1)**: reaproveita a conexão TCP, mas atende uma requisição por vez nela.
+- **Head-of-line blocking**: um item lento segura os que vêm depois dele na mesma fila.
+- **Multiplexação (HTTP/2)**: vários streams na mesma conexão TCP; resolve o bloqueio na aplicação.
+- **QUIC (HTTP/3)**: streams independentes sobre UDP; resolve o bloqueio no transporte.
+- **ALPN e Alt-Svc**: ALPN negocia h2 durante o handshake TLS; `Alt-Svc` anuncia o HTTP/3.
 
-### Exemplo comentado: perguntando ao próprio `curl` qual versão foi negociada
+### Exemplo comentado: perguntando ao curl qual versão foi negociada
 
 ```sh
-# Deixa o curl negociar livremente e mostra a versão usada na resposta
+# Deixa o curl negociar livremente e mostra a versão usada (saída aproximada)
 $ curl -so /dev/null -w 'Protocolo negociado: HTTP/%{http_version}\n' https://www.cloudflare.com
 Protocolo negociado: HTTP/2
 
@@ -125,73 +219,158 @@ Protocolo negociado: HTTP/2
 $ curl --http1.1 -so /dev/null -w 'Protocolo negociado: HTTP/%{http_version}\n' https://www.cloudflare.com
 Protocolo negociado: HTTP/1.1
 
-# Força HTTP/3 (exige um curl compilado com suporte a QUIC, veja a nota abaixo)
+# Força HTTP/3 (exige um curl compilado com suporte a QUIC)
 $ curl --http3 -so /dev/null -w 'Protocolo negociado: HTTP/%{http_version}\n' https://www.cloudflare.com
 Protocolo negociado: HTTP/3
 ```
 
-Nota: nem todo `curl` vem compilado com suporte a HTTP/3 (depende de uma biblioteca QUIC, como a `ngtcp2` ou a `quiche`). Rode `curl --version | grep -i http3` (ou `grep -i quic`) para conferir se o seu suporta antes de usar a flag `--http3`.
+Nem todo `curl` vem com suporte a HTTP/3 (depende de uma biblioteca QUIC). Rode `curl --version | grep -i http3` para conferir antes de usar `--http3`. Os resultados dependem de o domínio escolhido suportar cada versão e de a sua rede permitir UDP.
+
+Para ver a negociação acontecer em um servidor seu, sem depender da internet, suba um Nginx com HTTP/2 usando um certificado autoassinado.
+
+```sh
+# Gera um certificado autoassinado de laboratório (válido por 30 dias)
+$ mkdir -p certs
+$ openssl req -x509 -newkey rsa:2048 -nodes -days 30 -subj "/CN=localhost" \
+    -keyout certs/key.pem -out certs/cert.pem
+```
+
+```nginx
+# h2.conf
+server {
+    listen 443 ssl;                              # escuta HTTPS na porta 443 do container
+    http2 on;                                    # habilita HTTP/2 (nginx 1.25.1 ou superior)
+    ssl_certificate     /etc/nginx/certs/cert.pem;      # certificado
+    ssl_certificate_key /etc/nginx/certs/key.pem;       # chave privada
+    default_type text/plain;                     # tipo da resposta de teste
+
+    location / {
+        return 200 "ola\n";                      # resposta fixa, sem backend
+    }
+}
+```
+
+```sh
+# Sobe o Nginx montando a configuração e os certificados
+$ docker run -d --name h2-lab -p 8443:443 \
+    -v "$PWD/h2.conf:/etc/nginx/conf.d/default.conf:ro" \
+    -v "$PWD/certs:/etc/nginx/certs:ro" nginx:stable
+
+# -k aceita o certificado autoassinado
+$ curl -sk -o /dev/null -w 'HTTP/%{http_version}\n' https://localhost:8443/
+HTTP/2
+
+$ curl -sk --http1.1 -o /dev/null -w 'HTTP/%{http_version}\n' https://localhost:8443/
+HTTP/1.1
+```
+
+### Comandos essenciais
+
+- `curl -so /dev/null -w 'HTTP/%{http_version}\n' <url>`: mostra a versão negociada.
+- `curl --http1.1 <url>`: força HTTP/1.1.
+- `curl --http2 <url>`: pede HTTP/2.
+- `curl --http3 <url>`: força HTTP/3 (exige curl com suporte a QUIC).
+- `curl --version | grep -i http3`: confere se o seu curl suporta HTTP/3.
+- `curl -sI https://www.cloudflare.com | grep -i alt-svc`: mostra o anúncio de HTTP/3 feito pelo servidor (depende do domínio).
 
 ### Mão na massa
 
-1. Escolha um domínio que você sabe que suporta HTTP/2 (por exemplo, `www.cloudflare.com` ou `www.google.com`) e rode os três comandos do exemplo acima. **Observe** o valor de `%{http_version}` mudando conforme a flag usada.
-2. Rode `curl -v --http2 https://www.cloudflare.com 2>&1 | grep -i "HTTP/2"` e ache, no meio da saída detalhada, a linha que confirma a negociação da versão durante o handshake.
-3. Se o seu `curl` tiver suporte a HTTP/3, repita com `--http3` e compare o tempo de resposta com `-w '%{time_total}\n'` nas três variantes.
+1. Escolha um domínio que suporte HTTP/2 (por exemplo, `www.cloudflare.com`) e rode os dois primeiros comandos do exemplo. **Observe** o valor de `%{http_version}` mudando conforme a flag.
+2. Rode `curl -v --http2 https://www.cloudflare.com 2>&1 | grep -i "HTTP/2"` e **observe** a linha que confirma a versão negociada no handshake.
+3. Se o seu curl tiver suporte a HTTP/3, repita com `--http3` e compare `-w '%{time_total}\n'` nas três variantes. Não espere uma diferença grande em uma rede estável.
+4. Gere o certificado, crie `h2.conf` e suba o `h2-lab`. **Observe** `HTTP/2` na primeira chamada e `HTTP/1.1` com `--http1.1`.
+5. Apague a linha `http2 on;` do `h2.conf` local (o arquivo é montado no container, então a edição vale lá dentro) e rode `docker exec h2-lab nginx -s reload`. Repita o `curl` sem flag e **observe** que a versão volta a ser `HTTP/1.1`, porque o servidor deixou de oferecer h2 no handshake.
+6. Limpe: `docker rm -f h2-lab`.
+
+### Dica
+
+Saber que o HTTP/2 limpou a fila na aplicação e que o HTTP/3 desceu ao transporte para resolver o problema na raiz é a distinção que separa decorar versões de entender o protocolo. Ao diagnosticar lentidão, pergunte primeiro em qual camada a espera acontece.
 
 ### Anota aí
 
-> Cada versão do HTTP resolveu o head-of-line blocking numa camada diferente: o /2 resolveu na aplicação com multiplexação; o /3 resolveu no transporte, trocando TCP por QUIC sobre UDP.
+> Cada versão do HTTP resolveu o head-of-line blocking em uma camada diferente: o HTTP/2 na aplicação, com multiplexação, e o HTTP/3 no transporte, trocando TCP por QUIC sobre UDP.
 
 ---
 
-## Etapa 03: Forward Proxy e Reverse Proxy, os dois intermediários da web
+## Etapa 03: Forward proxy e reverse proxy
 
 ### O problema
 
-Duas cenas simétricas, uma do lado do cliente e outra do lado do servidor.
+Duas necessidades simétricas, uma do lado do cliente e outra do lado do servidor. No lado do cliente, uma empresa quer que todo o tráfego de saída dos funcionários passe por um ponto de controle único, para bloquear sites indesejados, registrar acessos por conformidade e evitar que o IP interno de cada máquina fique exposto diretamente à internet.
 
-**Cena A (lado do cliente).** Uma empresa quer que todo o tráfego de saída dos funcionários passe por um ponto de controle único: bloquear sites indesejados, registrar acessos por questão de conformidade, e evitar que o IP interno de cada máquina fique exposto diretamente para a internet.
+No lado do servidor, a mesma empresa mantém cinco servidores de aplicação atrás de um único domínio público. Não faz sentido expor o IP de cada servidor, repetir a configuração do certificado TLS em cada um deles, nem deixar cada servidor decidir sozinho se aguenta mais uma conexão.
 
-**Cena B (lado do servidor).** A mesma empresa mantém cinco servidores de aplicação atrás de um único domínio público. Não faz sentido expor o IP de cada servidor individualmente, nem repetir a configuração do certificado TLS em cada um deles, nem deixar cada servidor decidir sozinho se aguenta receber mais uma conexão simultânea.
-
-Duas necessidades diferentes, mas com uma peça em comum: um intermediário que se posiciona entre quem pede e quem responde. A diferença está em qual lado esse intermediário representa e protege.
+São duas necessidades diferentes com uma peça em comum: um intermediário entre quem pede e quem responde. A diferença está em qual lado o intermediário representa e protege.
 
 ### O conceito
 
-**Forward Proxy: o intermediário de saída.** Fica posicionado entre um cliente (geralmente dentro de uma rede privada) e a internet, e é explicitamente configurado no lado do cliente (no navegador, no sistema operacional ou na aplicação). **Analogia:** é como um assistente pessoal. Você não vai pessoalmente à loja: pede ao assistente, ele decide onde comprar, faz a compra em seu nome e te entrega o resultado. A loja nem sabe que foi você quem pediu, só enxerga o assistente.
+**Forward proxy, o intermediário de saída.** Fica entre um cliente (geralmente em uma rede privada) e a internet, e é configurado explicitamente no lado do cliente (navegador, sistema operacional ou aplicação). O fluxo é este: o cliente envia a requisição ao proxy indicando o destino; o proxy analisa e decide se encaminha ou bloqueia; se encaminha, faz a requisição em nome do cliente; a resposta volta ao proxy, que a repassa ao cliente. Para HTTPS, o cliente pede ao proxy um túnel (método `CONNECT`), e o proxy só enxerga o conteúdo se fizer inspeção de TLS. Casos de uso: segurança e conformidade, controle de conteúdo, anonimato (mascarar o IP do cliente) e cache. O Squid é um exemplo de software que cumpre esse papel.
 
-Funcionamento do Forward Proxy:
-1. O cliente envia uma requisição ao proxy, especificando o destino.
-2. O proxy intercepta, analisa e decide se encaminha ou bloqueia.
-3. Se encaminhada, o proxy faz a requisição em nome do cliente.
-4. A resposta volta ao proxy, que a repassa ao cliente.
+**Reverse proxy, o intermediário de entrada.** Fica na borda da infraestrutura, recebe as requisições da internet e as distribui para os servidores de aplicação atrás dele. É transparente para o cliente, que nem sabe que ele existe. O fluxo: o cliente envia a requisição ao IP público do proxy; com base em regras, o proxy escolhe o backend; encaminha a requisição; o backend responde ao proxy; o proxy entrega a resposta ao cliente. Funções principais: balanceamento de carga, terminação TLS centralizada (tirando essa carga dos backends), cache, uma primeira camada de segurança, compressão (Gzip ou Brotli) e roteamento entre serviços. Sobre a segurança, o proxy puro filtra certos padrões de tráfego, mas bloquear ataques como XSS normalmente exige regras de WAF (Etapa 14).
 
-Casos de uso: segurança e conformidade (forçar o tráfego por firewalls), controle de conteúdo (bloquear sites), anonimato e privacidade (mascarar o IP real do cliente) e cache (guardar respostas frequentes, economizando banda). Softwares como o Squid implementam esse papel; a configuração muda de produto para produto, mas o padrão de uso do lado do cliente é sempre parecido.
+A regra prática para distinguir os dois: pergunte quem configurou o apontamento para o intermediário. Se foi o cliente, é forward proxy. Se foi a infraestrutura do servidor e o cliente não sabe, é reverse proxy.
 
-**Reverse Proxy: o guardião inteligente da entrada.** Fica na borda da infraestrutura, recebendo requisições da internet e distribuindo-as para os servidores de aplicação por trás dele. É transparente para o cliente: ele nem sabe que existe. **Analogia:** é literalmente a recepção da Etapa 01, vista de outro ângulo. Na Etapa 01 falamos do papel geral do servidor web; aqui formalizamos esse papel especificamente quando ele existe para proteger e organizar o que está atrás dele, como uma recepcionista que atende todo visitante, decide quem vai atender cada um, já tem respostas prontas para perguntas comuns e barra quem não deveria passar.
+Há uma consequência para o backend: ele só enxerga o proxy abrindo a conexão. Para saber quem fez o pedido de verdade, o proxy repassa o IP do cliente em cabeçalhos como `X-Real-IP` e `X-Forwarded-For` (não padronizados, mas amplamente usados; o cabeçalho padronizado é o `Forwarded`). O backend só deve confiar nesses cabeçalhos quando vierem de um proxy conhecido, porque um cliente pode enviá-los forjados.
 
-Funcionamento do Reverse Proxy:
-1. O cliente envia a requisição para o IP público do proxy.
-2. Com base em regras, o proxy escolhe o backend apropriado.
-3. O proxy encaminha a requisição ao backend escolhido.
-4. O backend processa e devolve a resposta ao proxy.
-5. O proxy entrega a resposta ao cliente.
+### Os conceitos-chave
 
-Funções principais: balanceamento de carga entre múltiplos backends, terminação de SSL/TLS centralizada (tirando essa carga de CPU dos backends), cache de conteúdo, uma primeira camada de segurança contra tráfego malicioso (para bloquear ataques específicos como XSS, normalmente é preciso adicionar regras de WAF, um módulo de segurança dedicado, e não apenas o proxy puro), compressão (Gzip/Brotli, economizando banda) e roteamento inteligente entre diferentes serviços.
+- **Forward proxy**: do lado do cliente, configurado por ele, representa o cliente perante a internet.
+- **Reverse proxy**: do lado do servidor, configurado pela infraestrutura, transparente ao cliente.
+- **upstream**: o grupo de backends para onde o reverse proxy encaminha.
+- **proxy_pass**: a diretiva do Nginx que encaminha a requisição ao backend.
+- **X-Real-IP e X-Forwarded-For**: cabeçalhos que carregam o IP do cliente original até o backend.
+- **Host**: sem `proxy_set_header Host`, o Nginx envia ao backend o nome do upstream, e não o domínio que o cliente usou.
 
-| | Forward Proxy | Reverse Proxy |
-|---|---|---|
-| Fica do lado de | Cliente | Servidor |
-| Configurado por | O próprio cliente | A infraestrutura do servidor |
-| Protege/representa | O cliente perante a internet | O servidor perante a internet |
-| Visível para o cliente? | Sim, é configurado explicitamente | Não, é transparente |
+### Exemplo comentado: reverse proxy Nginx e forward proxy Squid no mesmo laboratório
 
-### Exemplo comentado: um reverse proxy Nginx na frente de um backend simples
+Primeiro, um backend didático em Python (só biblioteca padrão). Ele devolve o próprio nome, o caminho recebido e, em `/headers`, os cabeçalhos que chegaram e o IP de quem abriu a conexão. Este mesmo `backend.py` será reaproveitado nas etapas seguintes.
+
+```python
+# backend.py
+import os
+import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+NAME = os.environ.get("NAME", "backend")      # nome devolvido nas respostas
+PORT = int(os.environ.get("PORT", "3000"))    # porta de escuta
+DELAY = float(os.environ.get("DELAY", "0"))   # atraso artificial, em segundos
+
+
+class Handler(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"             # permite conexões persistentes
+
+    def responder(self, com_corpo):
+        if self.path == "/slow":
+            time.sleep(10)                    # simula um backend travado
+        elif self.path != "/healthz":
+            time.sleep(DELAY)                 # simula um backend lento
+        if self.path.endswith("/headers"):
+            linhas = [f"peer: {self.client_address[0]}"]   # quem abriu a conexão TCP
+            linhas += [f"{k}: {v}" for k, v in self.headers.items()]
+            corpo = "\n".join(linhas) + "\n"
+        else:
+            corpo = f"{NAME} recebeu {self.path}\n"
+        dados = corpo.encode()
+        self.send_response(200)
+        self.send_header("Content-Length", str(len(dados)))
+        self.end_headers()
+        if com_corpo:                         # HEAD não envia corpo
+            self.wfile.write(dados)
+
+    def do_GET(self):
+        self.responder(True)
+
+    def do_HEAD(self):
+        self.responder(False)
+
+
+ThreadingHTTPServer(("0.0.0.0", PORT), Handler).serve_forever()
+```
 
 ```nginx
-# /etc/nginx/conf.d/proxy.conf
+# nginx.conf
 upstream backend_app {
-    server 127.0.0.1:8000;         # o servidor de aplicação real, atrás do proxy
+    server backend:3000;             # nome do serviço no Compose, resolvido pelo DNS do Docker
 }
 
 server {
@@ -199,47 +378,106 @@ server {
     server_name localhost;
 
     location / {
-        proxy_pass http://backend_app;                    # encaminha a requisição pro backend
-        proxy_set_header Host $host;                       # preserva o Host original do cliente
-        proxy_set_header X-Real-IP $remote_addr;           # informa ao backend o IP real do cliente
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; # cadeia de IPs, se houver mais de um proxy
+        proxy_pass http://backend_app;                     # encaminha a requisição ao backend
+        proxy_set_header Host $host;                       # preserva o domínio pedido pelo cliente (sem a porta)
+        proxy_set_header X-Real-IP $remote_addr;           # informa o IP do cliente ao backend
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;  # cadeia de IPs, se houver mais de um proxy
     }
 }
 ```
 
-Sem os cabeçalhos `X-Real-IP`/`X-Forwarded-For`, o backend enxergaria toda requisição como vinda do próprio Nginx (`127.0.0.1`), perdendo a informação de quem de fato fez o pedido.
+```text
+# squid.conf
+http_port 3128                                  # porta em que o proxy escuta
+visible_hostname squid-lab                      # nome usado no cabeçalho Via
+acl rede_lab src 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16   # redes privadas, onde ficam os clientes do laboratório
+http_access allow rede_lab                      # libera quem vem dessas redes
+http_access deny all                            # nega todo o resto
+```
+
+```yaml
+# compose.yaml
+services:
+  backend:
+    image: python:3.12-alpine                   # imagem pequena com Python
+    command: ["python", "/app/backend.py"]      # executa o backend didático
+    environment:
+      NAME: app                                 # nome devolvido nas respostas
+    volumes:
+      - ./backend.py:/app/backend.py:ro         # monta o script em modo somente leitura
+  nginx:
+    image: nginx:stable                         # o reverse proxy
+    ports:
+      - "8080:80"                               # único ponto de entrada publicado para o backend
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro   # substitui a configuração padrão
+    depends_on:
+      - backend                                 # sobe o backend antes do proxy
+  squid:
+    image: ubuntu/squid                         # o forward proxy
+    ports:
+      - "3128:3128"                             # porta do proxy para o seu terminal
+    volumes:
+      - ./squid.conf:/etc/squid/squid.conf:ro   # configuração mínima de laboratório
+```
+
+Sem os cabeçalhos `X-Real-IP` e `X-Forwarded-For`, o backend enxergaria toda requisição como vinda do próprio Nginx. O cabeçalho `Server` da resposta continua sendo `nginx`, mesmo com o conteúdo gerado pelo Python: essa transparência é o que caracteriza o reverse proxy.
 
 ```sh
-# Backend simples, só pra existir algo atrás do proxy
-$ python3 -m http.server 8000
+$ docker compose up -d
+$ curl -s http://localhost:8080/headers
+# saída aproximada: IPs e versões variam
+peer: 172.18.0.3
+Host: localhost
+X-Real-IP: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+Connection: close
+User-Agent: curl/8.x
 
-# Do lado do cliente, você fala com o proxy, não sabe que existe um Python atrás
-$ curl -I http://localhost
+# O backend não é publicado: de fora, só o proxy responde
+$ curl -sI http://localhost:8080/
 HTTP/1.1 200 OK
-Server: nginx/1.27.0
+Server: nginx/1.xx.x
+
+# Forward proxy: aqui é o cliente que aponta explicitamente para o intermediário
+$ curl -s -x http://localhost:3128 http://backend:3000/headers
+# saída aproximada
+peer: 172.18.0.4
+Host: backend:3000
+Via: 1.1 squid-lab (squid/x.y)
+X-Forwarded-For: 172.18.0.1
+
+# Sem o proxy, o seu terminal nem consegue resolver o nome do backend
+$ curl -s http://backend:3000/
+curl: (6) Could not resolve host: backend
 ```
 
-Repare: o cabeçalho `Server` continua sendo `nginx`, mesmo que o conteúdo tenha sido gerado pelo servidor Python por trás. É exatamente essa transparência que caracteriza o reverse proxy.
+Observe que, no forward proxy, quem abre a conexão com o backend é o Squid (`peer` mostra o IP do Squid), e o nome `backend` só funciona porque o proxy está dentro da rede do Docker.
 
-Já o uso de um forward proxy aparece do lado do cliente, de forma explícita:
+### Comandos essenciais
 
-```sh
-# Aqui é você, cliente, quem aponta explicitamente para o proxy
-$ curl -x http://proxy-da-empresa:3128 http://exemplo.com
-```
+- `docker compose up -d`: sobe backend, Nginx e Squid em segundo plano.
+- `docker compose exec nginx nginx -t`: valida a sintaxe da configuração antes de aplicar.
+- `docker compose exec nginx nginx -s reload`: recarrega a configuração sem derrubar conexões existentes.
+- `curl -s http://localhost:8080/headers`: mostra o que o backend recebeu pelo proxy.
+- `curl -s -x http://localhost:3128 http://backend:3000/headers`: usa o forward proxy explicitamente.
 
 ### Mão na massa
 
-> Este exercício edita a configuração real do Nginx e recarrega o processo com `nginx -s reload`: use um Nginx instalado no host (`sudo apt install nginx`), não o container `nginx:latest` da Etapa 01. Se preferir continuar no Docker, veja a adaptação sugerida na abertura do guia.
+1. Crie a pasta `etapa03/` com `backend.py`, `nginx.conf`, `squid.conf` e `compose.yaml`, e rode `docker compose up -d`. Confirme os três serviços com `docker compose ps`.
+2. Rode `curl -s http://localhost:8080/headers` e **observe** `X-Real-IP`, `X-Forwarded-For` e `Host: localhost`. Em seguida rode `curl -sI http://localhost:8080/` e **observe** `Server: nginx`, mesmo com o conteúdo vindo do Python.
+3. Apague a linha `proxy_set_header Host $host;` do `nginx.conf`, rode `docker compose exec nginx nginx -s reload` e repita o `/headers`. **Observe** `Host: backend_app`, o nome do upstream, em vez do domínio que o cliente pediu.
+4. Restaure a linha, apague `proxy_set_header X-Real-IP $remote_addr;`, recarregue e repita. **Observe** que `X-Real-IP` desaparece e que `peer` mostra o IP do Nginx: sem o cabeçalho, o backend não tem como saber quem fez o pedido.
+5. Rode `curl -s -x http://localhost:3128 http://backend:3000/headers` e **observe** os cabeçalhos `Via` e `X-Forwarded-For` acrescentados pelo Squid. Compare com `curl -s http://backend:3000/`, que falha ao resolver o nome.
+6. Limpe: `docker compose down`.
 
-1. Suba o backend Python (`python3 -m http.server 8000`, numa pasta com um `index.html` qualquer) e configure o Nginx como no exemplo acima. Recarregue com `nginx -s reload`.
-2. Rode `curl -I http://localhost` e **observe** o cabeçalho `Server: nginx`, mesmo com o conteúdo vindo do processo Python.
-3. Remova temporariamente a linha `proxy_set_header X-Real-IP`, recarregue, e adicione um endpoint de eco no backend (ou apenas raciocine sobre o log) para notar que, sem esse cabeçalho, o backend só veria o IP do próprio Nginx.
-4. Compare com o comando `curl -x` do forward proxy: repare que ali é você quem aponta explicitamente para o intermediário; no passo 2, você nem sabia que ele existia.
+### Dica
+
+Para saber de que lado você está, pergunte quem configurou o apontamento: se foi o cliente, é forward proxy; se o cliente não sabe que o intermediário existe, é reverse proxy. Em produção, configure o backend para confiar em `X-Forwarded-For` apenas quando a conexão vier do seu proxy, porque o cabeçalho pode ser forjado por qualquer cliente.
 
 ### Anota aí
 
-> Forward proxy fica do lado do cliente e é configurado por ele; reverse proxy fica do lado do servidor e é invisível para o cliente, mas ambos são o mesmo tipo de intermediário, olhando para direções opostas.
+> O forward proxy fica do lado do cliente e é configurado por ele; o reverse proxy fica do lado do servidor e é invisível ao cliente, e o IP original só chega ao backend se o proxy o repassar em cabeçalhos.
 
 ---
 
@@ -247,52 +485,46 @@ $ curl -x http://proxy-da-empresa:3128 http://exemplo.com
 
 ### O problema
 
-Cenário 1: um e-commerce rodando Apache com o modelo mais antigo de processamento recebe um pico de 5.000 conexões simultâneas numa promoção. Como cada conexão ganha um processo do sistema operacional inteiramente próprio e isolado, o servidor tenta abrir milhares de processos, cada um consumindo dezenas de megabytes de memória só para existir, antes mesmo de processar qualquer requisição. A memória se esgota, o sistema começa a paginar em disco (swap), e o site trava justamente no momento de pico de vendas.
+Primeiro cenário: um e-commerce roda Apache com o modelo mais antigo de processamento e recebe um pico de 5.000 conexões simultâneas em uma promoção. Como cada conexão ganha um processo do sistema operacional inteiramente próprio, o servidor tenta abrir milhares de processos, cada um consumindo dezenas de megabytes só para existir. A memória se esgota, o sistema começa a usar swap em disco e o site trava justamente no pico de vendas.
 
-Cenário 2, oposto: a mesma empresa depende de um módulo antigo, escrito sem cuidado de concorrência (não thread-safe), que precisa continuar funcionando. Trocar o modelo de processamento para um baseado em threads compartilhando memória faria esse módulo corromper dados ou derrubar o processo de forma imprevisível.
+Segundo cenário, oposto: a mesma empresa depende de um módulo antigo, escrito sem cuidado de concorrência (não thread-safe), que precisa continuar funcionando. Trocar para um modelo baseado em threads que compartilham memória faria esse módulo corromper dados ou derrubar o processo de forma imprevisível.
 
-Um cenário pede leveza para escalar; o outro pede isolamento total para sobreviver. O Apache resolve essa tensão deixando você escolher o modelo de concorrência, os **MPMs** (Multi-Processing Modules).
+Um cenário pede leveza para escalar, o outro pede isolamento total para sobreviver. O Apache resolve essa tensão deixando você escolher o modelo de concorrência, os MPMs (Multi-Processing Modules).
 
 ### O conceito
 
-**Analogia geral:** pense numa padaria. O modelo **Prefork** é ter um funcionário exclusivo, dedicado, só para cada cliente que entra: isolamento total (se um funcionário desmaia, só aquele cliente é afetado), mas caríssimo, porque contratar um funcionário novo para cada cliente não escala. O modelo **Worker** é ter poucos gerentes (processos), cada um com uma equipe de funcionários (threads) compartilhando a mesma bancada de ferramentas (a memória do processo): mais barato, mas se um funcionário derruba a bancada, todo mundo que trabalhava nela junto é afetado.
+Antes dos modelos, dois termos. Um **processo** tem memória própria e isolada dos demais; se ele falha, os outros seguem. Uma **thread** vive dentro de um processo e compartilha a memória dele com as outras threads, o que a torna mais leve e mais perigosa: um erro grave em uma thread pode corromper o processo inteiro. Código que funciona corretamente quando várias threads o executam ao mesmo tempo é chamado de thread-safe.
 
-**Prefork MPM (não threaded).** Um processo filho independente é criado para cada conexão, completamente isolado dos demais.
-- Vantagens: muito estável (um problema num processo não afeta os outros), ideal para módulos não thread-safe, alta compatibilidade com software legado.
-- Desvantagens: alto consumo de memória (cada processo é isolado por completo) e pouca escalabilidade para alta concorrência.
-- Uso típico: ambientes que precisam de máxima estabilidade ou dependem de módulos não thread-safe. É comum ver o Prefork combinado com o `mod_php` (PHP embutido diretamente no processo do Apache, historicamente não thread-safe). A alternativa moderna é rodar o PHP como processo separado via PHP-FPM e o Apache falando com ele através de proxy (`mod_proxy_fcgi`, o mesmo conceito de proxy da Etapa 03), o que permite usar um MPM mais leve sem perder compatibilidade.
+- **Prefork (sem threads)**: um processo filho independente atende cada conexão, completamente isolado dos demais. Vantagens: muito estável (um problema em um processo não afeta os outros), compatível com módulos não thread-safe e com software legado. Desvantagens: alto consumo de memória e pouca escalabilidade sob alta concorrência. É comum ver o Prefork com o `mod_php` (PHP embutido no processo do Apache, historicamente não thread-safe). A alternativa é rodar o PHP como processo separado, o PHP-FPM, com o Apache falando com ele por proxy (`mod_proxy_fcgi`, o mesmo conceito da Etapa 03), o que permite usar um MPM mais leve sem perder compatibilidade.
+- **Worker (com threads)**: cria vários processos filhos, cada um com várias threads, e cada thread atende uma conexão. Usa menos memória que o Prefork e suporta mais concorrência. Como as threads de um processo compartilham memória, um erro grave em uma delas pode derrubar o processo filho que a hospeda e as conexões que ele atendia; os demais filhos e o processo mestre continuam de pé. Por isso os módulos precisam ser thread-safe.
+- **Event (recomendado para a maioria dos deployments novos)**: parte do Worker, mas otimizado para o caso comum de conexões keep-alive abertas e ociosas. Uma thread dedicada consegue vigiar várias conexões que só estão esperando, sem prender uma thread de trabalho a cada conexão parada. Mantém a exigência de módulos thread-safe e é o MPM indicado para HTTP/2, que o Apache oferece pelo módulo `mod_http2` (habilitado com `a2enmod http2` e `Protocols h2 http/1.1`).
 
-**Worker MPM (multithreaded).** Cria múltiplos processos filhos, e cada um roda múltiplas threads; cada thread atende uma conexão.
-- Vantagens: mais eficiente em memória do que o Prefork, melhor performance sob alta concorrência.
-- Desvantagens: como as threads de um mesmo processo compartilham a mesma memória, um erro grave numa thread pode corromper o processo filho inteiro que a hospeda, derrubando todas as conexões que aquele processo específico estava servindo (os demais processos filhos e o processo mestre continuam de pé). Por isso os módulos precisam ser thread-safe.
-- Uso típico: aplicações com tráfego moderado a alto.
+Dois pontos de leitura da comparação: o consumo de memória cresce na ordem Event, Worker, Prefork, e a concorrência suportada cresce na ordem inversa. A escolha, portanto, é sempre uma troca entre isolamento e eficiência.
 
-**Event MPM (recomendado para produção).** Parte do modelo Worker, mas otimizado para o caso comum de conexões keep-alive abertas e ociosas: uma thread dedicada consegue vigiar várias conexões que estão só esperando, sem prender uma thread inteira de trabalho só para segurar uma conexão parada.
-- Vantagens: eficiente para conexões keep-alive, otimizado para tráfego de alta concorrência, suporte nativo a HTTP/2.
-- Desvantagens: exige módulos thread-safe e é mais complexo de configurar.
-- Uso típico: recomendado para a maioria dos novos deployments.
+### Os conceitos-chave
 
-| MPM | Isolamento | Consumo de memória | Concorrência | Quando usar |
-|---|---|---|---|---|
-| Prefork | Total (processo por conexão) | Alto | Baixa | Máxima estabilidade, módulos não thread-safe |
-| Worker | Por processo (threads compartilham) | Médio | Alta | Tráfego moderado a alto, módulos thread-safe |
-| Event | Por processo, otimizado p/ keep-alive | Baixo | Muito alta | Recomendado para a maioria dos deployments novos |
+- **MPM**: o módulo que define como o Apache atende conexões em paralelo (processos, threads ou ambos).
+- **Prefork**: um processo por conexão; isolamento total, memória alta, concorrência baixa; serve a módulos não thread-safe.
+- **Worker**: poucos processos com várias threads; memória média, concorrência alta; exige módulos thread-safe.
+- **Event**: como o Worker, mas não prende uma thread a conexões keep-alive ociosas; memória baixa, concorrência muito alta.
+- **Thread-safe**: código que tolera execução simultânea por várias threads no mesmo processo.
+- **PHP-FPM**: PHP como processo separado, que permite sair do Prefork sem abandonar PHP.
 
 ### Exemplo comentado: descobrindo e trocando o MPM ativo
 
+Em um Apache instalado no host (Debian ou Ubuntu), `apachectl` e `a2query` informam o MPM ativo, e `a2dismod` e `a2enmod` fazem a troca.
+
 ```sh
-# Mostra qual MPM está compilado/ativo no momento (saída resumida)
+# Mostra o MPM em uso (saída resumida)
 $ apachectl -V | grep -i mpm
 Server MPM:     event
 
-# Em distros Debian/Ubuntu, a2query mostra o módulo MPM habilitado
+# Em Debian e Ubuntu, a2query mostra o módulo MPM habilitado
 $ sudo a2query -M
 event
-```
 
-```sh
-# Trocando para o Prefork (por exemplo, pra rodar um módulo legado não thread-safe)
-$ sudo a2dismod mpm_event      # desabilita o módulo do MPM atual
+# Troca para o Prefork (por exemplo, para rodar um módulo legado não thread-safe)
+$ sudo a2dismod mpm_event      # desabilita o MPM atual
 $ sudo a2enmod mpm_prefork     # habilita o Prefork
 $ sudo systemctl restart apache2
 
@@ -300,29 +532,75 @@ $ sudo a2query -M
 prefork
 ```
 
-Nota: em distros baseadas em RHEL/CentOS, a troca é feita comentando/descomentando as linhas `LoadModule mpm_*_module` no arquivo `/etc/httpd/conf.modules.d/00-mpm.conf`, em vez de usar `a2enmod`/`a2dismod`.
+Em distribuições baseadas em RHEL, a troca é feita comentando e descomentando as linhas `LoadModule mpm_*_module` em `/etc/httpd/conf.modules.d/00-mpm.conf`, e o serviço se chama `httpd`.
 
-```ini
-# Trecho ilustrativo de mpm_event.conf (ajuste os valores ao seu tráfego real)
+```apache
+# /etc/apache2/mods-available/mpm_event.conf
+# Trecho ilustrativo: ajuste os valores ao seu tráfego real
 <IfModule mpm_event_module>
     StartServers             3     # processos filhos criados na inicialização
     MinSpareThreads         75     # threads ociosas mínimas mantidas em reserva
-    MaxRequestWorkers      400     # limite de conexões atendidas simultaneamente
-    ThreadsPerChild         25     # threads por processo filho
+    MaxSpareThreads        250     # teto de threads ociosas; acima disso o Apache encerra processos
+    ThreadsPerChild         25     # threads em cada processo filho
+    MaxRequestWorkers      400     # requisições processadas ao mesmo tempo (16 processos x 25 threads)
 </IfModule>
 ```
 
+O número 400 não é arbitrário: `MaxRequestWorkers` precisa caber em `ServerLimit` (16 por padrão) multiplicado por `ThreadsPerChild`, que aqui dá 16 x 25 = 400. No Event, conexões ociosas em keep-alive não ocupam uma dessas threads de trabalho cada.
+
+Para praticar sem alterar o seu computador, o mesmo contraste pode ser feito com a imagem oficial `httpd`, escolhendo o MPM na construção da imagem.
+
+```dockerfile
+# Dockerfile
+FROM httpd:2.4
+ARG MPM=event
+# 1) comenta a linha do MPM event; 2) descomenta a linha do MPM pedido em MPM
+RUN sed -i \
+      -e 's/^LoadModule mpm_event_module/#LoadModule mpm_event_module/' \
+      -e "s/^#LoadModule mpm_${MPM}_module/LoadModule mpm_${MPM}_module/" \
+      /usr/local/apache2/conf/httpd.conf
+```
+
+```sh
+$ docker build --build-arg MPM=event   -t apache-event   .
+$ docker build --build-arg MPM=prefork -t apache-prefork .
+
+$ docker run -d --name apache-event   -p 8081:80 apache-event
+$ docker run -d --name apache-prefork -p 8082:80 apache-prefork
+
+# Lista os módulos carregados e filtra os MPMs (saída aproximada)
+$ docker exec apache-event   httpd -M | grep mpm
+ mpm_event_module (shared)
+$ docker exec apache-prefork httpd -M | grep mpm
+ mpm_prefork_module (shared)
+```
+
+### Comandos essenciais
+
+- `apachectl -V | grep -i mpm`: mostra o MPM ativo (em algumas distribuições o comando é `httpd -V`).
+- `sudo a2query -M`: confirma o módulo MPM habilitado (Debian e Ubuntu).
+- `sudo a2dismod mpm_event && sudo a2enmod mpm_prefork`: troca o MPM ativo.
+- `sudo systemctl restart apache2`: aplica a troca (a troca de MPM exige reinício, não basta recarregar).
+- `docker exec <container> httpd -M | grep mpm`: mostra o MPM carregado em um container.
+- `ab -n 50000 -c 100 http://localhost:8081/`: gera carga de teste (Apache Bench).
+- `docker top <container>`: lista os processos do container, vistos do host.
+
 ### Mão na massa
 
-> Este exercício usa `a2enmod`/`a2dismod` e `apachectl`, comandos que atuam sobre um Apache instalado no host (`sudo apt install apache2`), não sobre o container `httpd:latest` da Etapa 01. O passo 3 também usa o `ab` (Apache Bench): se não estiver instalado, rode `sudo apt install apache2-utils` antes de executá-lo.
+1. Crie a pasta `etapa04/` com o `Dockerfile` acima, construa as duas imagens e suba os dois containers como no exemplo.
+2. Confirme o MPM de cada um com `docker exec <container> httpd -M | grep mpm`. **Observe** `mpm_event_module` e `mpm_prefork_module`.
+3. Em um terminal, rode `ab -n 50000 -c 100 http://localhost:8082/` (Prefork). Em outro, rode várias vezes `docker top apache-prefork | grep -c httpd` durante o teste e **observe** o número de processos crescer.
+4. Repita o passo 3 contra `http://localhost:8081/` (Event) e `apache-event`. **Observe** que o número de processos fica pequeno, porque cada processo comporta várias threads. Compare também `docker stats --no-stream apache-event apache-prefork` ao fim dos testes. Os números exatos variam; o que importa é a diferença de ordem de grandeza nos processos.
+5. Se você tem um Apache instalado no host (`sudo apt install apache2`), troque o MPM com `a2dismod` e `a2enmod`, reinicie o serviço e confirme com `sudo a2query -M`.
+6. Limpe: `docker rm -f apache-event apache-prefork`.
 
-1. Rode `apachectl -V | grep -i mpm` (ou `httpd -V | grep -i mpm`, dependendo da distro) no seu Apache e anote qual MPM está ativo agora.
-2. Se o seu sistema usa Debian/Ubuntu, troque o MPM ativo com `a2dismod`/`a2enmod` e confirme a troca com `a2query -M`.
-3. Rode um teste de carga simples contra o mesmo Apache, antes e depois da troca de MPM: `ab -n 500 -c 50 http://localhost/` (Apache Bench). Compare as linhas `Requests per second` e `Time per request` entre as duas rodadas. Não espere um número mágico: o objetivo é sentir que a mesma máquina, o mesmo Apache, se comporta diferente só por causa do MPM escolhido.
+### Dica
+
+Quem decora os três nomes sabe a resposta de uma prova; quem entende que a diferença está em processo, thread e isolamento sabe escolher em produção. Antes de trocar de MPM em um servidor real, verifique se todos os módulos carregados são thread-safe, porque essa é a restrição que decide a escolha.
 
 ### Anota aí
 
-> Prefork isola tudo em processos e é o mais pesado; Worker divide isso em threads dentro de poucos processos e é mais leve, mas exige código thread-safe; Event é o Worker afinado para não gastar uma thread inteira em conexões keep-alive ociosas, e é o modelo recomendado hoje.
+> Prefork isola cada conexão em um processo e é o mais pesado; Worker usa threads dentro de poucos processos e exige código thread-safe; Event é o Worker afinado para não gastar uma thread em conexões keep-alive ociosas.
 
 ---
 
@@ -330,242 +608,1766 @@ Nota: em distros baseadas em RHEL/CentOS, a troca é feita comentando/descomenta
 
 ### O problema
 
-Cenário: uma aplicação com muitas conexões simultâneas de longa duração e majoritariamente ociosas (chat em tempo real, notificações push, keep-alive de APIs de aplicativos móveis). Mesmo com o Event MPM do Apache reduzindo o custo das conexões ociosas (Etapa 04), o modelo continua fundamentado em reservar uma thread para cada conexão que está sendo ativamente processada. Escalar para dezenas de milhares de conexões simultâneas significa escalar, na mesma proporção, a quantidade de threads e a memória que elas consomem, até o sistema esbarrar no limite prático de threads que conseguem coexistir com eficiência.
+Uma aplicação mantém muitas conexões simultâneas, de longa duração e quase sempre ociosas: chat em tempo real, notificações push, keep-alive de APIs de aplicativos móveis. Mesmo com o Event MPM reduzindo o custo das conexões ociosas, o Apache continua reservando uma thread para cada requisição que está sendo processada. Escalar para dezenas de milhares de conexões significa escalar, na mesma proporção, o número de threads e a memória que elas consomem, até esbarrar no limite prático de threads que convivem com eficiência.
 
-Foi exatamente esse problema que o Nginx nasceu, do zero, para resolver. Enquanto o Apache nasceu como servidor web tradicional e foi ganhando modelos de concorrência ao longo do tempo, o Nginx já foi concebido com uma arquitetura moderna em mente, pensada especialmente para servir conteúdo estático e atuar como proxy reverso (a função da Etapa 03) sob alta concorrência.
+O Nginx foi desenhado para esse cenário. Enquanto o Apache nasceu como servidor web tradicional e ganhou modelos de concorrência ao longo do tempo, o Nginx já nasceu com uma arquitetura voltada a servir conteúdo estático e a atuar como proxy reverso sob alta concorrência.
 
 ### O conceito
 
-A diferença central do Nginx é a arquitetura **assíncrona orientada a eventos (event-driven)**, bem diferente do modelo de thread ou processo dedicado por conexão.
+A diferença central é a arquitetura **assíncrona e orientada a eventos**, em vez de um processo ou thread dedicado por conexão.
 
-**Analogia:** pense num garçom que nunca fica parado esperando a cozinha terminar um prato. Ele anota o pedido, entrega para a cozinha, vai atender outras mesas, e só volta para aquela mesa quando o prato está pronto (o evento "prato pronto" dispara a ação de servir). Um único garçom consegue atender dezenas de mesas assim, porque nunca fica bloqueado esperando uma única mesa.
+Um processo **master** lê a configuração e gerencia os processos **worker**, que são os que atendem conexões (o master não atende requisições). Cada worker roda um **event loop**: um laço que espera eventos (dado novo em uma conexão, resposta de um backend, escrita liberada), trata o que ficou pronto e volta ao laço. Quando uma operação de entrada e saída precisaria esperar (ler do disco, aguardar um backend), o worker não fica parado: ele registra o interesse naquele evento e passa a tratar outra conexão. Isso é **I/O não bloqueante**. Quando o evento fica pronto, o worker é notificado e retoma exatamente de onde parou.
 
-No Apache, cada conexão ativa costuma ocupar uma thread ou processo dedicado enquanto durar (mesmo o Event MPM reserva uma thread só para a requisição sendo efetivamente processada, ele só evita gastar uma thread inteira em conexões apenas ociosas). Com 10 mil usuários conectados ao mesmo tempo, é preciso sustentar uma fração relevante de 10 mil threads ou processos consumindo memória.
+No Linux, a notificação de quais conexões têm dado novo vem de um mecanismo do kernel, o `epoll`, que evita varrer todas as conexões a cada ciclo. O Nginx escolhe o método mais eficiente disponível sozinho, então a diretiva `use epoll;` costuma ser opcional no Linux.
 
-No Nginx:
-- **Non-blocking I/O**: quando uma operação de entrada/saída é necessária (ler do disco, esperar resposta de um backend), o worker registra um evento e passa a processar outra conexão, em vez de ficar parado esperando.
-- **Event loop**: cada processo worker roda um loop de eventos que gerencia milhares de conexões usando poucos recursos.
-- Quando o evento fica pronto (o dado chegou, o disco respondeu), o worker é notificado e retoma exatamente de onde parou.
+O resultado prático é que o número de processos fica estável e pequeno (em geral um worker por núcleo de CPU), enquanto o número de conexões cresce. O limite deixa de ser "uma thread por conexão" e passa a ser CPU, memória e descritores de arquivo. Benefícios: menor consumo de memória, maior vazão, boa latência e desempenho excelente como proxy reverso e balanceador, inclusive na frente do próprio Apache. Cuidado com a conta de capacidade: `worker_processes` vezes `worker_connections` é o teto de conexões simultâneas, mas, quando o Nginx atua como proxy, cada requisição de cliente usa duas conexões (uma com o cliente e uma com o backend), então o número de clientes simultâneos é cerca de metade desse teto. Além disso, `worker_connections` não deve passar do limite de arquivos abertos do processo (ajustável com `worker_rlimit_nofile`).
 
-Essa abordagem torna o Nginx muito eficiente, especialmente para conexões keep-alive e para conexões ociosas, exatamente o cenário descrito no problema desta etapa. Benefícios práticos: menor consumo de memória, maior throughput, melhor latência e desempenho excelente como proxy reverso e balanceador de carga, inclusive na frente do próprio Apache.
+### Os conceitos-chave
 
-### Exemplo comentado: poucos processos, milhares de conexões
+- **Event-driven**: poucos processos tratam muitas conexões reagindo a eventos.
+- **I/O não bloqueante**: o worker registra o evento e atende outra conexão em vez de esperar.
+- **Event loop**: o laço de cada worker que trata os eventos prontos.
+- **master e worker**: o master gerencia; os workers atendem; o número de workers costuma igualar o de núcleos (`worker_processes auto`).
+- **epoll**: mecanismo do kernel Linux que avisa quais conexões têm dado novo.
+- **worker_connections**: o máximo de conexões simultâneas por worker, contando as conexões com backends.
+
+### Exemplo comentado: poucos processos, muitas conexões
 
 ```nginx
-# /etc/nginx/nginx.conf (trecho principal)
-worker_processes auto;   # 1 processo worker por núcleo de CPU disponível
+# nginx.conf (trecho principal)
+worker_processes auto;          # um processo worker por núcleo de CPU disponível
 
 events {
-    worker_connections 1024;   # cada worker aguenta até 1024 conexões simultâneas
-    use epoll;                 # mecanismo de notificação de eventos do kernel Linux
+    worker_connections 1024;    # cada worker aceita até 1024 conexões simultâneas
+    use epoll;                  # opcional no Linux: o Nginx já escolhe o método mais eficiente
 }
 ```
 
-Com `worker_processes auto` e `worker_connections 1024` numa máquina de 4 núcleos, o Nginx consegue, em teoria, atender até 4096 conexões simultâneas usando apenas 4 processos worker (mais o processo mestre, que só gerencia os workers e não atende requisições diretamente).
+Em uma máquina de 4 núcleos, essa configuração permite, em teoria, até 4096 conexões simultâneas usando apenas 4 workers (mais o master). Se o Nginx estiver atuando como proxy, conte cerca de metade disso em clientes simultâneos.
 
 ```sh
-# Poucos processos, independente de quantas conexões estão ativas
-$ ps aux | grep '[n]ginx'
-root       812  0.0  0.1  55508  1420 ?  Ss  10:02  0:00 nginx: master process nginx -g daemon off;
-nginx      813  0.0  0.2  55964  2116 ?  S   10:02  0:00 nginx: worker process
-nginx      814  0.0  0.2  55964  2116 ?  S   10:02  0:00 nginx: worker process
+# Poucos processos, independentemente de quantas conexões estão ativas (saída aproximada)
+$ docker top nginx-lab
+UID    PID   PPID  C  STIME  TTY  TIME      CMD
+root   2101  2080  0  10:02  ?    00:00:00  nginx: master process nginx -g daemon off;
+101    2140  2101  0  10:02  ?    00:00:00  nginx: worker process
+101    2141  2101  0  10:02  ?    00:00:00  nginx: worker process
 
-# Quantas conexões TCP estabelecidas existem agora, de fato
+# No host, conta as conexões TCP estabelecidas (inclui todas as conexões do computador)
 $ ss -tn state established | wc -l
 187
 ```
 
-Repare: 187 conexões estabelecidas sendo atendidas por apenas 2 processos worker. Num Apache com Prefork ou Worker sob a mesma carga, o `ps aux` costuma mostrar dezenas ou centenas de linhas, uma por processo ou thread envolvido.
+Um Apache com Prefork ou Worker sob a mesma carga costuma mostrar dezenas ou centenas de processos na mesma listagem.
+
+### Comandos essenciais
+
+- `docker run -d --name nginx-lab -p 8080:80 nginx:stable`: sobe o Nginx de teste.
+- `docker exec nginx-lab nginx -T | grep -E 'worker_processes|worker_connections'`: mostra os valores efetivos da configuração.
+- `docker top nginx-lab`: lista o master e os workers.
+- `nproc`: número de núcleos da máquina, para comparar com o número de workers.
+- `ab -n 50000 -c 200 http://localhost:8080/`: gera carga com 200 conexões simultâneas.
+- `nginx -t`: em um Nginx instalado no host, valida a configuração e mostra o caminho do `nginx.conf`.
 
 ### Mão na massa
 
-> Assim como na Etapa 03, este exercício lê a configuração e observa processos de um Nginx instalado no host, não do container `nginx:latest` da Etapa 01. O passo 3 volta a usar o `ab`: instale com `sudo apt install apache2-utils` se ainda não tiver feito isso na Etapa 04.
+1. Suba o Nginx de teste com `docker run -d --name nginx-lab -p 8080:80 nginx:stable` e rode `docker exec nginx-lab nginx -T | grep -E 'worker_processes|worker_connections'`. **Observe** `worker_processes auto` e `worker_connections 1024`.
+2. Rode `docker top nginx-lab` e conte os processos worker. Compare com `nproc`: o número de workers costuma ser igual ou próximo ao de núcleos (o container enxerga os núcleos do host).
+3. Rode `ab -n 50000 -c 200 http://localhost:8080/` e, durante o teste, repita `docker top nginx-lab` em outro terminal. **Observe** que o número de processos não muda, mesmo com 200 conexões simultâneas.
+4. Se ainda tiver o container `apache-prefork` da Etapa 04 (ou recriá-lo), repita a carga em `http://localhost:8082/` e rode `docker top apache-prefork | grep -c httpd`. **Observe** o número de processos crescer junto com a carga, ao contrário do que aconteceu com o Nginx.
+5. Compare o consumo de memória com `docker stats --no-stream nginx-lab apache-prefork`.
+6. Opcional, em um Nginx instalado no host (`sudo apt install nginx`): rode `nginx -t` e `ps aux | grep '[n]ginx'` e repita os passos 2 e 3 contra `http://localhost/`.
+7. Limpe: `docker rm -f nginx-lab apache-prefork`.
 
-1. Localize o `nginx.conf` do seu Nginx (`nginx -t` mostra o caminho no início da saída) e identifique as diretivas `worker_processes` e `worker_connections`.
-2. Rode `ps aux | grep '[n]ginx'` e conte quantos processos aparecem. Compare com `nproc` (número de núcleos da sua máquina): o número de workers costuma ser igual ou próximo.
-3. Gere carga com múltiplas conexões simultâneas: `ab -n 1000 -c 200 http://localhost/`. Durante o teste, rode `ps aux | grep '[n]ginx'` num segundo terminal. **Observe**: o número de processos não muda, mesmo com centenas de conexões simultâneas batendo no servidor.
-4. Se tiver acesso a um Apache no mesmo tipo de teste, repita a carga nele e rode `ps aux | grep '[a]pache2\|[h]ttpd'`. Dependendo do MPM configurado, **observe** o número de processos ou threads crescer junto com a carga, ao contrário do que aconteceu com o Nginx.
+### Dica
+
+O ponto central é que um worker nunca espera parado: ele registra o evento e segue. Se você explica isso com as suas palavras, entendeu por que o Nginx escala conexões do jeito que escala. Ao diagnosticar um Nginx saturado, olhe CPU, memória e o limite de arquivos abertos, e não o número de processos, que quase não muda.
 
 ### Anota aí
 
-> Apache lida com concorrência dedicando um processo ou thread a cada conexão (mesmo otimizado pelo Event MPM); Nginx lida com concorrência usando poucos processos rodando um loop de eventos não bloqueante, e é exatamente por isso que ele domina como proxy reverso e balanceador de carga na frente de qualquer coisa, inclusive do próprio Apache.
+> O Apache dedica um processo ou thread a cada requisição em andamento (mesmo otimizado pelo Event MPM); o Nginx usa poucos workers com um event loop não bloqueante, e por isso é muito usado como proxy reverso e balanceador na frente de qualquer backend.
 
 ---
 
-## Expansão do professor: Aulas 02 a 05
+## Etapa 06: Balanceamento de carga: L4, L7 e algoritmos do Nginx
 
-As quatro aulas restantes completam o módulo com nove etapas. A progressão parte do balanceamento em uma borda Nginx, entra no gerenciamento de tráfego do Kubernetes, adiciona políticas do Istio e termina com alta disponibilidade e segurança.
+### O problema
 
-### Etapa 06: balanceamento L4, L7 e algoritmos do Nginx
+Uma única instância chega ao limite e a loja começa a perder pedidos na Black Friday. Aumentar CPU e memória da mesma máquina (escala vertical) adia o problema, mas tem teto e continua sendo um único ponto de falha. A saída é a escala horizontal: vários backends idênticos. Surge então uma pergunta que o código da aplicação não responde: quem decide, a cada requisição, qual backend recebe o trabalho? E com qual critério, se um backend é mais forte que o outro, ou se algumas requisições levam um segundo e outras dez milissegundos?
 
-**Objetivo:** diferenciar decisões na camada de transporte das decisões HTTP e escolher um algoritmo coerente com o perfil da aplicação.
+### O conceito
 
-- L4 decide com IP e porta, sem interpretar a requisição.
-- L7 entende host, path, header e cookie, por isso suporta roteamento mais expressivo.
-- Round Robin distribui em sequência; `weight` representa capacidades diferentes; `least_conn` favorece quem tem menos conexões; `ip_hash` cria afinidade, mas reduz flexibilidade.
-- `keepalive` reutiliza conexões com upstreams e evita pagar um novo handshake a cada chamada.
+Um **balanceador de carga** distribui as requisições entre os backends. A decisão pode usar pouca ou muita informação, e isso define a camada em que ele trabalha.
 
-**Prática verificável:** configure três upstreams, gere carga com `ab`, compare Round Robin e `least_conn` e registre distribuição, throughput e latência.
+- **L4 (transporte)**: decide com IP e porta, sobre TCP ou UDP. É rápido, serve a protocolos genéricos (bancos de dados, por exemplo), mas não consegue rotear por URL, host ou cabeçalho porque nem lê o HTTP. No Nginx, isso é feito pelo módulo `stream`.
+- **L7 (aplicação)**: entende HTTP e HTTPS. Pode terminar TLS, aplicar cache e compressão e rotear por host, path, cabeçalho ou cookie, com uma sobrecarga um pouco maior.
 
-### Etapa 07: health checks, failover e diagnóstico
+No Nginx, os algoritmos do bloco `upstream` são:
 
-**Objetivo:** retirar backends incapazes da rotação e explicar a causa de falhas observadas na borda.
+- **Round Robin**: o padrão; distribui em sequência. O parâmetro `weight` altera a proporção para servidores com capacidades diferentes (`weight=2` recebe o dobro).
+- **least_conn**: envia a requisição ao backend com menos conexões ativas. É adequado quando as requisições têm durações muito diferentes.
+- **ip_hash**: o mesmo cliente tende a cair sempre no mesmo backend, a partir do endereço IPv4 (usa os três primeiros octetos) ou IPv6 (inteiro). Ajuda aplicações com estado local, mas concentra muitos usuários atrás do mesmo NAT ou VPN em um backend só.
 
-- `max_fails` e `fail_timeout` implementam verificação passiva no Nginx Open Source.
-- Um servidor `backup` assume quando os primários estão indisponíveis.
-- `stub_status`, logs e métricas exportadas para Prometheus mostram conexões, erros e saturação.
-- Em geral, 502 indica resposta inválida ou conexão recusada pelo upstream; 504 indica estouro do tempo de espera.
+Afinidade como a do `ip_hash` dificulta a redistribuição e a escalabilidade. Sempre que possível, prefira aplicações **stateless**: sessão em Redis ou token assinado (como JWT) permitem que qualquer backend responda a qualquer requisição. Duas diretivas completam o quadro: `keepalive` reaproveita conexões entre o Nginx e os backends (exige `proxy_http_version 1.1` e `proxy_set_header Connection ""`), e os timeouts `proxy_connect_timeout`, `proxy_send_timeout` e `proxy_read_timeout` limitam cada fase da conversa com o upstream.
 
-**Prática verificável:** interrompa um backend durante a carga, confirme o failover pelos logs e provoque separadamente um 502 e um 504.
+### Os conceitos-chave
 
-### Etapa 08: Ingress no Kubernetes
+- **L4 e L7**: L4 decide por IP e porta (rápido, genérico); L7 entende HTTP (flexível, mais custo).
+- **Round Robin e weight**: sequência simples; pesos para capacidades diferentes.
+- **least_conn**: favorece quem tem menos conexões ativas; bom para durações heterogêneas.
+- **ip_hash**: afinidade pelo IP do cliente; sujeita a desbalanceamento atrás de NAT.
+- **Stateless**: sessão externa ou token assinado dispensam afinidade.
+- **keepalive**: reaproveita conexões com os backends e reduz o custo de abrir conexões novas.
 
-**Objetivo:** expor vários Services por uma entrada HTTP compartilhada e distinguir intenção de execução.
+### Exemplo comentado: um upstream com decisão explícita
 
-- O recurso Ingress declara host, path e Service de destino.
-- O Ingress Controller observa essa declaração e configura o proxy real. Sem Controller, o recurso não altera o tráfego.
-- `ingressClassName` escolhe o Controller; `pathType` define a semântica da correspondência.
-- Ingress segue estável, mas sua API está congelada. Para novos desenhos, a Gateway API deve ser avaliada.
+O laboratório tem dois backends (`api-1` e `api-2`, o `backend.py` da Etapa 03), um Nginx L7 na porta 8080 e um Nginx L4 na porta 9090. Copie o `backend.py` da Etapa 03 para a pasta `etapa06/`.
 
-**Prática verificável:** publique frontend e API no mesmo host, teste caminhos `/` e `/api` e confirme o destino nos logs dos Pods.
+```yaml
+# compose.yaml
+x-backend: &backend                        # molde reutilizado pelos dois backends
+  image: python:3.12-alpine
+  command: ["python", "/app/backend.py"]   # executa o backend didático
+  volumes:
+    - ./backend.py:/app/backend.py:ro      # monta o script somente leitura
 
-### Etapa 09: TLS automático com cert-manager
+services:
+  api-1:
+    <<: *backend                           # herda o molde acima
+    environment:
+      NAME: api-1                          # nome devolvido nas respostas
+      DELAY: "${API1_DELAY:-0}"            # atraso configurável por variável de ambiente (padrão 0)
+  api-2:
+    <<: *backend
+    environment:
+      NAME: api-2
+  nginx:                                   # balanceador L7 (HTTP)
+    image: nginx:stable
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - api-1
+      - api-2
+  nginx-l4:                                # balanceador L4 (TCP puro)
+    image: nginx:stable
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./nginx-l4.conf:/etc/nginx/nginx.conf:ro   # substitui o nginx.conf inteiro
+    depends_on:
+      - api-1
+      - api-2
+```
 
-**Objetivo:** declarar, emitir, armazenar e renovar certificados sem operação manual recorrente.
+```nginx
+# nginx.conf
+upstream pitstop_api {
+    # Escolha no máximo uma destas linhas (sem nenhuma, o padrão é Round Robin):
+    # least_conn;
+    # ip_hash;
+    server api-1:3000;                     # backend 1 (acrescente weight=2 para dar a ele o dobro)
+    server api-2:3000;                     # backend 2
+    keepalive 32;                          # até 32 conexões ociosas reaproveitadas com os backends
+}
 
-- Issuer tem escopo de namespace; ClusterIssuer tem escopo do cluster.
-- Certificate descreve nomes DNS e o Secret de destino.
-- No fluxo ACME, HTTP-01 ou DNS-01 prova o controle do domínio.
-- A anotação `cert-manager.io/cluster-issuer` pode acionar o ingress-shim para criar o Certificate usado pelo Ingress.
+server {
+    listen 80;
+    default_type text/plain;               # tipo da resposta fixa abaixo
 
-**Prática verificável:** use primeiro um emissor de staging, acompanhe Certificate, Order e Challenge e valide a cadeia com `curl -Iv`.
+    location = / {
+        return 200 "home servida pelo proprio Nginx\n";   # L7 decide pelo path: esta rota não toca nos backends
+    }
 
-### Etapa 10: Service Mesh e arquitetura do Istio
+    location /api/ {
+        proxy_pass http://pitstop_api;     # encaminha ao grupo de backends
+        proxy_http_version 1.1;            # necessário para o keepalive com os backends
+        proxy_set_header Connection "";    # remove o "Connection: close" padrão
+    }
+}
+```
 
-**Objetivo:** separar políticas de comunicação da lógica de negócio.
+```nginx
+# nginx-l4.conf
+events {}                                  # bloco obrigatório, mesmo vazio
 
-- Envoy forma o Data Plane e aplica roteamento, segurança, resiliência e telemetria no caminho da requisição.
-- Istiod forma o Control Plane e distribui configuração, descoberta e identidades.
-- Sidecars consomem CPU e memória, adicionam um salto e ampliam a superfície operacional. A adoção precisa justificar esse custo.
+stream {                                   # contexto de balanceamento TCP/UDP
+    upstream api_tcp {
+        server api-1:3000;
+        server api-2:3000;
+    }
+    server {
+        listen 9090;                       # escuta TCP, sem interpretar HTTP
+        proxy_pass api_tcp;                # repassa os bytes ao backend escolhido
+    }
+}
+```
 
-**Prática verificável:** instale um perfil de laboratório, habilite a injeção, confirme `2/2` containers nos Pods e compare consumo antes e depois.
+```sh
+$ docker compose up -d
 
-### Etapa 11: tráfego gradual com VirtualService e DestinationRule
+# L7: a rota "/" é decidida pelo Nginx; "/api/" vai aos backends em sequência
+$ curl -s http://localhost:8080/
+home servida pelo proprio Nginx
+$ for i in $(seq 1 4); do curl -s http://localhost:8080/api/; done
+api-1 recebeu /api/
+api-2 recebeu /api/
+api-1 recebeu /api/
+api-2 recebeu /api/
 
-**Objetivo:** lançar versões de modo mensurável e reversível.
+# L4: não lê o HTTP, então "/" também chega a um backend (e não existe rota própria do Nginx)
+$ curl -s http://localhost:9090/
+api-1 recebeu /
+```
 
-- DestinationRule nomeia subsets e políticas de destino.
-- VirtualService seleciona rotas e controla peso, header, path, timeout, retry, espelhamento e injeção de falhas.
-- Canary distribui por peso; A/B seleciona grupos; mirroring copia a chamada e ignora a resposta da versão espelhada.
-- Retry sem limite pode multiplicar uma sobrecarga. Promoção depende de erro, latência e métrica de negócio, não apenas do peso configurado.
+O `weight=2` só altera a proporção no Round Robin: com 30 requisições, esperam-se cerca de 20 para `api-1` e 10 para `api-2`. O `least_conn` observa conexões ativas, e o peso continua influenciando a escolha entre servidores disponíveis.
 
-**Prática verificável:** aplique uma divisão 90/10, conte cem respostas, fixe um usuário de teste na v2 por header e execute rollback.
+### Comandos essenciais
 
-### Etapa 12: mTLS e observabilidade da malha
+- `docker compose exec nginx nginx -t`: valida a configuração antes de aplicar.
+- `docker compose exec nginx nginx -s reload`: recarrega sem derrubar conexões existentes.
+- `for i in $(seq 1 30); do curl -s http://localhost:8080/api/; done | sort | uniq -c`: conta a distribuição entre os backends.
+- `seq 1 20 | xargs -P 10 -I{} curl -s http://localhost:8080/api/ | sort | uniq -c`: gera requisições concorrentes (10 ao mesmo tempo) e conta a distribuição.
+- `ab -n 1000 -c 20 -k http://localhost:8080/api/`: mede vazão e latência sob concorrência (`-k` usa keep-alive; sem ele, o `ab` abre uma conexão por requisição).
+- `API1_DELAY=1 docker compose up -d api-1`: recria `api-1` com 1 segundo de atraso por resposta.
 
-**Objetivo:** autenticar workloads, aplicar privilégio mínimo e reconstruir o caminho de uma requisição.
+### Mão na massa
 
-- PeerAuthentication controla mTLS. PERMISSIVE facilita migração; STRICT recusa tráfego sem identidade da malha.
-- AuthorizationPolicy restringe origem, método e path depois da autenticação.
-- Prometheus, Grafana, Jaeger e Kiali cobrem métricas, painéis, traces e topologia.
-- A aplicação ainda precisa propagar headers de tracing entre chamadas.
+1. Crie `etapa06/` com `backend.py`, `compose.yaml`, `nginx.conf` e `nginx-l4.conf`, e rode `docker compose up -d`.
+2. Com Round Robin, rode `for i in $(seq 1 30); do curl -s http://localhost:8080/api/; done | sort | uniq -c`. **Observe** uma divisão de 15 para 15.
+3. Acrescente `weight=2` a `api-1`, valide e recarregue (`docker compose exec nginx nginx -t` e depois `nginx -s reload`) e repita a contagem. **Observe** cerca de 20 para `api-1` e 10 para `api-2`.
+4. Remova o peso, ative `least_conn;`, recarregue e rode `API1_DELAY=1 docker compose up -d api-1`. Recarregue o Nginx de novo (o IP de `api-1` pode ter mudado) e rode `seq 1 20 | xargs -P 10 -I{} curl -s http://localhost:8080/api/ | sort | uniq -c`. **Observe** que o backend lento recebe menos trabalho novo (por exemplo, 5 contra 15; os números variam).
+5. Troque `least_conn;` por `ip_hash;`, recarregue e repita a contagem. **Observe** que todas as respostas vêm do mesmo backend. Explique por quê: pelo mapeamento de portas do Docker, todas as requisições chegam ao Nginx com o mesmo IP de origem (o do gateway da rede). É o efeito de vários usuários atrás de um mesmo NAT.
+6. Compare L4 e L7: rode `curl -s http://localhost:8080/` e `curl -s http://localhost:9090/`. **Observe** que só o L7 responde sozinho por uma rota, porque só ele lê o path.
+7. Meça com `ab -n 1000 -c 20 -k http://localhost:8080/api/` e anote `Requests per second` e o tempo médio por requisição. Depois descreva em uma frase como Redis ou JWT eliminariam a necessidade do `ip_hash`.
+8. Limpe: `docker compose down`.
 
-**Prática verificável:** migre de PERMISSIVE para STRICT, prove que um cliente fora da malha falha e inspecione certificados com `istioctl proxy-config secret`.
+### Dica
 
-### Etapa 13: alta disponibilidade, SLO e recuperação
+Escolha o algoritmo pelo comportamento da carga: Round Robin distribui contagem, `least_conn` distribui ocupação e `ip_hash` distribui afinidade. Se você precisa de afinidade para a aplicação funcionar, o problema está no estado guardado dentro do backend, e a solução de longo prazo é tirá-lo de lá.
 
-**Objetivo:** projetar e testar continuidade diante de falhas reais.
+### Anota aí
 
-- SLA é compromisso; SLO é alvo operacional; métricas e orçamento de erro dizem se o alvo está sendo respeitado.
-- Todo SPOF precisa ser removido, reduzido ou aceito conscientemente.
-- Active-passive simplifica consistência; active-active usa capacidade simultânea e exige coordenação maior.
-- Keepalived com VRRP move um IP virtual entre nós. HA reduz interrupções locais; DR trata desastres com RTO e RPO.
-
-**Prática verificável:** derrube o nó ativo, meça o tempo de troca do IP virtual e registre o impacto no SLO.
-
-### Etapa 14: defesa da borda
-
-**Objetivo:** combinar disponibilidade com controles que preservem acesso legítimo.
-
-- TLS e HSTS protegem o canal; rate limiting controla abuso; WAF inspeciona conteúdo HTTP.
-- ModSecurity executa regras e OWASP CRS fornece um conjunto mantido de detecções comuns.
-- Comece em modo de detecção, analise falsos positivos e só então habilite bloqueio.
-- Logs, alertas, atualização de regras, menor privilégio e correção na aplicação formam a defesa em camadas.
-
-**Prática verificável:** envie tráfego normal e payloads de laboratório, leia o audit log, valide 403 do WAF e 429 do limitador.
+> Balancear não é só espalhar requisições: é escolher quanta informação o balanceador enxerga (L4 ou L7) e qual sinal ele usa (sequência, peso, conexões ativas ou afinidade) sem criar um novo gargalo.
 
 ---
+
+## Etapa 07: Health checks, failover, métricas e diagnóstico
+
+### O problema
+
+Em uma promoção, um dos três backends trava, mas o processo continua de pé. Para o sistema operacional está tudo bem, e o balanceador segue mandando um terço das requisições para ele. Um terço dos usuários recebe erro ou espera até o timeout, e a equipe só descobre porque os clientes reclamam. Um balanceador precisa medir se o serviço atende de verdade, retirar da rotação quem não atende, ter um plano B e, quando algo dá errado, mostrar onde está o problema com logs e métricas.
+
+### O conceito
+
+**Health checks.** No Nginx Open Source, os parâmetros `max_fails` e `fail_timeout` implementam verificação **passiva**: falhas observadas em requisições reais retiram temporariamente o backend da rotação. Com `max_fails=3 fail_timeout=10s`, três falhas dentro de 10 segundos tiram o servidor da rotação por 10 segundos; depois disso o Nginx volta a tentá-lo e o recoloca se a chamada funcionar. A verificação passiva depende de tráfego real: sem requisições, não há falhas para observar. Verificações **ativas** (sondas periódicas independentes do tráfego, com a diretiva `health_check`) são recurso do Nginx Plus, a edição comercial, ou de módulos externos. Um detalhe: em um grupo com um único servidor, `max_fails` e `fail_timeout` são ignorados.
+
+**Failover e backup.** Quando uma tentativa falha por erro de conexão ou timeout, o Nginx tenta o próximo servidor do grupo (comportamento padrão de `proxy_next_upstream`), então o cliente nem sempre percebe a falha. O parâmetro `backup` reserva um servidor que só recebe requisições quando todos os primários estão indisponíveis (não pode ser combinado com `ip_hash`, `hash` ou `random`).
+
+**Métricas.** O módulo `stub_status` expõe conexões ativas, total de conexões e requisições aceitas, e os estados de leitura, escrita e espera. O Apache Bench (`ab`) gera carga controlada. Leia em conjunto requisições por segundo, latência, percentis (o p95 mostra a experiência dos mais lentos, que a média esconde), CPU e logs, para saber se o limite está no proxy, no backend ou em uma dependência.
+
+**Diagnóstico de 502 e 504.** O erro `502 Bad Gateway` indica que o Nginx não obteve uma resposta válida do upstream: conexão recusada, conexão encerrada ou resposta inválida. O erro `504 Gateway Timeout` indica que a conexão foi feita, mas o backend não respondeu dentro do `proxy_read_timeout`. A investigação segue o caminho da requisição: cliente, Nginx, backend, dependências. Aumentar um timeout sem investigar pode apenas esconder lentidão.
+
+### Os conceitos-chave
+
+- **Check passivo (`max_fails`, `fail_timeout`)**: falhas em tráfego real retiram o backend por um tempo; disponível no Open Source.
+- **Check ativo (`health_check`)**: sondas periódicas; exige Nginx Plus ou módulo externo.
+- **`backup`**: servidor reserva usado só quando os primários caem.
+- **`proxy_next_upstream`**: define em que falhas o Nginx tenta outro servidor do grupo.
+- **`stub_status`**: painel nativo com conexões ativas e estados de leitura, escrita e espera.
+- **502 e 504**: 502 é falha ao obter resposta válida (por exemplo, conexão recusada); 504 é espera além do `proxy_read_timeout`.
+
+### Exemplo comentado: backends primários, reserva, painel de estado e erros provocados
+
+O laboratório tem `api-1`, `api-2`, `api-backup` e um Nginx com rotas para provocar 502 e 504. Copie o `backend.py` da Etapa 03 para `etapa07/`.
+
+```yaml
+# compose.yaml
+x-backend: &backend
+  image: python:3.12-alpine
+  command: ["python", "/app/backend.py"]
+  volumes:
+    - ./backend.py:/app/backend.py:ro
+  networks: [lab]
+
+services:
+  api-1:
+    <<: *backend
+    environment: { NAME: api-1 }
+  api-2:
+    <<: *backend
+    environment: { NAME: api-2 }
+  api-backup:
+    <<: *backend
+    environment: { NAME: api-backup }      # só responde quando os primários caem
+  nginx:
+    image: nginx:stable
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks: [lab]
+    depends_on: [api-1, api-2, api-backup]
+  tools:                                   # container só para rodar curl dentro da rede
+    image: curlimages/curl
+    entrypoint: ["tail", "-f", "/dev/null"]
+    networks: [lab]
+
+networks:
+  lab:
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24            # sub-rede fixa, usada na regra allow do stub_status
+```
+
+```nginx
+# nginx.conf
+log_format lab '$remote_addr "$request" $status upstream=$upstream_addr ust=$upstream_status rt=$request_time';
+
+upstream pitstop_api {
+    server api-1:3000 max_fails=3 fail_timeout=10s;   # 3 falhas em 10s tiram o servidor por 10s
+    server api-2:3000 max_fails=3 fail_timeout=10s;
+    server api-backup:3000 backup;                    # reserva: só entra se api-1 e api-2 estiverem fora
+}
+
+server {
+    listen 80;
+    default_type text/plain;
+    access_log /var/log/nginx/access.log lab;         # log com o endereço do upstream e o tempo de cada requisição
+
+    location / {
+        proxy_pass http://pitstop_api;
+    }
+
+    location = /nginx_status {
+        stub_status;                                  # painel nativo de conexões
+        allow 127.0.0.1;                              # apenas a própria máquina
+        allow 172.30.0.0/24;                          # e a rede do laboratório
+        deny all;                                     # nega o resto
+    }
+
+    location = /quebrado {
+        proxy_pass http://api-1:9999;                 # porta onde ninguém escuta: conexão recusada (502)
+    }
+
+    location = /lento {
+        proxy_read_timeout 2s;                        # espera no máximo 2s pela resposta
+        proxy_pass http://api-1:3000/slow;            # rota do backend que demora 10s (504)
+    }
+}
+```
+
+```sh
+# Com tráfego normal, o log mostra um único upstream por requisição (saída aproximada)
+$ curl -s http://localhost:8080/
+api-1 recebeu /
+$ docker compose logs nginx --tail 2
+nginx-1  | 172.30.0.1 "GET / HTTP/1.1" 200 upstream=172.30.0.3:3000 ust=200 rt=0.003
+
+# Depois de "docker compose stop api-1", a tentativa falha e o Nginx tenta o próximo servidor:
+# o cliente recebe 200, e o log mostra dois endereços (o que falhou e o que respondeu)
+nginx-1  | 172.30.0.1 "GET / HTTP/1.1" 200 upstream=172.30.0.3:3000, 172.30.0.4:3000 ust=502, 200 rt=0.004
+
+# Erros provocados
+$ curl -s -o /dev/null -w '%{http_code} em %{time_total}s\n' http://localhost:8080/quebrado
+502 em 0.004s
+$ curl -s -o /dev/null -w '%{http_code} em %{time_total}s\n' http://localhost:8080/lento
+504 em 2.003s
+
+# Painel de estado, de dentro da rede (saída aproximada)
+$ docker compose exec tools curl -s http://nginx/nginx_status
+Active connections: 1
+server accepts handled requests
+ 25 25 25
+Reading: 0 Writing: 1 Waiting: 0
+```
+
+O `502` volta quase imediatamente porque a conexão é recusada; o `504` só aparece depois do `proxy_read_timeout`. Essa diferença de tempo, vista junto com a mensagem no log de erros (`Connection refused` ou `timed out`), já aponta a causa. O Nginx resolve os nomes do `upstream` quando carrega a configuração: se um container for recriado com outro IP, recarregue o Nginx (`nginx -s reload`).
+
+### Comandos essenciais
+
+- `docker compose logs -f nginx`: acompanha acessos, falhas e recuperação.
+- `docker compose stop api-1`: simula a falha de um backend.
+- `docker compose start api-1`: devolve o backend (depois, recarregue o Nginx se o IP mudou).
+- `docker compose exec tools curl -s http://nginx/nginx_status`: consulta o painel nativo.
+- `ab -n 2000 -c 50 -k http://localhost:8080/`: gera carga mensurável e imprime os percentis.
+- `docker compose logs nginx | grep -E 'refused|timed out'`: mostra a causa dos 502 e 504 no log de erros.
+
+### Mão na massa
+
+1. Crie `etapa07/` com `backend.py`, `compose.yaml` e `nginx.conf`, e rode `docker compose up -d`. Confirme com `for i in $(seq 1 6); do curl -s http://localhost:8080/; done` que as respostas alternam entre `api-1` e `api-2` e nunca vêm de `api-backup`.
+2. Rode `ab -n 2000 -c 50 -k http://localhost:8080/` e anote `Requests per second` e a linha `95%` da tabela de percentis.
+3. Em um terminal, rode `for i in $(seq 1 60); do curl -s -o /dev/null -w '%{http_code} ' http://localhost:8080/; sleep 0.5; done`. Em outro, rode `docker compose stop api-1`. **Observe** que todos os códigos seguem 200, e confirme em `docker compose logs nginx --tail 30` as linhas com dois endereços de upstream (o primeiro falhou) e, depois disso, só o endereço de `api-2` durante a janela de 10 segundos.
+4. Rode `docker compose stop api-2` e `curl -s http://localhost:8080/`. **Observe** `api-backup recebeu /`: com os primários fora, a reserva assume.
+5. Rode `docker compose start api-1 api-2`, recarregue o Nginx (`docker compose exec nginx nginx -s reload`) e repita o laço do passo 1. **Observe** o retorno dos primários e o fim do uso do backup.
+6. Provoque os dois erros: `curl -s -o /dev/null -w '%{http_code} em %{time_total}s\n' http://localhost:8080/quebrado` e o mesmo para `/lento`. **Observe** `502` imediato e `504` em cerca de 2 segundos, e procure a causa com `docker compose logs nginx | grep -E 'refused|timed out'`.
+7. Consulte `docker compose exec tools curl -s http://nginx/nginx_status` durante um `ab` e **observe** `Active connections` subindo.
+8. Limpe: `docker compose down`.
+
+### Dica
+
+Nunca mude três timeouts ao mesmo tempo. Reproduza o problema, altere uma variável, repita a carga e compare a mesma métrica. E lembre que o check passivo só descobre a falha quando um cliente real é afetado por ela: a primeira requisição que cai em um backend doente paga o preço.
+
+### Anota aí
+
+> Alta disponibilidade começa quando a borda detecta um backend incapaz, para de enviar trabalho a ele e prova, com logs e métricas, que a experiência do usuário continuou.
+
+---
+
+## Etapa 08: Ingress no Kubernetes
+
+### O problema
+
+No cluster, cada Service que precisa ser acessado de fora poderia ganhar o seu próprio `LoadBalancer`. Com dez serviços, são dez balanceadores externos, dez IPs públicos para gerenciar, dez conjuntos de regras e dez custos na nuvem. Os tipos de Service existentes resolvem partes do problema: `ClusterIP` expõe o serviço só dentro do cluster, `NodePort` publica uma porta alta em cada nó e `LoadBalancer` costuma criar um balanceador externo por Service. Falta um ponto de entrada único que entenda HTTP e roteie por domínio e caminho.
+
+### O conceito
+
+O **Ingress** centraliza regras HTTP e HTTPS de roteamento sob um único ponto de entrada. Ele é só uma declaração: um objeto da API que diz "o host X e o caminho Y vão para o Service Z". Quem executa essas regras é o **Ingress Controller** (ingress-nginx, Traefik, entre outros), que observa os objetos Ingress e configura o proxy real que recebe o tráfego. Sem Controller, criar o objeto Ingress não muda o tráfego.
+
+- **Roteamento por host** separa domínios (`api.exemplo.com` e `app.exemplo.com`). **Roteamento por path** separa caminhos no mesmo domínio (`/api` e `/`).
+- `pathType: Prefix` aceita o caminho e seus subcaminhos; `Exact` exige igualdade completa; `ImplementationSpecific` deixa a interpretação para o Controller (é o tipo usado quando o caminho tem expressão regular no ingress-nginx).
+- Annotations aplicam recursos específicos do Controller, como a reescrita de URL. Elas valem para o Ingress inteiro, e não para um path só. `ingressClassName` escolhe qual Controller atende a regra quando há mais de um no cluster.
+- O Service de destino continua sendo um `ClusterIP` estável para os Pods selecionados. Se o Service não tem endpoints (Pods prontos), o Ingress não tem para onde encaminhar.
+
+O Ingress segue estável, mas sua API está congelada (a evolução acontece na Gateway API, `gateway.networking.k8s.io`, que o Kubernetes recomenda para arquiteturas novas). O ingress-nginx, o Controller usado neste laboratório, teve a aposentadoria anunciada pelo projeto Kubernetes, com fim de manutenção previsto para março de 2026; verifique o estado atual antes de adotá-lo em produção. Isso não se aplica ao NGINX Ingress Controller mantido pela F5, que é outro projeto.
+
+### Os conceitos-chave
+
+- **Ingress**: declaração de hosts, paths e Services de destino (`networking.k8s.io/v1`).
+- **Ingress Controller**: o componente que lê os Ingress e configura o proxy real.
+- **ingressClassName**: escolhe o Controller responsável pela regra.
+- **pathType**: `Prefix`, `Exact` ou `ImplementationSpecific`.
+- **Annotation `rewrite-target`**: reescreve o caminho antes de enviar ao backend; vale para todos os paths do mesmo Ingress.
+- **Service com endpoints**: pré-requisito para o Ingress funcionar; sem Pods prontos, não há destino.
+
+### Exemplo comentado: um domínio, dois Services
+
+Os dois Services (`api` e `web`) usam o `backend.py` da Etapa 03 (copie-o para `etapa08/`), entregue ao cluster por um ConfigMap.
+
+```yaml
+# apps.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api                                # backend "api"
+spec:
+  replicas: 2                              # duas réplicas
+  selector:
+    matchLabels:
+      app: api                             # seleciona os Pods pelo label
+  template:
+    metadata:
+      labels:
+        app: api                           # precisa casar com o selector
+    spec:
+      containers:
+        - name: api
+          image: python:3.12-alpine        # imagem com Python
+          command: ["python", "/app/backend.py"]   # executa o backend didático
+          env:
+            - name: NAME
+              value: api                   # nome devolvido nas respostas
+          ports:
+            - containerPort: 3000          # porta do backend
+          readinessProbe:                  # só recebe tráfego quando responde
+            httpGet:
+              path: /healthz
+              port: 3000
+          volumeMounts:
+            - name: code
+              mountPath: /app              # o script aparece em /app/backend.py
+      volumes:
+        - name: code
+          configMap:
+            name: backend-py               # ConfigMap criado a partir do backend.py
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+spec:
+  selector:
+    app: api                               # encaminha aos Pods com este label
+  ports:
+    - port: 80                             # porta do Service
+      targetPort: 3000                     # porta do container
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web                                # mesmo molde, outro nome
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+        - name: web
+          image: python:3.12-alpine
+          command: ["python", "/app/backend.py"]
+          env:
+            - name: NAME
+              value: web                   # único campo que muda
+          ports:
+            - containerPort: 3000
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 3000
+          volumeMounts:
+            - name: code
+              mountPath: /app
+      volumes:
+        - name: code
+          configMap:
+            name: backend-py
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+spec:
+  selector:
+    app: web
+  ports:
+    - port: 80
+      targetPort: 3000
+```
+
+A reescrita de URL vale para todos os paths do Ingress em que a annotation aparece, então a rota `/api` (com reescrita) e a rota `/` (sem reescrita) ficam em dois objetos Ingress separados.
+
+```yaml
+# ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pitstop-api
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2    # envia ao backend só o que casou no segundo grupo
+spec:
+  ingressClassName: nginx                  # atendido pelo ingress-nginx
+  rules:
+    - host: pitstop.local                  # roteamento por host
+      http:
+        paths:
+          - path: /api(/|$)(.*)            # expressão regular: grupo 2 é o resto do caminho
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: api
+                port:
+                  number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pitstop-web                        # sem reescrita: o caminho segue intacto
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: pitstop.local
+      http:
+        paths:
+          - path: /status                  # caminho exato: só "/status", sem subcaminhos
+            pathType: Exact
+            backend:
+              service:
+                name: api
+                port:
+                  number: 80
+          - path: /                        # todo o resto vai para o frontend
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port:
+                  number: 80
+```
+
+```sh
+$ kubectl create configmap backend-py --from-file=backend.py
+$ kubectl apply -f apps.yaml -f ingress.yaml
+
+# Port-forward do Controller, para não depender de IP do Minikube nem de /etc/hosts
+$ kubectl port-forward -n ingress-nginx svc/ingress-nginx-controller 8080:80 &
+
+# O cabeçalho Host escolhe a regra; o rewrite remove o prefixo /api (saída aproximada)
+$ curl -s -H 'Host: pitstop.local' http://127.0.0.1:8080/api/health
+api recebeu /health
+$ curl -s -H 'Host: pitstop.local' http://127.0.0.1:8080/
+web recebeu /
+
+# Exact casa só "/status"; um subcaminho cai na regra "/" (Prefix)
+$ curl -s -H 'Host: pitstop.local' http://127.0.0.1:8080/status
+api recebeu /status
+$ curl -s -H 'Host: pitstop.local' http://127.0.0.1:8080/status/extra
+web recebeu /status/extra
+```
+
+### Comandos essenciais
+
+- `minikube addons enable ingress -p lab`: instala o ingress-nginx no perfil `lab` do Minikube.
+- `kubectl wait -n ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=180s`: espera o Controller ficar pronto.
+- `helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx -n ingress-nginx --create-namespace`: alternativa de instalação em outros clusters (exige `helm repo add` do repositório do ingress-nginx).
+- `kubectl get ingress,ingressclass`: confere endereço e classe.
+- `kubectl get endpointslices -l kubernetes.io/service-name=api`: confere se o Service tem Pods prontos (`kubectl get endpoints api` também funciona, com aviso de depreciação em versões recentes).
+- `kubectl exec -n ingress-nginx deploy/ingress-nginx-controller -- cat /etc/nginx/nginx.conf | grep -n pitstop.local`: mostra o `nginx.conf` que o Controller gerou a partir dos Ingress.
+
+### Mão na massa
+
+1. Suba o cluster e o Controller: `minikube start -p lab`, `minikube addons enable ingress -p lab` e o `kubectl wait` acima. **Observe** o Pod `ingress-nginx-controller` em `Running` e confirme com `kubectl get ingressclass` a classe `nginx`.
+2. Crie o ConfigMap (`kubectl create configmap backend-py --from-file=backend.py`) e aplique `apps.yaml` e `ingress.yaml`. Confirme os Pods com `kubectl get pods` e os endpoints com `kubectl get endpointslices`.
+3. Abra o port-forward (`kubectl port-forward -n ingress-nginx svc/ingress-nginx-controller 8080:80`) e rode `curl -s -H 'Host: pitstop.local' http://127.0.0.1:8080/api/health` e o mesmo para `/`. **Observe** `api recebeu /health` (o prefixo `/api` foi removido pelo rewrite) e `web recebeu /`.
+4. Teste `/status` e `/status/extra` com o mesmo cabeçalho `Host`. **Observe** que `Exact` casa apenas o caminho exato e que o subcaminho cai na regra `/` do frontend.
+5. Rode o `kubectl exec ... cat /etc/nginx/nginx.conf | grep -n pitstop.local` e **observe** que o Controller transformou os objetos Ingress em blocos `server` de um Nginx de verdade.
+6. Provoque uma falha: `kubectl scale deployment api --replicas=0` e repita `/api/health`. **Observe** a resposta `503` do Controller (Service sem endpoints) e restaure com `--replicas=2`.
+7. Limpe: `kubectl delete -f ingress.yaml -f apps.yaml`, `kubectl delete configmap backend-py`. Mantenha o perfil `lab` para a Etapa 09.
+
+### Dica
+
+Ao depurar, siga a ordem: Controller ativo, `ingressClassName` correta, regra reconhecida (`kubectl describe ingress`), Service com endpoints e Pod saudável. A causa costuma estar nos dois últimos itens, não no Ingress.
+
+### Anota aí
+
+> O Ingress declara uma entrada HTTP compartilhada por host e path; o Controller transforma essa intenção em proxy real, e nada funciona sem um Service com endpoints saudáveis atrás.
+
+---
+
+## Etapa 09: TLS e cert-manager
+
+### O problema
+
+O site da loja roda em HTTPS, e o certificado vence em 90 dias. Alguém precisa lembrar, gerar o pedido, provar à autoridade que o domínio é da empresa, instalar o arquivo e recarregar o servidor. Com dezenas de domínios e serviços criados e removidos o tempo todo no cluster, isso não escala. Um certificado vencido derruba o acesso de todos os usuários com um aviso de segurança no navegador.
+
+### O conceito
+
+O TLS oferece confidencialidade, integridade e autenticação do servidor. O **cert-manager** estende a API do Kubernetes com recursos declarativos para emitir, armazenar e renovar certificados automaticamente.
+
+- **Issuer** emite certificados dentro de um namespace; **ClusterIssuer** atende o cluster inteiro. Eles definem a autoridade emissora (autoassinada, uma CA interna ou o ACME).
+- **Certificate** declara os nomes DNS, a duração e o **Secret** que receberá a chave privada e o certificado.
+- Com o **ACME** (protocolo usado pelo Let's Encrypt), um desafio **HTTP-01** (publicar um token em um caminho do site) ou **DNS-01** (publicar um registro TXT) prova o controle do domínio. O cert-manager acompanha a validade e renova antes do vencimento (por padrão, a duração é de 90 dias e a renovação começa quando falta um terço dela).
+- O **Ingress** referencia o Secret TLS. Com a annotation `cert-manager.io/cluster-issuer`, o cert-manager cria o Certificate sozinho a partir do bloco `tls` do Ingress.
+
+A chave privada permanece no cluster e não deve ser gravada em manifestos nem em repositórios. Um Secret é codificado em base64, e isso não é criptografia: a proteção vem do controle de acesso (RBAC) sobre os Secrets.
+
+O desafio ACME exige um domínio público alcançável pela autoridade, então o Let's Encrypt só pode ser praticado com um domínio real. O laboratório usa um ClusterIssuer autoassinado, que exercita o mesmo caminho (Ingress, Certificate, Secret, renovação) sem depender de internet pública. Ao usar o Let's Encrypt de verdade, comece pelo ambiente de staging para evitar os limites de emissão.
+
+### Os conceitos-chave
+
+- **Issuer e ClusterIssuer**: definem quem emite os certificados (`cert-manager.io/v1`).
+- **Certificate**: o pedido (nomes DNS, duração, Secret de destino).
+- **Secret `kubernetes.io/tls`**: guarda `tls.crt` e `tls.key`; é o que o Ingress usa.
+- **ACME, HTTP-01 e DNS-01**: protocolo e desafios para provar a posse do domínio.
+- **Renovação**: automática, antes do vencimento (`renewBefore`).
+- **Staging**: ambiente de teste do Let's Encrypt, sem os limites rígidos de produção.
+
+### Exemplo comentado: Ingress integrado ao cert-manager
+
+```yaml
+# clusterissuer-selfsigned.yaml
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned                         # nome citado nas annotations
+spec:
+  selfSigned: {}                           # emite certificados autoassinados (só para laboratório)
+```
+
+```yaml
+# ingress-tls.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pitstop-secure
+  annotations:
+    cert-manager.io/cluster-issuer: selfsigned   # pede ao cert-manager que emita o certificado
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - secure.pitstop.local             # nomes cobertos pelo certificado
+      secretName: pitstop-tls              # Secret que o cert-manager vai criar
+  rules:
+    - host: secure.pitstop.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web                  # Service criado na Etapa 08
+                port:
+                  number: 80
+```
+
+Para observar uma renovação sem esperar 60 dias, crie um Certificate explícito com a duração mínima permitida (1 hora) e uma janela de renovação de 55 minutos: a renovação ocorre cerca de 5 minutos depois da emissão.
+
+```yaml
+# certificate-renova.yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: renova-teste
+spec:
+  secretName: renova-teste-tls             # Secret de destino
+  duration: 1h                             # validade mínima aceita pelo cert-manager
+  renewBefore: 55m                         # renova quando restarem 55 minutos (5 minutos após emitir)
+  dnsNames:
+    - renova.pitstop.local                 # nome DNS do certificado
+  issuerRef:
+    name: selfsigned                       # emissor usado
+    kind: ClusterIssuer
+```
+
+O manifesto abaixo é só leitura: ele configura o ACME do Let's Encrypt em staging e exige um domínio público alcançável na porta 80.
+
+```yaml
+# clusterissuer-letsencrypt-staging.yaml
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+spec:
+  acme:
+    server: https://acme-staging-v02.api.letsencrypt.org/directory   # staging; produção usa acme-v02
+    email: voce@exemplo.com                # contato para avisos da autoridade
+    privateKeySecretRef:
+      name: letsencrypt-staging-account    # Secret que guarda a chave da conta ACME
+    solvers:
+      - http01:
+          ingress:
+            ingressClassName: nginx        # o desafio HTTP-01 passa pelo mesmo Controller
+```
+
+```sh
+# Instalação do cert-manager por Helm (a versão do chart é a mais recente do repositório)
+$ helm repo add jetstack https://charts.jetstack.io
+$ helm repo update
+$ helm install cert-manager jetstack/cert-manager -n cert-manager --create-namespace --set crds.enabled=true
+
+$ kubectl apply -f clusterissuer-selfsigned.yaml -f ingress-tls.yaml
+$ kubectl get certificate -w
+NAME          READY   SECRET        AGE
+pitstop-tls   False   pitstop-tls   2s
+pitstop-tls   True    pitstop-tls   4s
+
+$ kubectl get secret pitstop-tls -o jsonpath='{.data.tls\.crt}' | base64 -d \
+    | openssl x509 -noout -issuer -dates -ext subjectAltName
+# saída aproximada
+notBefore=...
+notAfter=...                               # cerca de 90 dias depois
+X509v3 Subject Alternative Name:
+    DNS:secure.pitstop.local
+```
+
+### Comandos essenciais
+
+- `kubectl get clusterissuer`: confirma a fonte de certificados.
+- `kubectl describe certificate pitstop-tls`: mostra emissão, eventos e renovação.
+- `kubectl get certificate,certificaterequest,order,challenge -A`: investiga o fluxo (Order e Challenge só existem com ACME).
+- `kubectl port-forward -n ingress-nginx svc/ingress-nginx-controller 8443:443`: expõe o HTTPS do Controller localmente.
+- `curl -kv --resolve secure.pitstop.local:8443:127.0.0.1 https://secure.pitstop.local:8443/`: valida o handshake enviando o nome correto (SNI); `-k` aceita o certificado autoassinado.
+
+### Mão na massa
+
+1. No cluster `lab` com o Ingress da Etapa 08 e o `apps.yaml` aplicado, instale o cert-manager com os três comandos do exemplo e confirme com `kubectl get pods -n cert-manager` os três Pods `Running`.
+2. Aplique `clusterissuer-selfsigned.yaml` e `ingress-tls.yaml`. Rode `kubectl get certificate -w` e **observe** `READY` passar de `False` para `True`. Confirme o Secret com `kubectl get secret pitstop-tls` e **observe** o tipo `kubernetes.io/tls`.
+3. Abra o port-forward da porta 443 e rode `curl -kv --resolve secure.pitstop.local:8443:127.0.0.1 https://secure.pitstop.local:8443/ 2>&1 | grep -iE 'issuer|subject|HTTP/'`. **Observe** a resposta `web recebeu /` e que o certificado entregue é o emitido pelo cert-manager, e não o certificado falso padrão do Controller.
+4. Inspecione o certificado do Secret com o `openssl` do exemplo e **observe** o nome DNS e a validade.
+5. Aplique `certificate-renova.yaml`, espere cerca de 6 minutos e rode `kubectl describe certificate renova-teste`. **Observe** um evento de renovação e `Revision: 2` no status.
+6. Demonstre que base64 não é criptografia: `kubectl get secret pitstop-tls -o jsonpath='{.data.tls\.key}' | base64 -d | head -n 1` mostra o início da chave privada em texto. Explique quais controles de acesso (RBAC) protegem o Secret.
+7. Limpe: `kubectl delete -f ingress-tls.yaml -f certificate-renova.yaml`, `kubectl delete secret pitstop-tls renova-teste-tls`.
+
+### Dica
+
+Quando a emissão travar, leia os eventos do Certificate e, com ACME, os do Challenge. A causa quase sempre é DNS incorreto, `ingressClassName` errada ou bloqueio do caminho do desafio HTTP-01. Use o staging enquanto testa e só mude para produção quando DNS e rota estiverem corretos.
+
+### Anota aí
+
+> O cert-manager transforma o certificado em estado desejado: você declara domínio e destino, e o controlador emite, armazena no Secret e renova antes de vencer.
+
+---
+
+## Etapa 10: Service Mesh e a arquitetura do Istio
+
+### O problema
+
+Uma aplicação de e-commerce virou vinte microsserviços. Cada chamada interna é agora uma chamada de rede, sujeita a latência, falhas e a perguntas que ninguém respondeu: o serviço que chamou é quem diz ser? Quantas vezes tentar de novo antes de desistir? Como saber onde o pedido ficou lento? Cada equipe implementa timeout, retry, criptografia e telemetria na sua linguagem, de um jeito diferente, e o comportamento da rede se torna inconsistente. A Service Mesh move essas políticas para proxies controlados de forma central.
+
+### O conceito
+
+No modelo **sidecar** do Istio, um proxy **Envoy** é injetado em cada Pod, ao lado do container da aplicação, e intercepta o tráfego de entrada e de saída. A aplicação segue focada na regra de negócio.
+
+- O **Data Plane** é formado pelos proxies Envoy: eles processam as requisições e aplicam roteamento, resiliência, segurança e telemetria.
+- O **Control Plane** é o **Istiod**: observa serviços e recursos do Istio, traduz as regras de alto nível para a configuração do Envoy, distribui descoberta de serviços e emite as identidades (certificados) das cargas de trabalho.
+- A injeção é habilitada por namespace (`istio-injection=enabled`) e acontece na criação do Pod: Pods já existentes só ganham o sidecar quando são recriados (por exemplo, com `kubectl rollout restart`).
+
+A abstração tem custo: cada sidecar consome CPU e memória, adiciona latência por salto e a malha é uma plataforma adicional para atualizar e diagnosticar. Para poucos serviços, o benefício pode não compensar. O Istio também oferece o modo ambient, sem sidecars; este guia usa sidecars porque o caminho do tráfego fica visível.
+
+### Os conceitos-chave
+
+- **Service Mesh**: camada que padroniza retry, timeout, mTLS e telemetria fora do código das aplicações.
+- **Envoy (sidecar)**: o proxy ao lado de cada workload; intercepta e processa o tráfego.
+- **Data Plane**: o conjunto de proxies que aplicam as políticas.
+- **Istiod (Control Plane)**: distribui configuração, descoberta e identidades.
+- **Injeção por namespace**: o label `istio-injection=enabled` e a recriação dos Pods.
+- **Overhead**: recursos extras, um salto a mais e mais uma plataforma para operar.
+
+### Exemplo comentado: instalação, injeção e validação do sidecar
+
+O laboratório usa um namespace `demo` com uma aplicação `api` (versão v1) e um cliente `web`. Copie o `backend.py` da Etapa 03 para `etapa10/`.
+
+```yaml
+# app.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: web                                # identidade do cliente (usada na Etapa 12)
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: api                           # label recomendado pelo Istio
+        version: v1                        # versão: base dos subsets da Etapa 11
+    spec:
+      containers:
+        - name: api
+          image: python:3.12-alpine
+          command: ["python", "/app/backend.py"]
+          env:
+            - name: NAME
+              value: api-v1                # nome devolvido nas respostas
+          ports:
+            - containerPort: 3000
+          volumeMounts:
+            - name: code
+              mountPath: /app
+      volumes:
+        - name: code
+          configMap:
+            name: backend-py
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+spec:
+  selector:
+    app: api                               # seleciona todas as versões da api
+  ports:
+    - name: http                           # o nome http informa o protocolo à malha
+      port: 80
+      targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      serviceAccountName: web              # o cliente chama a api com a identidade "web"
+      containers:
+        - name: web
+          image: curlimages/curl
+          command: ["sleep", "86400"]      # fica parado; usaremos kubectl exec para chamar a api
+```
+
+```sh
+# Baixa o Istio (traz o istioctl e os manifestos de exemplo) e instala o perfil demo
+$ curl -L https://istio.io/downloadIstio | sh -
+$ cd istio-*
+$ export PATH=$PWD/bin:$PATH
+$ minikube start -p mesh --cpus=4 --memory=8192
+$ istioctl install --set profile=demo -y
+# saída aproximada
+✔ Istio core installed
+✔ Istiod installed
+✔ Egress gateways installed
+✔ Ingress gateways installed
+✔ Installation complete
+
+# Aplica a aplicação ANTES de habilitar a injeção: os Pods nascem sem sidecar (1/1)
+$ kubectl create namespace demo
+$ kubectl create configmap backend-py --from-file=backend.py -n demo
+$ kubectl apply -f app.yaml -n demo
+$ kubectl get pods -n demo
+NAME            READY   STATUS    RESTARTS   AGE
+api-v1-xxxx     1/1     Running   0          20s
+web-xxxx        1/1     Running   0          20s
+
+# Habilita a injeção e recria os Pods: agora cada um tem o app e o proxy (2/2)
+$ kubectl label namespace demo istio-injection=enabled
+$ kubectl rollout restart deployment -n demo
+$ kubectl get pods -n demo
+NAME            READY   STATUS    RESTARTS   AGE
+api-v1-yyyy     2/2     Running   0          15s
+web-yyyy        2/2     Running   0          15s
+```
+
+`READY 2/2` indica a aplicação e o proxy no mesmo Pod. O perfil `demo` serve ao laboratório (ele liga logs e traces em níveis altos e instala gateways extras); não é a configuração padrão de produção.
+
+### Comandos essenciais
+
+- `istioctl install --set profile=demo -y`: instala um Istio de laboratório.
+- `kubectl label namespace demo istio-injection=enabled`: habilita a injeção clássica por sidecar.
+- `kubectl rollout restart deployment -n demo`: recria os Pods para que recebam o sidecar.
+- `istioctl proxy-status`: confere se os proxies estão sincronizados com o Istiod (`SYNCED`).
+- `kubectl get pod -n demo -l app=api -o jsonpath='{range .items[0].spec.containers[*]}{.name}{"\t"}{.resources.requests}{"\n"}{end}'`: mostra os recursos reservados por cada container, inclusive `istio-proxy`.
+- `minikube delete -p mesh`: remove o cluster do laboratório ao final das Etapas 10 a 12.
+
+### Mão na massa
+
+1. Crie o perfil e instale o Istio com os comandos do exemplo. **Observe** `Installation complete` e rode `kubectl get pods -n istio-system` para ver o `istiod` e os gateways em `Running`.
+2. Crie o namespace `demo`, o ConfigMap e aplique `app.yaml`. **Observe** `READY 1/1` nos dois Pods, sem sidecar.
+3. Habilite a injeção, rode `kubectl rollout restart deployment -n demo` e **observe** `READY 2/2`. Rode `kubectl get pod -n demo -l app=api -o jsonpath='{.items[0].spec.containers[*].name}'` e **observe** os containers `api` e `istio-proxy`.
+4. Rode `istioctl proxy-status` e **observe** os proxies de `api-v1` e `web` em `SYNCED`. Rode também o comando de recursos reservados e registre o custo do proxy em CPU e memória.
+5. Teste a chamada interna: `kubectl exec -n demo deploy/web -c web -- curl -s http://api/`. **Observe** `api-v1 recebeu /`, agora passando por dois proxies.
+6. Crie o namespace `legacy` sem o label (`kubectl create namespace legacy`), copie o ConfigMap (`kubectl create configmap backend-py --from-file=backend.py -n legacy`) e aplique `app.yaml` com `-n legacy`. **Observe** `READY 1/1` e explique onde as políticas da malha deixam de atuar: em Pods sem sidecar, nenhuma política do Istio é aplicada.
+7. Mantenha o cluster `mesh` e o namespace `demo` para as Etapas 11 e 12. Limpe o `legacy` com `kubectl delete namespace legacy`.
+
+### Dica
+
+Service Mesh não conserta código ruim nem dependência lenta: ela padroniza o comportamento da rede e oferece sinais melhores para encontrar o problema. Antes de adotá-la, descreva um cenário do seu sistema em que a complexidade da malha não compensaria; se não encontrar nenhum, provavelmente você ainda não pesou o custo.
+
+### Anota aí
+
+> O Istio separa comunicação de negócio: o Envoy executa as políticas no Data Plane e o Istiod coordena configuração e identidade no Control Plane, ao custo de recursos e de operação.
+
+---
+
+## Etapa 11: VirtualService, DestinationRule e deploy gradual
+
+### O problema
+
+A versão 2 da API de pedidos está pronta. Liberá-la para 100% dos usuários de uma vez é arriscado: um erro que os testes não pegaram derruba as vendas inteiras, e a reversão exige um novo deploy. Seria melhor enviar uma pequena fração do tráfego real para a versão nova, observar erros e latência e só então ampliar. Fazer essa divisão por porcentagem exata, ou por características da requisição, não é algo que um Service do Kubernetes sabe fazer, porque ele distribui pelo número de Pods.
+
+### O conceito
+
+No Istio, duas regras trabalham juntas. A **DestinationRule** nomeia grupos de Pods (**subsets**, selecionados por labels como `version: v1`) e define políticas de conexão para o destino. O **VirtualService** decide como cada chamada percorre esses grupos: pesos, condições por header ou path, retries, timeouts, espelhamento e falhas simuladas. As regras são aplicadas pelo sidecar do cliente, então só valem para chamadas que passam por um proxy da malha.
+
+Três formas de testar uma versão:
+
+- **Canary por peso** envia uma pequena porcentagem do tráfego real para a versão nova e a amplia gradualmente. Os pesos de uma rota precisam somar 100.
+- **A/B testing** usa características da requisição (header, cookie, path) para segmentar usuários, por exemplo enviando sempre um usuário de teste para a v2.
+- **Traffic mirroring** duplica as chamadas para a versão nova e descarta a resposta dela: o cliente continua recebendo a v1, e a v2 recebe carga real sem risco para o usuário.
+
+Resiliência no mesmo recurso: **retries** ajudam em falhas transitórias, mas multiplicam a carga se não forem limitados. `attempts` é o número de novas tentativas depois da primeira, `perTryTimeout` limita cada tentativa e o `timeout` da rota limita o tempo total, que precisa comportar todas as tentativas. **Circuit breaking** (na DestinationRule, com `outlierDetection`) ejeta endpoints que falham seguidamente, para evitar cascatas. A injeção de falhas (`fault`, com atraso ou aborto) permite testar a reação das aplicações.
+
+Peso é o mecanismo de entrega, não o critério de sucesso: a decisão de ampliar o canário vem de taxa de erro, latência e métricas de negócio.
+
+### Os conceitos-chave
+
+- **DestinationRule**: define subsets (grupos por label) e políticas do destino (`networking.istio.io/v1`).
+- **VirtualService**: define rotas, pesos, matches, retries, timeout, mirror e fault (`networking.istio.io/v1`).
+- **Canary, A/B e mirroring**: divisão por peso, segmentação por condição e cópia do tráfego.
+- **Retries e timeout**: o timeout total deve comportar `attempts` mais um, vezes `perTryTimeout`.
+- **Circuit breaking (`outlierDetection`)**: ejeta endpoints que falham em sequência.
+- **Ordem das regras**: o primeiro `match` que casa vence; a rota padrão vai por último.
+
+### Exemplo comentado: noventa por cento v1, dez por cento v2
+
+Primeiro, a versão 2 da aplicação, igual à v1 exceto pelo nome e pelo label `version`.
+
+```yaml
+# api-v2.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-v2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api
+      version: v2
+  template:
+    metadata:
+      labels:
+        app: api                           # o Service "api" seleciona este Pod também
+        version: v2                        # distingue a v2 da v1
+    spec:
+      containers:
+        - name: api
+          image: python:3.12-alpine
+          command: ["python", "/app/backend.py"]
+          env:
+            - name: NAME
+              value: api-v2
+          ports:
+            - containerPort: 3000
+          volumeMounts:
+            - name: code
+              mountPath: /app
+      volumes:
+        - name: code
+          configMap:
+            name: backend-py
+```
+
+```yaml
+# canary.yaml
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: api
+spec:
+  host: api.demo.svc.cluster.local         # nome completo do Service, para evitar ambiguidade
+  subsets:
+    - name: v1
+      labels:
+        version: v1                        # Pods com este label formam o subset v1
+    - name: v2
+      labels:
+        version: v2
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: api
+spec:
+  hosts:
+    - api.demo.svc.cluster.local           # chamadas a este host passam por estas regras
+  http:
+    - match:                               # regra 1: avaliada primeiro
+        - headers:
+            x-usuario:
+              exact: teste                 # quem envia "x-usuario: teste"...
+      route:
+        - destination:
+            host: api.demo.svc.cluster.local
+            subset: v2                     # ...sempre vai para a v2 (A/B)
+    - route:                               # regra 2: todo o resto
+        - destination:
+            host: api.demo.svc.cluster.local
+            subset: v1
+          weight: 90                       # 90% para a v1
+        - destination:
+            host: api.demo.svc.cluster.local
+            subset: v2
+          weight: 10                       # 10% para a v2 (canary); os pesos somam 100
+      timeout: 2s                          # tempo total máximo da chamada
+      retries:
+        attempts: 2                        # até 2 novas tentativas depois da primeira
+        perTryTimeout: 500ms               # 3 tentativas x 500ms = 1,5s, dentro do timeout de 2s
+```
+
+```yaml
+# mirror.yaml
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: api                                # substitui o VirtualService anterior
+spec:
+  hosts:
+    - api.demo.svc.cluster.local
+  http:
+    - route:
+        - destination:
+            host: api.demo.svc.cluster.local
+            subset: v1                     # o cliente continua recebendo a v1
+      mirror:
+        host: api.demo.svc.cluster.local
+        subset: v2                         # cópia da chamada enviada à v2; a resposta é descartada
+      mirrorPercentage:
+        value: 100.0                       # espelha 100% das chamadas
+```
+
+O manifesto abaixo é só leitura: ele mostra o circuit breaking com ejeção de endpoints, que só se manifesta quando um backend devolve erros 5xx em sequência.
+
+```yaml
+# circuit-breaker.yaml
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: api-cb
+spec:
+  host: api.demo.svc.cluster.local
+  trafficPolicy:
+    outlierDetection:
+      consecutive5xxErrors: 3              # 3 erros 5xx seguidos ejetam o endpoint
+      interval: 10s                        # frequência da análise
+      baseEjectionTime: 30s                # tempo mínimo fora da rotação
+      maxEjectionPercent: 50               # no máximo metade dos endpoints ejetada
+```
+
+```sh
+$ kubectl apply -f api-v2.yaml -n demo
+$ kubectl apply -f canary.yaml -n demo
+$ istioctl analyze -n demo
+✔ No validation issues found when analyzing namespace: demo.
+
+# Conta 100 respostas a partir do cliente da malha (saída aproximada: os números variam)
+$ kubectl exec -n demo deploy/web -c web -- sh -c 'for i in $(seq 1 100); do curl -s http://api/; done' | sort | uniq -c
+     91 api-v1 recebeu /
+      9 api-v2 recebeu /
+
+# O header de teste sempre vai para a v2
+$ kubectl exec -n demo deploy/web -c web -- curl -s -H 'x-usuario: teste' http://api/
+api-v2 recebeu /
+```
+
+### Comandos essenciais
+
+- `kubectl apply -f canary.yaml -n demo`: publica subsets e a divisão de tráfego.
+- `istioctl analyze -n demo`: detecta configurações inválidas (labels sem Pods, hosts inexistentes).
+- `kubectl exec -n demo deploy/web -c web -- sh -c 'for i in $(seq 1 100); do curl -s http://api/; done' | sort | uniq -c`: mede a proporção.
+- `kubectl get virtualservice,destinationrule -n demo`: confere os recursos.
+- `kubectl logs -n demo deploy/api-v2 -c api --tail 5`: mostra as requisições recebidas pela v2 (inclusive as espelhadas).
+- `kubectl delete virtualservice api -n demo`: reverte para o balanceamento comum do Service (rollback do canary).
+
+### Mão na massa
+
+1. Aplique `api-v2.yaml` e confirme `READY 2/2` nos dois Pods `api`. Rode `kubectl get endpointslices -n demo -l kubernetes.io/service-name=api` e **observe** dois endpoints: o Service seleciona as duas versões.
+2. Sem nenhum VirtualService, conte 100 respostas com o laço do exemplo. **Observe** uma divisão perto de 50 e 50, o comportamento do Service puro.
+3. Aplique `canary.yaml`, rode `istioctl analyze -n demo` e conte 100 respostas de novo. **Observe** cerca de 90 para a v1 e 10 para a v2 (a divisão é estatística, então os números variam).
+4. Envie `curl -s -H 'x-usuario: teste' http://api/` pelo cliente `web` várias vezes. **Observe** `api-v2` em todas as respostas, e o mesmo comando sem o header voltando à divisão 90/10.
+5. Aplique `mirror.yaml`, envie 10 chamadas pelo cliente e **observe** que todas as respostas são `api-v1`. Em seguida rode `kubectl logs -n demo deploy/api-v2 -c api --tail 12` e **observe** as 10 requisições chegando à v2, mesmo sem o cliente receber a resposta dela.
+6. Pratique o rollback: `kubectl delete virtualservice api -n demo` e conte 100 respostas. **Observe** a volta à divisão do Service. Se algo parecer errado, rode `istioctl analyze` antes de atribuir o desvio ao proxy.
+7. Mantenha o cluster para a Etapa 12. Se quiser, reaplique `canary.yaml` para deixar o tráfego dividido.
+
+### Dica
+
+Se todo o tráfego cai em uma versão só, confira nesta ordem: labels dos Pods contra os subsets, o `host` do VirtualService contra o Service, e a ordem das regras de `match`. Lembre também que as regras só valem para chamadas feitas por um cliente com sidecar; um cliente fora da malha ignora o VirtualService.
+
+### Anota aí
+
+> A DestinationRule define os grupos disponíveis e o VirtualService decide como cada chamada percorre esses grupos: juntos, tornam o deploy gradual observável e reversível.
+
+---
+
+## Etapa 12: mTLS, autorização e observabilidade na malha
+
+### O problema
+
+O cluster está dentro de uma rede privada, então "ninguém de fora consegue chamar". Na prática, um único Pod comprometido ou mal configurado consegue chamar qualquer outro serviço, e o tráfego interno viaja em texto puro. Além disso, quando um pedido fica lento em uma cadeia de cinco serviços, ninguém sabe qual deles consumiu o tempo. Rede interna não é sinônimo de rede confiável, e é preciso autenticar quem chama, restringir o que pode chamar e enxergar o caminho do pedido.
+
+### O conceito
+
+O Istio autentica as cargas de trabalho com certificados de curta duração emitidos pelo Istiod, criptografa o tráfego entre sidecars com **mTLS** (as duas pontas apresentam identidade) e autoriza chamadas pela identidade, que é derivada da ServiceAccount do Pod (`cluster.local/ns/demo/sa/web`).
+
+- **PeerAuthentication** controla o mTLS. `PERMISSIVE` aceita tráfego com e sem mTLS e ajuda nas migrações; `STRICT` rejeita tráfego sem identidade da malha. A política com nome `default` em um namespace vale para ele todo.
+- **AuthorizationPolicy** responde o que uma identidade autenticada pode fazer, por origem, método e path. Quando existe uma política `ALLOW` para uma carga de trabalho, toda requisição que não casa com nenhuma regra é negada (HTTP 403).
+- **Observabilidade**: o Envoy registra volume, código de resposta e duração de cada chamada. O Prometheus armazena métricas, o Grafana apresenta painéis, o Jaeger reconstrói traces e o Kiali exibe a topologia, os erros e o estado do mTLS.
+- **Tracing distribuído**: o proxy cria e lê headers de rastreamento, mas a aplicação precisa propagá-los nas chamadas seguintes (`x-request-id`, `x-b3-traceid`, `x-b3-spanid`, `x-b3-parentspanid`, `x-b3-sampled`, `x-b3-flags`, `b3` e, para W3C, `traceparent` e `tracestate`). Sem propagação, o trace quebra mesmo com sidecars saudáveis. Coletar traces exige configurar um provedor de tracing na malha, o que fica fora do laboratório; aqui você verifica os headers e as métricas.
+
+Autenticação responde quem é; autorização responde o que pode fazer. O mTLS não substitui uma política de acesso.
+
+### Os conceitos-chave
+
+- **mTLS**: as duas pontas se autenticam e criptografam o salto entre os sidecars.
+- **PeerAuthentication (`security.istio.io/v1`)**: modo `PERMISSIVE` (migração) ou `STRICT` (exige a malha).
+- **AuthorizationPolicy (`security.istio.io/v1`)**: libera origem, método e path mínimos; requisições fora das regras `ALLOW` são negadas.
+- **Identidade (principal)**: derivada da ServiceAccount; só existe quando há mTLS.
+- **Métricas do Envoy**: `istio_requests_total` registra volume e códigos de resposta por origem e destino.
+- **Propagação de headers**: responsabilidade da aplicação, indispensável para traces completos.
+
+### Exemplo comentado: mTLS estrito, política por identidade e métricas
+
+```yaml
+# security.yaml
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: default                            # política do namespace inteiro
+  namespace: demo
+spec:
+  mtls:
+    mode: STRICT                           # rejeita tráfego sem mTLS
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: api-read
+  namespace: demo
+spec:
+  selector:
+    matchLabels:
+      app: api                             # vale para os Pods da api
+  action: ALLOW                            # o que não casar com as regras abaixo é negado
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/demo/sa/web"]   # só a identidade "web"
+      to:
+        - operation:
+            methods: ["GET"]               # só leitura
+            paths: ["/api/*"]              # só caminhos sob /api/
+```
+
+Para provar que a decisão é por identidade, um segundo cliente com outra ServiceAccount (a `default`).
+
+```yaml
+# outro.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: outro
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: outro
+  template:
+    metadata:
+      labels:
+        app: outro
+    spec:
+      containers:
+        - name: outro
+          image: curlimages/curl
+          command: ["sleep", "86400"]      # usa a ServiceAccount default do namespace
+```
+
+```sh
+# 1) Em PERMISSIVE (padrão), o cliente fora da malha consegue chamar a api
+$ kubectl create namespace legacy
+$ kubectl run curl -n legacy --image=curlimages/curl --restart=Never -- sleep 3600
+$ kubectl exec -n legacy curl -- curl -s http://api.demo.svc.cluster.local/
+api-v1 recebeu /
+
+# 2) Em STRICT, o mesmo cliente é recusado (saída aproximada: a mensagem varia)
+$ kubectl apply -f security.yaml     # a AuthorizationPolicy também é criada; teste o legacy antes dela, se quiser isolar
+$ kubectl exec -n legacy curl -- curl -s http://api.demo.svc.cluster.local/
+curl: (56) Recv failure: Connection reset by peer
+
+# 3) A identidade chega ao backend no cabeçalho X-Forwarded-Client-Cert
+$ kubectl exec -n demo deploy/web -c web -- curl -s http://api/api/headers | grep -iE 'x-request-id|x-forwarded-client-cert'
+X-Request-Id: 6f1c...
+X-Forwarded-Client-Cert: By=spiffe://cluster.local/ns/demo/sa/default;Hash=...;Subject="";URI=spiffe://cluster.local/ns/demo/sa/web
+
+# 4) Autorização por identidade, método e path
+$ kubectl exec -n demo deploy/web -c web -- curl -s -o /dev/null -w '%{http_code}\n' http://api/api/ping
+200
+$ kubectl exec -n demo deploy/web -c web -- curl -s -o /dev/null -w '%{http_code}\n' http://api/
+403
+$ kubectl exec -n demo deploy/web -c web -- curl -s -o /dev/null -w '%{http_code}\n' -X POST http://api/api/ping
+403
+$ kubectl exec -n demo deploy/outro -c outro -- curl -s -o /dev/null -w '%{http_code}\n' http://api/api/ping
+403
+
+# 5) Métricas do Envoy, direto do sidecar da api (saída aproximada)
+$ kubectl exec -n demo deploy/api-v1 -c istio-proxy -- pilot-agent request GET stats/prometheus | grep '^istio_requests_total' | head -n 3
+istio_requests_total{response_code="200",destination_workload="api-v1",...} 7
+istio_requests_total{response_code="403",destination_workload="api-v1",...} 3
+```
+
+STRICT sem políticas e identidades testadas pode bloquear a produção: migre de `PERMISSIVE` para `STRICT` por etapas, observando quais clientes ainda falam sem mTLS, e restrinja o acesso aos poucos.
+
+### Comandos essenciais
+
+- `kubectl apply -f security.yaml`: aplica o mTLS estrito e a política de autorização.
+- `kubectl get peerauthentication,authorizationpolicy -A`: lista as políticas de segurança.
+- `istioctl proxy-config secret deploy/api-v1 -n demo`: mostra os certificados ativos no proxy (um `default` e o `ROOTCA`).
+- `kubectl exec -n demo deploy/api-v1 -c istio-proxy -- pilot-agent request GET stats/prometheus`: lê as métricas do Envoy sem instalar nada.
+- `kubectl apply -f samples/addons/prometheus.yaml -f samples/addons/kiali.yaml` (a partir da pasta do Istio baixado): instala Prometheus e Kiali para o grafo da malha.
+- `istioctl dashboard kiali`: abre o grafo da malha, com o estado de mTLS (alternativa sem navegador local: `kubectl port-forward -n istio-system svc/kiali 20001:20001`).
+
+### Mão na massa
+
+1. Com o cluster `mesh`, crie o namespace `legacy` e um Pod de teste sem sidecar (comandos do exemplo). Chame a api e **observe** que, em `PERMISSIVE`, a chamada sem mTLS funciona.
+2. Aplique somente a `PeerAuthentication` com `mode: STRICT` (separe o primeiro documento de `security.yaml` ou apague temporariamente a AuthorizationPolicy). Repita a chamada do `legacy` e **observe** a recusa. Repita a chamada pelo `web` (que tem sidecar) e **observe** que continua funcionando.
+3. Aplique `outro.yaml` e a `AuthorizationPolicy`. Rode as quatro chamadas do item 4 do exemplo e **observe** `200` apenas para `GET /api/ping` vindo do `web`, e `403` para outro path, outro método e outra identidade.
+4. Rode a chamada ao `/api/headers` e **observe** que o proxy acrescentou `X-Request-Id` e `X-Forwarded-Client-Cert` com a identidade do chamador. Explique por que, para um trace completo, a aplicação precisa copiar esses headers para as chamadas que ela mesma fizer.
+5. Rode `istioctl proxy-config secret deploy/api-v1 -n demo` e leia as métricas do Envoy no sidecar. **Observe** contadores `istio_requests_total` separados por código de resposta, inclusive os `403` que você provocou.
+6. Opcional: instale Prometheus e Kiali (`samples/addons`), gere tráfego com um laço de `curl` e abra `istioctl dashboard kiali`. **Observe** o grafo `web` para `api` e o ícone de cadeado do mTLS.
+7. Limpe tudo ao fim das Etapas 10 a 12: `minikube delete -p mesh`.
+
+### Dica
+
+Mude uma política de cada vez e teste os dois lados: uma chamada que deve passar e outra que deve falhar. Um `STRICT` que "funciona" só com os clientes que você lembrou de testar costuma quebrar o cliente que você esqueceu.
+
+### Anota aí
+
+> Na malha, identidade e telemetria viram propriedades de cada salto: o mTLS autentica, a AuthorizationPolicy restringe pela identidade e a observabilidade explica o percurso, desde que a aplicação propague os headers de rastreamento.
+
+---
+
+## Etapa 13: Alta disponibilidade: SLA, SLO, SPOF e redundância
+
+### O problema
+
+Às 2h da manhã, a máquina que hospeda o único balanceador da loja perde a fonte de alimentação. Os dez backends estão saudáveis, mas ninguém consegue acessá-los, porque tudo passa por aquele balanceador. Outro cenário: o contrato promete 99,9% de disponibilidade, e ninguém sabe dizer quantos minutos de indisponibilidade isso permite, nem quanto o failover do sistema realmente leva. Alta disponibilidade começa com uma meta mensurável, identifica os componentes cuja queda derruba tudo e escolhe redundância compatível com o custo e com o estado da aplicação. E precisa ser testada antes do incidente real.
+
+### O conceito
+
+- **SLA** é a promessa externa ao cliente, possivelmente com penalidade. **SLO** é a meta interna usada pela engenharia, em geral mais rigorosa que o SLA. O **orçamento de erro** é o que o SLO permite de falha no período (100% menos o SLO). Uma meta de 99,9% em 30 dias permite cerca de 43 minutos de indisponibilidade.
+- Um **SPOF** (single point of failure) é qualquer servidor, balanceador, link, banco ou local cuja falha interrompe todo o serviço. Componentes em série multiplicam as disponibilidades (dois componentes de 99,9% dão cerca de 99,8%), enquanto réplicas independentes em paralelo as melhoram (duas de 99% dão cerca de 99,99%, se as falhas forem independentes). SPOFs devem ser removidos, reduzidos ou aceitos de forma explícita.
+- **Ativo-passivo** mantém uma instância de reserva e exige failover; simplifica a consistência. **Ativo-ativo** usa todos os nós ao mesmo tempo e redistribui a carga quando um falha, mas exige aplicações stateless ou sincronização correta do estado.
+- **Keepalived** com **VRRP** move um **IP virtual** (VIP) entre dois balanceadores: o nó de maior prioridade com saúde confirmada responde pelo VIP, e se ele falhar o outro assume. A configuração dos dois nós precisa permanecer sincronizada por automação (como Ansible) ou por mecanismos declarativos. Em muitas redes de nuvem o VRRP não funciona como em uma rede local, e o provedor oferece balanceadores gerenciados ou reatribuição de IP; confira a documentação do seu provedor.
+- Os health checks devem verificar a **função real** (por exemplo, uma resposta HTTP válida), não apenas a existência do processo.
+- **Chaos Engineering** formula uma hipótese, injeta uma falha controlada e mede a reação, com critérios claros para abortar. Não é falha aleatória em produção.
+- **HA** reduz interrupções locais; **Disaster Recovery** (DR) recupera o serviço depois de eventos amplos, como a perda de uma zona ou região. O **RTO** é o tempo máximo aceito para recuperar e o **RPO** é a perda máxima de dados aceita, medida em tempo.
+
+### Os conceitos-chave
+
+- **SLA, SLO e orçamento de erro**: promessa externa, meta interna e quanto de falha cabe nela.
+- **SPOF**: componente cuja falha derruba tudo; em série, as disponibilidades se multiplicam.
+- **Ativo-passivo e ativo-ativo**: reserva à espera ou capacidade compartilhada entre os nós.
+- **Keepalived, VRRP e VIP**: o IP virtual migra entre balanceadores conforme a prioridade e a saúde.
+- **Chaos Engineering**: hipótese, falha controlada, medição e critério de aborto.
+- **RTO e RPO**: tempo de recuperação aceito e perda de dados aceita no DR.
+
+### Exemplo comentado: Keepalived protegendo o balanceador
+
+O laboratório sobe dois balanceadores Nginx (`lb1` e `lb2`) em uma rede Docker com um IP virtual (`172.28.0.100`) e um cliente. Cada nó responde com o próprio nome, o que torna o failover visível.
+
+```dockerfile
+# Dockerfile
+FROM nginx:stable
+# keepalived faz o VRRP; curl e iproute2 servem ao check de saúde e à inspeção do IP
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends keepalived curl iproute2 \
+ && rm -rf /var/lib/apt/lists/*
+```
+
+```nginx
+# lb.conf
+server {
+    listen 80;
+    default_type text/plain;
+
+    location = /healthz {
+        return 200 "ok\n";                          # rota usada pelo check de saúde
+    }
+
+    location / {
+        return 200 "atendido por $hostname\n";      # mostra qual balanceador respondeu
+    }
+}
+```
+
+```text
+# keepalived-lb1.conf
+vrrp_script check_nginx {
+    script "/usr/bin/curl -fsS --max-time 1 http://127.0.0.1/healthz"   # testa a função real do Nginx
+    interval 1                                      # roda a cada 1 segundo
+    fall 2                                          # 2 falhas seguidas: o nó é considerado doente
+    rise 2                                          # 2 sucessos seguidos: o nó volta a ser saudável
+}
+
+vrrp_instance PITSTOP {
+    state MASTER                                    # estado inicial (a prioridade decide na prática)
+    interface eth0                                  # interface que carrega o IP virtual
+    virtual_router_id 51                            # igual nos dois nós
+    priority 100                                    # maior prioridade: preferido para ter o VIP
+    advert_int 1                                    # anuncia presença a cada 1 segundo
+    unicast_src_ip 172.28.0.11                      # IP deste nó
+    unicast_peer {
+        172.28.0.12                                 # IP do outro nó (unicast, pois a rede Docker não é ideal para multicast)
+    }
+    virtual_ipaddress {
+        172.28.0.100/24                             # o IP virtual compartilhado
+    }
+    track_script {
+        check_nginx                                 # se o check falhar, o nó libera o VIP
+    }
+}
+```
+
+O `keepalived-lb2.conf` é idêntico, trocando `state MASTER` por `state BACKUP`, `priority 100` por `priority 90`, `unicast_src_ip` por `172.28.0.12` e o par em `unicast_peer` por `172.28.0.11`.
+
+```yaml
+# compose.yaml
+services:
+  lb1:
+    build: .                                        # usa o Dockerfile desta pasta
+    image: lb-ha-lab
+    hostname: lb1
+    cap_add: [NET_ADMIN, NET_BROADCAST, NET_RAW]    # permite ao Keepalived gerenciar IPs e usar VRRP
+    command: ["sh", "-c", "nginx && exec keepalived --dont-fork --log-console"]   # sobe o Nginx e depois o Keepalived
+    volumes:
+      - ./lb.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./keepalived-lb1.conf:/etc/keepalived/keepalived.conf:ro
+    networks:
+      lab:
+        ipv4_address: 172.28.0.11
+  lb2:
+    image: lb-ha-lab                                # reaproveita a imagem construída por lb1
+    hostname: lb2
+    cap_add: [NET_ADMIN, NET_BROADCAST, NET_RAW]
+    command: ["sh", "-c", "nginx && exec keepalived --dont-fork --log-console"]
+    volumes:
+      - ./lb.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./keepalived-lb2.conf:/etc/keepalived/keepalived.conf:ro
+    networks:
+      lab:
+        ipv4_address: 172.28.0.12
+    depends_on: [lb1]
+  client:
+    image: curlimages/curl                          # cliente dentro da mesma rede
+    entrypoint: ["tail", "-f", "/dev/null"]
+    networks: [lab]
+
+networks:
+  lab:
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24                     # sub-rede fixa que contém o VIP
+```
+
+```sh
+$ docker compose up -d --build
+
+# Quem tem o VIP agora? (saída aproximada)
+$ docker compose exec lb1 ip -brief addr show eth0
+eth0@if21   UP   172.28.0.11/24 172.28.0.100/24
+
+$ docker compose exec client curl -s http://172.28.0.100/
+atendido por lb1
+
+# Falha controlada: para o Nginx do nó ativo e acompanha o cliente
+$ docker compose exec lb1 nginx -s stop
+$ docker compose exec client sh -c 'for i in $(seq 1 12); do echo "$(date +%T) $(curl -s --max-time 1 http://172.28.0.100/ || echo FALHOU)"; sleep 0.5; done'
+10:41:02 atendido por lb1
+10:41:02 atendido por lb1
+10:41:03 FALHOU
+10:41:04 atendido por lb2
+10:41:04 atendido por lb2
+```
+
+O tempo de troca depende de `interval`, `fall` e `advert_int`; no laboratório costuma ficar em poucos segundos. Para medir o SLO, use a aritmética abaixo.
+
+```sh
+# Minutos de indisponibilidade permitidos em 30 dias para cada SLO (saída aproximada)
+$ for slo in 99 99.9 99.99; do awk -v s=$slo 'BEGIN{printf "SLO %s%%: %.1f min\n", s, 30*24*60*(100-s)/100}'; done
+SLO 99%: 432.0 min
+SLO 99.9%: 43.2 min
+SLO 99.99%: 4.3 min
+```
+
+### Comandos essenciais
+
+- `docker compose up -d --build`: constrói a imagem e sobe os dois balanceadores e o cliente.
+- `docker compose exec lb1 ip -brief addr show eth0`: mostra se o nó tem o VIP (repita em `lb2`).
+- `docker compose exec lb1 nginx -s stop`: injeta uma falha controlada no nó ativo.
+- `docker compose exec lb1 nginx`: devolve o Nginx ao nó (o VIP volta ao nó de maior prioridade).
+- `docker compose logs lb1 lb2 | grep -i -E 'MASTER|BACKUP|FAULT'`: acompanha as transições de estado do VRRP.
+- `watch -n 1 'docker compose exec -T lb2 ip -brief addr show eth0'`: acompanha o VIP migrando.
+
+### Mão na massa
+
+1. Desenhe em papel o caminho completo de uma requisição (cliente, DNS, balanceador, aplicação, banco) e marque cada componente sem redundância. Cada marca é um SPOF.
+2. Escolha um SLO de disponibilidade para o serviço e calcule o downtime mensal permitido com o comando `awk` do exemplo. Calcule também a disponibilidade de dois componentes de 99,9% em série.
+3. Crie `etapa13/` com os arquivos do exemplo e rode `docker compose up -d --build`. Descubra qual nó tem o VIP e **observe** `atendido por lb1` ao chamar o IP virtual.
+4. Em um terminal, rode o laço do cliente. Em outro, pare o Nginx do `lb1` com `docker compose exec lb1 nginx -s stop`. **Observe** respostas de `lb1`, uma ou duas falhas e depois respostas de `lb2`, e meça quantos segundos passaram sem resposta.
+5. Rode `docker compose exec lb1 nginx` e **observe** o VIP voltar ao `lb1` (prioridade maior) após os checks de saúde passarem. Registre também em `docker compose logs` as transições de estado.
+6. Escreva uma hipótese de Chaos Engineering (por exemplo, "se o balanceador ativo cair, o cliente perde no máximo 5 segundos de resposta") com um critério de aborto (por exemplo, "se o VIP não migrar em 30 segundos, restaurar o nó e encerrar o experimento"). Compare o resultado do passo 4 com a hipótese.
+7. Limpe: `docker compose down`.
+
+### Dica
+
+Redundância que nunca foi testada é uma suposição cara. Meça o tempo de failover, a perda de requisições e o tempo de recuperação, e compare com o SLO. Se você não consegue demonstrar o failover em um laboratório, não deveria confiar nele em produção.
+
+### Anota aí
+
+> Alta disponibilidade combina uma meta mensurável, a remoção de SPOFs, redundância e testes; o DR complementa quando a falha ultrapassa o servidor ou a zona local.
+
+---
+
+## Etapa 14: WAF, rate limiting e defesa em camadas
+
+### O problema
+
+A API de login da loja recebe, de madrugada, milhares de tentativas de senha por minuto vindas de poucos IPs, e algumas requisições trazem trechos de SQL no parâmetro de busca. O firewall de rede bloqueia portas e redes, mas não entende o que está dentro de uma requisição HTTP: um payload de SQL Injection chega por uma porta legítima (443) e passa. A disponibilidade ainda depende de que o acesso legítimo continue confiável, então a borda precisa distinguir uso normal de comportamento hostil sem derrubar usuários reais.
+
+### O conceito
+
+Firewalls de camadas 3 e 4 bloqueiam redes e portas, mas não inspecionam a camada de aplicação. Um **WAF** (Web Application Firewall) inspeciona o conteúdo HTTP. O **ModSecurity** (com a biblioteca libModSecurity e o conector para o Nginx) é o motor que aplica as regras, e o **OWASP Core Rule Set (CRS)** é uma base de regras mantida pela comunidade contra padrões como SQL Injection e XSS.
+
+- O WAF avalia as regras e acumula uma **pontuação de anomalia**; ao passar de um limite, bloqueia (por padrão no CRS, o limite de entrada é 5). Pode apenas registrar (`DetectionOnly`) ou bloquear (`On`). Comece em modo de detecção para ajustar falsos positivos antes de interromper usuários legítimos. O CRS também tem níveis de paranoia (de 1 a 4): níveis maiores detectam mais e geram mais falsos positivos.
+- **TLS 1.2 ou 1.3**, **HSTS** e headers seguros protegem o canal e o navegador. O HSTS manda o navegador usar só HTTPS para o domínio pelo tempo informado em `max-age`.
+- **Rate limiting** limita as requisições por chave (em geral o IP) e ajuda contra força bruta e abuso, mas não substitui proteção contra DDoS distribuído, em que cada origem envia pouco. No Nginx, `limit_req_zone` define a chave, a memória e a taxa; `limit_req` aplica o limite em um local; `burst` permite rajadas e `nodelay` atende a rajada sem atraso. A resposta de rejeição padrão é 503; use `limit_req_status 429` para devolver `429 Too Many Requests`. Atrás de NAT, vários usuários compartilham o mesmo IP, e atrás de um CDN ou proxy é preciso configurar o IP real do cliente.
+- Logs do Nginx e do ModSecurity precisam chegar a uma plataforma central, com alertas para aumento de bloqueios, de respostas 5xx e de latência. Segurança depende de revisão, atualização do CRS e testes repetíveis.
+
+Um WAF não corrige a vulnerabilidade no código: reduz a exposição e compra tempo para a correção definitiva. A defesa funciona em camadas, cada uma cobrindo o que a anterior não vê.
+
+### Os conceitos-chave
+
+- **WAF (ModSecurity + CRS)**: inspeciona o conteúdo HTTP com regras e pontuação de anomalia.
+- **DetectionOnly e On**: registrar sem bloquear, e bloquear; comece por registrar.
+- **Rate limiting (`limit_req_zone`, `limit_req`)**: controla abuso por chave; `limit_req_status 429` altera o código de rejeição.
+- **TLS e HSTS**: protegem o canal e obrigam o navegador a usar HTTPS.
+- **403 e 429**: 403 vem do bloqueio de uma regra do WAF; 429 vem do limite de taxa configurado.
+- **Logs e alertas**: transformam bloqueios em evidência para ajustar regras e responder a incidentes.
+
+### Exemplo comentado: borda em camadas, com TLS, limite de taxa e WAF
+
+O laboratório encadeia três contêineres: o Nginx de borda (TLS, HSTS e limite de taxa), o WAF (imagem `owasp/modsecurity-crs`, que roda Nginx com ModSecurity e CRS como proxy reverso) e o backend. Copie o `backend.py` da Etapa 03 para `etapa14/` e gere um certificado autoassinado como na Etapa 02 (pasta `certs/`).
+
+```yaml
+# compose.yaml
+services:
+  api:
+    image: python:3.12-alpine
+    command: ["python", "/app/backend.py"]
+    environment:
+      NAME: api
+    volumes:
+      - ./backend.py:/app/backend.py:ro
+  crs:
+    image: owasp/modsecurity-crs:nginx              # WAF: Nginx com ModSecurity e OWASP CRS
+    environment:
+      BACKEND: http://api:3000                      # para onde o WAF encaminha o tráfego aprovado
+      PORT: "8080"                                  # porta de escuta do WAF dentro do container
+      MODSEC_RULE_ENGINE: DetectionOnly             # só registra; troque para On para bloquear
+      PARANOIA: "1"                                 # nível de paranoia do CRS (1 é o menos sensível)
+    depends_on: [api]
+  edge:
+    image: nginx:stable                             # borda: TLS, HSTS e limite de taxa
+    ports:
+      - "8443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on: [crs]
+```
+
+```nginx
+# nginx.conf
+limit_req_zone $binary_remote_addr zone=login:10m rate=5r/m;   # 5 requisições por minuto por IP; 10 MB de estado
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name localhost;
+
+    ssl_certificate     /etc/nginx/certs/cert.pem;
+    ssl_certificate_key /etc/nginx/certs/key.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;                   # recusa versões antigas de TLS
+
+    server_tokens off;                                     # oculta a versão do Nginx
+    add_header Strict-Transport-Security "max-age=300" always;   # HSTS curto no laboratório; em produção, 31536000 depois de validar tudo
+    limit_req_status 429;                                  # rejeições devolvem 429 (o padrão seria 503)
+
+    proxy_set_header Host $host;                           # herdado pelas duas rotas abaixo
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+    location = /login {
+        limit_req zone=login burst=3 nodelay;              # 1 requisição + rajada de 3; o resto recebe 429
+        proxy_pass http://crs:8080;                        # passa pelo WAF antes de chegar à aplicação
+    }
+
+    location / {
+        proxy_pass http://crs:8080;
+    }
+}
+```
+
+```sh
+$ docker compose up -d
+
+# TLS e HSTS (saída aproximada)
+$ curl -sk -I https://localhost:8443/ | grep -iE 'HTTP/|strict|server'
+HTTP/2 200
+server: nginx
+strict-transport-security: max-age=300
+
+# Em DetectionOnly, o payload malicioso passa (200), mas é registrado (os códigos de regra variam)
+$ curl -sk -G -o /dev/null -w '%{http_code}\n' --data-urlencode "q=<script>alert(1)</script>" https://localhost:8443/
+200
+$ docker compose logs crs | grep -i 'ModSecurity' | tail -n 3
+crs-1  | ... ModSecurity: Warning. ... [id "941100"] ... XSS Attack Detected via libinjection ...
+
+# Depois de trocar MODSEC_RULE_ENGINE para On e recriar o container (docker compose up -d), o mesmo payload é bloqueado
+$ curl -sk -G -o /dev/null -w '%{http_code}\n' --data-urlencode "q=<script>alert(1)</script>" https://localhost:8443/
+403
+
+# Limite de taxa: 10 chamadas seguidas ao /login (resultado aproximado: 4 de 200 e 6 de 429)
+$ for i in $(seq 1 10); do curl -sk -o /dev/null -w '%{http_code}\n' https://localhost:8443/login; done
+200
+200
+200
+200
+429
+429
+429
+429
+429
+429
+```
+
+Com `rate=5r/m` e `burst=3 nodelay`, a primeira requisição e as três da rajada passam; as seguintes são rejeitadas até a janela de renovação (um slot a cada 12 segundos). O número exato depende da velocidade do laço e do relógio.
+
+### Comandos essenciais
+
+- `docker compose exec edge nginx -t`: valida a sintaxe antes do reload.
+- `curl -sk -I https://localhost:8443/`: confere TLS e HSTS.
+- `docker compose logs -f crs`: acompanha as regras acionadas pelo ModSecurity (o log de auditoria pode estar em arquivo, em `/var/log/modsec_audit.log` ou outro caminho; confira com `docker compose exec crs env | grep -i audit`).
+- `docker compose logs -f edge`: correlaciona a resposta (403, 429, 5xx) com a causa.
+- `docker compose up -d`: recria o `crs` depois de mudar `MODSEC_RULE_ENGINE`.
+- `curl -sk -G --data-urlencode "id=1' OR '1'='1" https://localhost:8443/`: payload de laboratório de SQL Injection.
+
+### Mão na massa
+
+1. Crie `etapa14/` com `backend.py`, `compose.yaml`, `nginx.conf` e a pasta `certs/`, e rode `docker compose up -d`. Se o `edge` devolver `502`, confira com `docker compose logs crs` em que porta o WAF escuta e ajuste `PORT` e o `proxy_pass`.
+2. Envie uma requisição normal (`curl -sk https://localhost:8443/`) e **observe** `api recebeu /`, passando por borda, WAF e backend.
+3. Com o WAF em `DetectionOnly`, envie o payload XSS e o de SQL Injection do exemplo. **Observe** o `200` e procure no `docker compose logs crs` a regra acionada (um `id` de regra e a mensagem). Identifique a regra antes de habilitar o bloqueio.
+4. Troque `MODSEC_RULE_ENGINE` para `On`, rode `docker compose up -d` e repita os payloads. **Observe** `403`. Envie de novo uma requisição normal e **observe** que continua `200`.
+5. Rode as 10 chamadas seguidas ao `/login` e **observe** os `429` depois do limite. Aguarde cerca de 12 segundos e repita uma chamada para **observar** o limite liberando um slot.
+6. Confira os headers com `curl -sk -I https://localhost:8443/` e **observe** `strict-transport-security`, e a ausência da versão no cabeçalho `server`.
+7. Monte um checklist para o seu serviço: TLS 1.2 ou 1.3, HSTS, atualização do CRS, retenção de logs, alerta de picos de bloqueio e de 5xx, e um teste repetível dos payloads.
+8. Limpe: `docker compose down`.
+
+### Dica
+
+O WAF não corrige vulnerabilidade no código: reduz a exposição e compra tempo, e a correção definitiva continua na aplicação. Nunca ative o bloqueio sem ter lido o log de detecção por um período com tráfego real, porque o falso positivo que derruba um cliente legítimo custa mais que o atraso em bloquear.
+
+### Anota aí
+
+> Uma borda segura combina criptografia, inspeção na camada de aplicação, controle de taxa, logs e resposta operacional: cada camada cobre o que a anterior não enxerga, e todas começam por observar antes de bloquear.
+
+---
+
 ## Checklist de autoavaliação
 
-Marque cada item apenas se você **fez** ou **conseguiu explicar em voz alta**, não se apenas leu. Se algum item ficar em branco, volte à etapa correspondente e refaça o mão na massa.
+Marque cada item apenas se você **fez** ou **conseguiu explicar em voz alta**, não se apenas leu. Se algum ficar em branco, volte à etapa correspondente e refaça o "Mão na massa".
 
-**Etapa 01: para que serve um servidor web**
+**Etapa 01: Servidor web**
 - [ ] Sei citar as seis funções de um servidor web sem consultar o texto.
 - [ ] Rodei um Nginx e um Apache e comparei o cabeçalho `Server` de cada um.
-- [ ] Sei explicar por que essas funções não deveriam ficar dentro do código da aplicação.
+- [ ] Sei explicar por que essas funções não devem ficar dentro do código da aplicação.
 
-**Etapa 02: HTTP e sua evolução**
-- [ ] Sei explicar o que é head-of-line blocking e em qual camada cada versão do HTTP resolveu esse problema.
-- [ ] Usei o `curl` para forçar diferentes versões do HTTP e observei a mudança em `%{http_version}`.
-- [ ] Sei explicar por que o QUIC roda sobre UDP em vez de TCP.
+**Etapa 02: HTTP**
+- [ ] Sei explicar o que é head-of-line blocking e em qual camada cada versão do HTTP o resolve.
+- [ ] Usei o `curl` para forçar versões do HTTP e observei `%{http_version}` mudar.
+- [ ] Vi o HTTP/2 ser negociado e desaparecer ao remover `http2 on;` no meu Nginx.
 
-**Etapa 03: Forward Proxy e Reverse Proxy**
-- [ ] Sei dizer, para um cenário dado, se ele pede um forward proxy ou um reverse proxy.
-- [ ] Configurei um reverse proxy Nginx na frente de um backend simples e confirmei com `curl -I`.
-- [ ] Sei explicar a diferença entre `X-Real-IP` e a ausência dele no backend.
+**Etapa 03: Proxies**
+- [ ] Sei dizer, para um cenário, se ele pede forward ou reverse proxy.
+- [ ] Configurei um reverse proxy Nginx e confirmei os cabeçalhos recebidos pelo backend com `/headers`.
+- [ ] Sei explicar o efeito de remover `proxy_set_header Host` e `X-Real-IP`.
+- [ ] Usei um forward proxy com `curl -x` e entendi quem abre a conexão com o destino.
 
-**Etapa 04: Apache e os MPMs**
-- [ ] Sei explicar a diferença entre Prefork, Worker e Event em termos de processo, thread e isolamento.
-- [ ] Descobri qual MPM está ativo no meu Apache com `apachectl -V`.
+**Etapa 04: Apache e MPMs**
+- [ ] Sei explicar Prefork, Worker e Event em termos de processo, thread e isolamento.
+- [ ] Confirmei o MPM de um Apache com `httpd -M` ou `apachectl -V`.
+- [ ] Observei a diferença no número de processos entre Prefork e Event sob carga.
 - [ ] Sei explicar por que módulos não thread-safe exigem o Prefork.
 
-**Etapa 05: Nginx e a arquitetura orientada a eventos**
-- [ ] Sei explicar o que é non-blocking I/O e o event loop, com uma analogia própria.
-- [ ] Localizei `worker_processes` e `worker_connections` num `nginx.conf` real.
-- [ ] Sei explicar por que o número de processos do Nginx não cresce junto com o número de conexões, ao contrário do Apache.
+**Etapa 05: Nginx**
+- [ ] Sei explicar I/O não bloqueante, event loop e o papel do `epoll`.
+- [ ] Localizei `worker_processes` e `worker_connections` e comparei os workers com o número de núcleos.
+- [ ] Observei que o número de processos do Nginx não cresce com a carga.
+- [ ] Sei explicar por que, como proxy, o Nginx comporta cerca de metade das conexões do teto teórico.
 
-**Etapa 06: balanceamento L4 e L7**
-- [ ] Sei escolher entre Round Robin, peso, `least_conn` e afinidade explicando o custo.
-- [ ] Comparei distribuição e latência sob carga.
+**Etapa 06: Balanceamento**
+- [ ] Sei escolher entre Round Robin, `weight`, `least_conn` e `ip_hash` explicando o custo de cada um.
+- [ ] Medi a distribuição entre backends em cada algoritmo.
+- [ ] Comparei um balanceador L4 e um L7 e expliquei o que o L4 não enxerga.
 
-**Etapa 07: health checks e failover**
-- [ ] Retirei um backend durante o teste e confirmei failover pelos logs.
-- [ ] Sei diferenciar 502 de 504 a partir do caminho da requisição.
+**Etapa 07: Failover e diagnóstico**
+- [ ] Parei um backend durante o teste e confirmei o failover pelos logs.
+- [ ] Vi o servidor `backup` assumir e os primários voltarem.
+- [ ] Diferenciei 502 de 504 pelo tempo de resposta e pela mensagem do log de erros.
+- [ ] Sei dizer o que o Nginx Open Source faz (check passivo) e o que exige Plus (check ativo).
 
-**Etapa 08: Ingress no Kubernetes**
+**Etapa 08: Ingress**
 - [ ] Sei explicar por que Ingress e Ingress Controller não são a mesma coisa.
-- [ ] Testei roteamento por host e path até Services com endpoints saudáveis.
+- [ ] Testei roteamento por host e path, `Prefix` contra `Exact` e a reescrita de URL.
+- [ ] Sei explicar por que as annotations valem para o Ingress inteiro.
 
 **Etapa 09: TLS e cert-manager**
-- [ ] Acompanhei Certificate, Order e Challenge usando um emissor de staging.
-- [ ] Validei o Secret TLS e a cadeia apresentada pelo Ingress.
+- [ ] Acompanhei Certificate e Secret até `READY True` com um ClusterIssuer.
+- [ ] Validei o certificado entregue pelo Ingress e li o nome DNS e a validade com `openssl`.
+- [ ] Sei explicar por que base64 em Secret não é criptografia.
+- [ ] Sei dizer a diferença entre HTTP-01 e DNS-01 e por que o staging existe.
 
-**Etapa 10: arquitetura do Istio**
+**Etapa 10: Istio**
 - [ ] Sei separar Data Plane, Control Plane e custo operacional da malha.
-- [ ] Confirmei a injeção do proxy e sua sincronização com Istiod.
+- [ ] Confirmei a injeção do sidecar (`2/2`) e a sincronização com `istioctl proxy-status`.
+- [ ] Sei explicar por que Pods existentes precisam ser recriados após habilitar a injeção.
 
-**Etapa 11: deploy gradual**
-- [ ] Configurei subsets e uma divisão 90/10 com rollback verificável.
-- [ ] Sei diferenciar canary, A/B e mirroring.
+**Etapa 11: Deploy gradual**
+- [ ] Configurei subsets e uma divisão 90/10 e medi a proporção real.
+- [ ] Sei diferenciar canary, A/B e mirroring e vi o espelhamento chegar à v2.
+- [ ] Pratiquei o rollback e sei explicar a relação entre `timeout`, `attempts` e `perTryTimeout`.
 
 **Etapa 12: mTLS e observabilidade**
-- [ ] Migrei de PERMISSIVE para STRICT sem perder visibilidade dos clientes.
-- [ ] Inspecionei identidade, autorização, métricas e um trace completo.
+- [ ] Vi a recusa de um cliente fora da malha em `STRICT`.
+- [ ] Provei que a autorização decide por identidade, método e path com respostas 200 e 403.
+- [ ] Li as métricas do Envoy e a identidade no `X-Forwarded-Client-Cert`.
+- [ ] Sei explicar por que a aplicação precisa propagar os headers de tracing.
 
-**Etapa 13: alta disponibilidade**
-- [ ] Sei relacionar SLA, SLO, SPOF, RTO e RPO.
-- [ ] Medi o failover de um IP virtual ou outro mecanismo redundante.
+**Etapa 13: Alta disponibilidade**
+- [ ] Sei relacionar SLA, SLO, orçamento de erro, SPOF, RTO e RPO.
+- [ ] Calculei o downtime mensal permitido por um SLO.
+- [ ] Medi o failover de um IP virtual com Keepalived.
+- [ ] Escrevi uma hipótese de Chaos Engineering com critério de aborto.
 
-**Etapa 14: defesa da borda**
-- [ ] Testei WAF primeiro em detecção e analisei falsos positivos.
-- [ ] Validei TLS, HSTS, 403 do WAF, 429 do rate limiting, logs e alertas.
+**Etapa 14: Defesa da borda**
+- [ ] Testei o WAF primeiro em detecção, li a regra acionada e só depois habilitei o bloqueio.
+- [ ] Validei TLS, HSTS, o 403 do WAF e o 429 do rate limiting.
+- [ ] Sei explicar por que `limit_req_status 429` é necessário e o que `burst` e `nodelay` fazem.
 
 ---
 
-## Notas do professor
+## Notas do professor: precisões técnicas
 
-1. **Correção técnica (Etapa 04, Worker MPM):** o relatório bruto afirmava que "problemas em um thread podem corromper o processo pai". Isso é impreciso: threads de uma mesma requisição vivem dentro de um processo **filho**, e é esse processo filho específico que pode ser corrompido ou derrubado por um erro grave numa de suas threads (já que elas compartilham a mesma memória). O processo mestre e os demais processos filhos não são afetados. Corrigi essa descrição no texto principal.
-2. **Nota, não correção (Etapa 02, Server Push do HTTP/2):** o relatório bruto lista o Server Push como um dos ganhos do HTTP/2, o que é historicamente correto (fez parte da especificação original de 2015). Vale registrar que, na prática de 2026, esse recurso caiu em desuso: os principais navegadores (o Chrome, por exemplo, desde 2022) removeram ou restringiram o suporte a ele, porque o ganho real de performance raramente compensava a complexidade de usá-lo corretamente. As demais melhorias do HTTP/2 (multiplexação, HPACK, priorização) seguem plenamente em uso.
-3. **Atualização de contexto temporal (Etapa 01, idade do Apache):** o relatório bruto descreve o Apache HTTP Server como tendo "mais de 25 anos de história". Isso ainda é verdade, mas impreciso: o projeto teve seu primeiro lançamento em 1995, o que hoje (2026) equivale a mais de 30 anos. Ajustei a referência no texto principal.
-4. **Nota, não correção (Etapa 03, reverse proxy e XSS):** o relatório bruto cita proteção contra XSS como uma função de segurança do reverse proxy. Isso só é verdade quando o proxy está configurado com regras adicionais de WAF (Web Application Firewall, como o ModSecurity); um reverse proxy puro, sem esse módulo, filtra bem certos padrões de tráfego e ataques de rede, mas não inspeciona por padrão o conteúdo em busca de payloads de XSS. Deixei essa ressalva explícita no texto principal.
-5. **Ajuste de trilha prática (revisão pós-publicação):** um aluno seguindo a rota Docker sugerida na Etapa 01 travava nos exercícios das Etapas 03, 04 e 05, porque `nginx -s reload`, `a2enmod` e o `proxy_pass` para `127.0.0.1:8000` pressupõem Nginx/Apache instalados no host, e `127.0.0.1` dentro de um container não alcança um processo do host. Adicionei uma nota logo na abertura do guia (com a alternativa de instalação local ou de usar `--network host` para quem preferir continuar no Docker), reforcei o aviso no início do "mão na massa" das três etapas afetadas, avisei sobre o pré-requisito do pacote `apache2-utils` para o `ab` antes do primeiro exercício que o usa, e deixei explícito, na Etapa 01, que o bloco `server { listen 80; ... }` ali mostrado é ilustrativo e não precisa ser editado à mão para completar aquele exercício.
+Este bloco reúne detalhes que ajudam a ler os exemplos com segurança. Nada aqui muda o caminho dos exercícios; são esclarecimentos sobre comportamentos que costumam gerar dúvida.
+
+**Sobre o que você vai ver no terminal**
+
+1. **Saídas de exemplo.** As saídas mostradas são formatos típicos. Versões, IPs, hashes de Pods, tempos, contagens de processos e distribuições estatísticas (como a divisão 90/10 do canary) variam. Compare a estrutura, não o texto exato.
+2. **Tags de imagem.** Os laboratórios usam tags amplas (`nginx:stable`, `httpd:2.4`, `python:3.12-alpine`, `owasp/modsecurity-crs:nginx`). Elas se movem com o tempo, e o comportamento descrito vale para versões recentes (por exemplo, `http2 on;` exige Nginx 1.25.1 ou superior). Fixe versões exatas quando precisar de reprodutibilidade, e confirme a disponibilidade das imagens no momento da execução.
+3. **DNS de upstreams no Nginx.** O Nginx resolve os nomes de `upstream` e `proxy_pass` ao carregar a configuração. Se um container for recriado com outro IP, recarregue (`nginx -s reload`). Se um nome não resolver na partida, o Nginx se recusa a iniciar.
+4. **IP do cliente em Docker.** Pelo mapeamento de portas, o Nginx enxerga como origem o IP do gateway da rede Docker, e não o do seu terminal. Por isso `ip_hash` manda tudo ao mesmo backend e o `limit_req` conta todos os acessos do laboratório como um só cliente.
+5. **Apache Bench.** O `ab` fala HTTP/1.0 por padrão e abre uma conexão por requisição; `-k` ativa o keep-alive. Ele não faz HTTP/2 nem HTTP/3 e não substitui uma ferramenta de carga realista. Use os números para comparar cenários na mesma máquina, não como medida absoluta.
+6. **`kubectl get endpoints`.** Em versões recentes do Kubernetes, o comando exibe aviso de depreciação em favor de EndpointSlices. Os exemplos usam `kubectl get endpointslices`.
+
+**Sobre Apache e Nginx**
+
+7. **Alcance da falha no Worker MPM.** Um erro grave em uma thread pode corromper ou derrubar o processo filho que a hospeda, e as conexões que ele atendia. O processo mestre e os demais filhos continuam funcionando.
+8. **HTTP/2 no Apache.** É oferecido pelo módulo `mod_http2` (`Protocols h2 http/1.1`) e é indicado para MPMs com threads, em especial o Event. Não é recomendado com o Prefork.
+9. **`MaxRequestWorkers` no Event.** Limita as requisições processadas ao mesmo tempo e precisa caber em `ServerLimit` vezes `ThreadsPerChild`. Conexões ociosas em keep-alive não consomem uma thread de trabalho cada, o que é a razão de ser do Event.
+10. **Capacidade do Nginx.** `worker_processes` vezes `worker_connections` é um teto teórico de conexões, e um proxy usa duas por requisição (cliente e backend). `use epoll;` é opcional no Linux, porque o Nginx escolhe o método mais eficiente.
+11. **Open Source e Plus.** O Nginx Open Source oferece balanceamento (Round Robin, `least_conn`, `ip_hash`, `hash`, `random`), `keepalive` com os backends, `backup` e verificação passiva (`max_fails`, `fail_timeout`). Recursos como a verificação ativa (`health_check`), a persistência de sessão por cookie (`sticky cookie`), `slow_start`, o método `least_time`, a fila de requisições (`queue`) e a API de configuração dinâmica com painel de monitoramento são exclusivos do Nginx Plus.
+12. **`limit_req_status`.** A resposta padrão do `limit_req` é 503. Para devolver 429 é necessário `limit_req_status 429`. Em `rate=5r/m` com `burst=3 nodelay`, a primeira requisição e as três da rajada passam; as seguintes são rejeitadas até que um slot (um a cada 12 segundos) seja liberado.
+13. **`add_header` e herança.** Diretivas `add_header` declaradas em um `location` substituem as herdadas do `server`. Ao adicionar um cabeçalho em um `location`, repita os de nível superior.
+
+**Sobre Kubernetes e cert-manager**
+
+14. **Annotations e Ingress.** A annotation `rewrite-target` com grupos de captura vale para todos os paths do mesmo Ingress, por isso o exemplo separa a rota com reescrita da rota sem reescrita. Com `rewrite-target`, o ingress-nginx passa a tratar como expressão regular os paths do host.
+15. **ingress-nginx e Gateway API.** O projeto ingress-nginx teve a aposentadoria anunciada, com fim de manutenção previsto para março de 2026, e a API Ingress está congelada em favor da Gateway API. Confirme o estado atual do projeto e do addon `ingress` do seu Minikube antes de usá-lo; o conceito de Ingress, Controller e Service com endpoints vale para qualquer Controller.
+16. **cert-manager.** A instalação por Helm usa `crds.enabled=true` nas versões recentes do chart (versões antigas usavam `installCRDs`). A duração padrão de um Certificate é de 90 dias, com renovação a partir de um terço da duração restante; a duração mínima é de 1 hora e o `renewBefore` mínimo é de 5 minutos. O ClusterIssuer autoassinado é só para laboratório.
+17. **Secret e base64.** O conteúdo de um Secret é apenas codificado. A proteção real vem de RBAC, de criptografia em repouso no `etcd` e de não versionar chaves.
+
+**Sobre Istio, Keepalived e WAF**
+
+18. **APIs do Istio.** Os exemplos usam `networking.istio.io/v1` (VirtualService e DestinationRule) e `security.istio.io/v1` (PeerAuthentication e AuthorizationPolicy). A versão `v1beta1` ainda aparece em instalações antigas. Prefira nomes completos de serviço (`api.demo.svc.cluster.local`) nos campos `host`, porque nomes curtos são interpretados em relação ao namespace do recurso.
+19. **Retries e timeout.** `attempts` conta as novas tentativas depois da primeira; o `timeout` da rota deve comportar todas as tentativas. Retries sem limite multiplicam a carga sobre um backend já doente.
+20. **Tracing.** O sidecar gera o `x-request-id` e lê headers de rastreamento, mas a aplicação precisa propagá-los. Coletar e visualizar traces exige um provedor de tracing configurado na malha, o que não faz parte do laboratório; a Etapa 12 verifica os headers e as métricas do Envoy.
+21. **Identidade e autorização.** `principals` em uma AuthorizationPolicy só casam quando há mTLS. Com uma política `ALLOW` em vigor, o que não casa com nenhuma regra é negado com 403.
+22. **Keepalived.** O `track_script` precisa referenciar um `vrrp_script` definido no mesmo arquivo. Em produção, use `enable_script_security` e scripts com permissões restritas. O laboratório usa VRRP em unicast sobre uma rede Docker; em redes de nuvem, o VRRP costuma não funcionar como em rede local.
+23. **WAF.** As variáveis da imagem `owasp/modsecurity-crs` (`BACKEND`, `PORT`, `MODSEC_RULE_ENGINE`, `PARANOIA`) e o caminho do log de auditoria podem variar entre versões da imagem; confirme na documentação dela. Os identificadores de regra mostrados (como o 941100) são exemplos e dependem da versão do CRS. O limite de anomalia de entrada padrão do CRS é 5.
+24. **Rate limiting e DDoS.** O limite por IP ajuda contra força bruta e abuso, mas não substitui proteção contra ataques distribuídos. Atrás de CDN ou proxy, configure o módulo de IP real (`set_real_ip_from` e `real_ip_header`) para que a chave do limite seja o cliente, e não o proxy.
+
+**Pontos a verificar por quem for executar**
+
+25. **Imagens de terceiros.** `ubuntu/squid`, `owasp/modsecurity-crs`, `curlimages/curl` e `python:3.12-alpine` são imagens públicas; confirme a disponibilidade, o nome das variáveis de ambiente e a porta de escuta de cada uma antes de executar.
+26. **Recursos do Minikube.** O Istio com o perfil `demo` e as imagens de laboratório exigem memória e CPU; ajuste `--cpus` e `--memory` à sua máquina.
+27. **Keepalived em Docker.** O laboratório da Etapa 13 depende de `cap_add` de rede e de um Docker que as conceda; ambientes sem essa permissão (alguns Docker rootless e Podman) podem não rodá-lo.

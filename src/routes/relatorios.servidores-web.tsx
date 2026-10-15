@@ -1,11 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ANALOGY_NOTES, DE_PARA, LESSONS } from "@/data/servidoresweb";
+import { CHECKLIST, INTRO, LENS, LESSONS, NOTES } from "@/data/servidoresweb";
+import { GuideProgress, GuideRail } from "@/components/guide/GuideKit";
 import {
-  DeParaDetails,
-  GuideProgress,
-  GuideRail,
-  LessonSection,
-} from "@/components/guide/GuideKit";
+  ChecklistSection,
+  LensSection,
+  Md,
+  TechLessonSection,
+  type TechCopy,
+} from "@/components/guide/LensKit";
 import { useGuideProgress, useScrollSpy, useSectionReveal } from "@/components/guide/hooks";
 import { f1Logo } from "@/assets/brand/paths";
 import { reportHead } from "@/lib/seo";
@@ -16,7 +18,7 @@ export const Route = createFileRoute("/relatorios/servidores-web")({
       locale: "pt",
       title: "Servidores Web e Balanceamento de Carga | pitstop.dev",
       description:
-        "Guia imersivo sobre HTTP, Apache, Nginx, balanceamento, Ingress, TLS, Service Mesh, observabilidade, alta disponibilidade e segurança.",
+        "Guia de servidores web em 14 etapas: HTTP, Apache, Nginx, proxies, balanceamento, Ingress, TLS, Service Mesh, alta disponibilidade e WAF, com uma lente geral de Fórmula 1.",
       ptPath: "/relatorios/servidores-web",
       enPath: "/en/relatorios/servidores-web",
     }),
@@ -25,14 +27,15 @@ export const Route = createFileRoute("/relatorios/servidores-web")({
 
 const NAV = [
   { id: "inicio", num: "00", title: "Início" },
+  { id: "lente", num: "F1", title: "A lente de F1" },
   ...LESSONS.map((l) => ({ id: l.id, num: l.num, title: l.navTitle })),
+  { id: "checklist", num: "15", title: "Checklist" },
 ];
 
-const PROGRESS_KEY = "pitstop-progress-servidores-web";
-
-const LESSON_COPY = {
+const LESSON_COPY: TechCopy = {
   stage: "Etapa",
-  howItWorks: "Como funciona",
+  problem: "O problema",
+  howItWorks: "O conceito",
   commandsTitle: "Comandos essenciais desta etapa",
   handsOn: "Mão na massa",
   tip: "Dica:",
@@ -42,11 +45,12 @@ const LESSON_COPY = {
 };
 
 function Index() {
-  const [done, setDone] = useGuideProgress(PROGRESS_KEY);
+  const [done, setDone] = useGuideProgress("pitstop-progress-servidores-web");
   useSectionReveal();
   const activeId = useScrollSpy(NAV.map((n) => n.id));
 
   const doneCount = LESSONS.filter((l) => done[l.id]).length;
+  const [opening, ...howTo] = INTRO;
 
   return (
     <div className="shell">
@@ -59,7 +63,7 @@ function Index() {
           <>
             guia interativo · react
             <br />
-            conteúdo das Aulas 01 a 05
+            conteúdo das aulas 1–5
           </>
         }
       />
@@ -68,45 +72,37 @@ function Index() {
         <div className="wrap">
           <header className="hero" id="inicio">
             <p className="kicker">
-              transmissão ao vivo · <b>o gp de servidores web, etapa por etapa</b>
+              guia de estudo · <b>servidores web em 14 etapas</b>
             </p>
             <h1 className="htitle">
-              Servidores Web narrado
+              Servidores web
               <br />
-              direto do <span className="b">paddock</span>.
+              pela lente da <span className="b">F1</span>.
             </h1>
             <p className="narration">
-              Boa tarde a todos! O motor já está quente, e hoje a disputa é uma só: montar a mureta
-              que separa o piloto do caos do mundo lá fora. Quatorze etapas, do papel de um servidor
-              web ao balanceamento, Ingress, Service Mesh, alta disponibilidade e defesa da borda.
-              Farol apagado, o piloto assume a narrativa.
+              <Md text={opening} />
             </p>
-            <p className="lead">
-              Cada conceito de servidores web lido como um piloto lê a telemetria:{" "}
-              <strong>o problema que cada peça resolve</strong>, a analogia de F1 tecnicamente
-              honesta, a configuração comentada linha a linha, os comandos com a saída esperada e um{" "}
-              <strong>mão na massa</strong> por etapa.
-            </p>
-            <DeParaDetails
-              summaryLabel="O quadro de-para: cole isto no volante"
-              intro={
-                <>
-                  A mesma analogia vale do início ao fim do guia.{" "}
-                  <b>Não tente decorar esta tabela agora.</b> Ela é o mapa do circuito, não a prova:
-                  siga direto para a Etapa 01 e volte aqui sempre que uma analogia aparecer no
-                  texto.
-                </>
-              }
-              headers={["Conceito de software", "Fórmula 1"]}
-              mapping={DE_PARA.map((m) => ({ left: m.sw, right: m.f1 }))}
-              breaksLabel="Onde as analogias quebram (piloto que esconde limitação do carro quebra no muro):"
-              notes={ANALOGY_NOTES}
-            />
+            {howTo.map((p, i) => (
+              <p className="lead" key={i}>
+                <Md text={p} />
+              </p>
+            ))}
             <GuideProgress doneCount={doneCount} total={LESSONS.length} label="SEU PROGRESSO" />
           </header>
 
+          <LensSection
+            lens={LENS}
+            copy={{
+              eyebrow: "A lente de F1 deste guia",
+              title: "A equipe de F1 vista pela recepção",
+              mappingTitle: "Os termos em palavras simples",
+              headers: ["Termo técnico", "Em palavras simples"],
+              limitsTitle: "Onde a comparação para",
+            }}
+          />
+
           {LESSONS.map((lesson) => (
-            <LessonSection
+            <TechLessonSection
               key={lesson.id}
               lesson={lesson}
               done={!!done[lesson.id]}
@@ -115,12 +111,21 @@ function Index() {
             />
           ))}
 
+          <ChecklistSection
+            id="checklist"
+            eyebrow="Etapa 15 · revisão"
+            title="Checklist de autoavaliação"
+            groups={CHECKLIST}
+            notesTitle="Notas do professor: precisões técnicas"
+            notes={NOTES}
+          />
+
           <footer>
             <span className="foot-brand">
               <img src={f1Logo} alt="" width={38} height={19} />
               <span>
                 <b>pitstop.dev</b> · guia Servidores Web e Balanceamento de Carga, etapa por etapa,
-                baseado nas Aulas 01 a 05 do módulo.
+                baseado nas aulas 1–5 do módulo.
               </span>
             </span>
           </footer>
