@@ -1,12 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ExternalLink, Flag } from "lucide-react";
-import { ANALOGY_NOTES, DE_PARA, LESSONS, PLATFORMS } from "@/data/kubernetesbasico.en";
+import { CHECKLIST, INTRO, LENS, LESSONS, NOTES, PLATFORMS } from "@/data/kubernetesbasico.en";
+import { GuideProgress, GuideRail } from "@/components/guide/GuideKit";
 import {
-  DeParaDetails,
-  GuideProgress,
-  GuideRail,
-  LessonSection,
-} from "@/components/guide/GuideKit";
+  ChecklistSection,
+  LensSection,
+  Md,
+  TechLessonSection,
+  type TechCopy,
+} from "@/components/guide/LensKit";
 import { useGuideProgress, useScrollSpy, useSectionReveal } from "@/components/guide/hooks";
 import { f1Logo } from "@/assets/brand/paths";
 import { reportHead } from "@/lib/seo";
@@ -15,9 +17,9 @@ export const Route = createFileRoute("/en/relatorios/kubernetes")({
   head: () =>
     reportHead({
       locale: "en",
-      title: "Kubernetes explained with real examples | pitstop.dev",
+      title: "Kubernetes explicado com exemplos reais | pitstop.dev",
       description:
-        "An immersive Kubernetes guide with concepts, annotated YAML, commands, hands-on exercises, and Formula 1 analogies.",
+        "A Kubernetes guide from scratch: concepts, annotated YAML, commands and hands-on exercises, with a general Formula 1 lens that shows the cluster as a team.",
       ptPath: "/relatorios/kubernetes",
       enPath: "/en/relatorios/kubernetes",
     }),
@@ -31,14 +33,10 @@ function PlatformsSection() {
         Stage 10 <span className="tag">free labs</span>
       </p>
       <h2>Practice for free on real clusters</h2>
-      <p className="narration">
-        Cool-down lap: the engine cools off, but the championship keeps going, and every driver
-        knows a season is built in practice. Here is the testing calendar.
-      </p>
       <p className="lead">
-        Think of this as any driver's ladder: public simulator, karting, F4, and only then the real
-        car. These platforms give you a terminal with a real Kubernetes cluster right in the
-        browser. Start with the 100% free ones.
+        These platforms give you a terminal with a real Kubernetes cluster right in the browser,
+        with nothing to install. Start with the 100% free ones and move to the paid ones only when
+        you want bigger challenges.
       </p>
       <div className="grid g2">
         {PLATFORMS.map((p) => (
@@ -61,8 +59,8 @@ function PlatformsSection() {
         <Flag className="co-ic" size={17} aria-hidden="true" />
         <p>
           <b>Suggested route:</b> at every stage of this guide, open <strong>Killercoda</strong> and
-          repeat the commands in the matching scenario (Pods, Deployments, Volumes...). Finished all
-          8 stages? Head to <strong>KodeKloud</strong> and take on troubleshooting challenges.
+          repeat the commands in the matching scenario (Pods, Deployments, Volumes). After the 9
+          stages, use <strong>KodeKloud</strong> for troubleshooting challenges.
         </p>
       </div>
     </section>
@@ -71,13 +69,16 @@ function PlatformsSection() {
 
 const NAV = [
   { id: "inicio", num: "00", title: "Start" },
+  { id: "lente", num: "F1", title: "The F1 lens" },
   ...LESSONS.map((l) => ({ id: l.id, num: l.num, title: l.navTitle })),
   { id: "pratica", num: "10", title: "Practice for free" },
+  { id: "checklist", num: "11", title: "Checklist" },
 ];
 
-const LESSON_COPY = {
+const LESSON_COPY: TechCopy = {
   stage: "Stage",
-  howItWorks: "How it works",
+  problem: "The problem",
+  howItWorks: "The concept",
   commandsTitle: "Essential commands for this stage",
   handsOn: "Hands-on",
   tip: "Tip:",
@@ -92,6 +93,7 @@ function Index() {
   const activeId = useScrollSpy(NAV.map((n) => n.id));
 
   const doneCount = LESSONS.filter((l) => done[l.id]).length;
+  const [opening, ...howTo] = INTRO;
 
   return (
     <div className="shell">
@@ -113,47 +115,37 @@ function Index() {
         <div className="wrap">
           <header className="hero" id="inicio">
             <p className="kicker">
-              live broadcast · <b>the Kubernetes basics GP, stage by stage</b>
+              study guide · <b>Kubernetes basics in 8 stages + bonus</b>
             </p>
             <h1 className="htitle">
-              Kubernetes narrated
+              Kubernetes explained
               <br />
-              live from the <span className="b">paddock</span>.
+              through the <span className="b">F1</span> lens.
             </h1>
             <p className="narration">
-              Good afternoon, everyone! Eight official stages, from lights out (why this sport
-              exists) to the final straight of autoscaling, plus a bonus pit stop where everything
-              becomes one production app with a real Docker Hub image. At stake: leaving here
-              knowing how to build, run, heal and scale a real cluster. Lights are about to go out,
-              and the driver takes the wheel of the narration. Over to you.
+              <Md text={opening} />
             </p>
-            <p className="lead">
-              Every Kubernetes concept read the way a driver reads telemetry:{" "}
-              <strong>the problem each piece solves</strong>, a technically honest F1 analogy, YAML
-              commented line by line, commands with the expected output, and a{" "}
-              <strong>hands-on</strong> section per stage. In Stage 09, it all comes together in one
-              professional example. At the end, the <strong>free platforms</strong> to practice on
-              real clusters in your browser.
-            </p>
-            <DeParaDetails
-              summaryLabel="The cheat sheet: pin this to your visor"
-              intro={
-                <>
-                  The same analogy holds from the first stage to the last.{" "}
-                  <b>Don't try to memorize this table now.</b> It's the track map, not the exam: go
-                  straight to Stage 01 and come back here whenever an analogy shows up in the text.
-                </>
-              }
-              headers={["Kubernetes", "Formula 1"]}
-              mapping={DE_PARA.map((m) => ({ left: m.k8s, right: m.f1 }))}
-              breaksLabel="Where the analogies break down (a driver who hides the car's limits crashes into the wall):"
-              notes={ANALOGY_NOTES}
-            />
+            {howTo.map((p, i) => (
+              <p className="lead" key={i}>
+                <Md text={p} />
+              </p>
+            ))}
             <GuideProgress doneCount={doneCount} total={LESSONS.length} label="YOUR PROGRESS" />
           </header>
 
+          <LensSection
+            lens={LENS}
+            copy={{
+              eyebrow: "The F1 lens of this guide",
+              title: "An F1 team on a GP weekend",
+              mappingTitle: "The terms in plain words",
+              headers: ["Technical term", "In plain words"],
+              limitsTitle: "Where the comparison stops",
+            }}
+          />
+
           {LESSONS.map((lesson) => (
-            <LessonSection
+            <TechLessonSection
               key={lesson.id}
               lesson={lesson}
               done={!!done[lesson.id]}
@@ -164,12 +156,21 @@ function Index() {
 
           <PlatformsSection />
 
+          <ChecklistSection
+            id="checklist"
+            eyebrow="Stage 11 · review"
+            title="Self-assessment checklist"
+            groups={CHECKLIST}
+            notesTitle="Teacher's notes: technical precisions"
+            notes={NOTES}
+          />
+
           <footer>
             <span className="foot-brand">
               <img src={f1Logo} alt="" width={38} height={19} />
               <span>
                 <b>pitstop.dev</b> · Kubernetes guide, stage by stage, based on lessons 1–8 (Thiago
-                Adriano, FIAP).
+                Adriano, FIAP), with a bonus stage of professional application.
               </span>
             </span>
           </footer>

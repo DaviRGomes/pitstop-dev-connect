@@ -1,129 +1,237 @@
-// Content for the 8 core stages (lessons 1-8, Thiago Adriano / FIAP) plus 1 bonus
-// capstone stage that applies the full module outside the official lesson syllabus,
-// themed around Formula 1 by the /otimizar-relatorio pipeline (relatorios/kubernetes-basico/final.md).
-// English translation of kubernetesbasico.ts.
+// Conteúdo das 8 etapas base (aulas 1-8, Thiago Adriano / FIAP) + 1 etapa bônus de
+// aplicação profissional.
+// A lente geral de F1 abre o guia (LENS) e cada etapa ensina o tópico só de forma técnica,
+// sem repetir a analogia.
+// Gerado de relatorios/kubernetes-basico/final.en.md por scripts/build-lens-guide.py.
+// Para mudar o texto, edite o markdown e gere de novo; o markdown inline (`código`, **negrito**)
+// é renderizado pelo LensKit.
 
-export type Example = {
-  label: string;
-  lang: "yaml" | "sh";
-  code: string;
-  note?: string;
-};
+import type { ChecklistGroup, GuideLens, TechLesson } from "@/components/guide/LensKit";
 
-export type Command = { cmd: string; note?: string };
+export type Lesson = TechLesson;
 
-export type Point = { t: string; d: string; color?: string };
-
-export type Lesson = {
-  id: string;
-  num: string;
-  navTitle: string;
-  tag: string;
-  title: string;
-  narration: string;
-  lead: string;
-  concept: string[];
-  points: Point[];
-  pointsTitle: string;
-  examples: Example[];
-  examplesTitle: string;
-  commands: Command[];
-  handsOnIntro?: string;
-  handsOn: string[];
-  tip: string;
-  takeaway: string;
-  outro: string;
-};
-
-export type Mapping = { k8s: string; f1: string };
-
-// The pilot's cheat sheet — the same analogy holds from the first page to the last
-export const DE_PARA: Mapping[] = [
-  {
-    k8s: "Container",
-    f1: "The car plus the team's kit: sealed off in its own garage, sharing the circuit's infrastructure",
-  },
-  {
-    k8s: "Container image",
-    f1: "The car's build spec, reproducible at any circuit on the calendar",
-  },
-  { k8s: "Virtual machine (VM)", f1: "Hauling the team's entire factory to every GP" },
-  { k8s: "Kubernetes (the orchestrator)", f1: "The whole pit wall plus garage operation" },
-  {
-    k8s: "Desired state",
-    f1: "The target called over the radio: you declare the goal, the system holds it",
-  },
-  { k8s: "Cluster", f1: "The team assembled for race weekend" },
-  { k8s: "Control plane (master node)", f1: "The pit wall" },
-  { k8s: "Worker node", f1: "The garage/box where cars get built and run" },
-  { k8s: "API Server", f1: "The race engineer: every radio call goes through him, no exceptions" },
-  { k8s: "kubectl", f1: "The driver's radio button" },
-  { k8s: "kubeconfig", f1: "The paddock pass plus the team's radio frequency" },
-  { k8s: "etcd", f1: "The team's central data system (setup sheets plus the state of everything)" },
-  { k8s: "kubelet", f1: "Each garage's head mechanic" },
-  { k8s: "kube-proxy", f1: "The pit lane marshal, routing each car to the right box" },
-  { k8s: "Minikube", f1: "The factory simulator" },
-  { k8s: "Pod", f1: "The car (chassis built and running)" },
-  { k8s: "The Pod's IP", f1: "The car's position on track, always changing" },
-  { k8s: "Labels", f1: "The FIA tracking tags on parts and the car (used for selection)" },
-  { k8s: "Annotations", f1: "The engineer's debrief notebook entries (for humans)" },
-  { k8s: "YAML manifest", f1: "The car's spec sheet, version-controlled" },
-  {
-    k8s: "Imperative vs. declarative",
-    f1: 'A direct radio order ("box, box") vs. a race plan written before the GP',
-  },
-  {
-    k8s: "Service",
-    f1: "The pit box: a fixed spot in the pit lane, serving any car with the team tag",
-  },
-  { k8s: "ClusterIP", f1: "Internal radio channel: only the team hears it" },
-  { k8s: "NodePort", f1: "The circuit's numbered service gate" },
-  { k8s: "LoadBalancer", f1: "The circuit's official entrance, ticket booth included" },
-  { k8s: "ConfigMap", f1: "The setup sheet, kept separate from the chassis" },
-  { k8s: "Secret", f1: "The confidential engine maps" },
-  {
-    k8s: "ReplicaSet",
-    f1: "The team boss's rule: \"N cars ready, always\" (and the mechanics' all-nighter)",
-  },
-  { k8s: "Deployment", f1: "The development program: upgrade packages, spec by spec" },
-  { k8s: "Rolling update", f1: "Rolling the upgrade into one car at a time" },
-  { k8s: "Rollback", f1: "Reverting to the previous spec (the old floor that used to work)" },
-  { k8s: "emptyDir", f1: "The garage whiteboard, wiped when the weekend ends" },
-  { k8s: "hostPath", f1: "Storing data in that circuit's own freight crate" },
-  { k8s: "PVC", f1: "The data engineer's storage request" },
-  { k8s: "PV", f1: "The factory's physical storage that fills the request" },
-  {
-    k8s: "StorageClass",
-    f1: "The catalog of storage types (fast trackside vs. the factory datacenter)",
-  },
-  { k8s: "Probes", f1: "Telemetry checks plus the radio check" },
-  { k8s: "Liveness probe", f1: "Telemetry flatlined → full reset of the car" },
-  {
-    k8s: "Readiness probe",
-    f1: "The box's red light: holds the car off track without stripping anything down",
-  },
-  {
-    k8s: "Startup probe",
-    f1: "The power unit's fire-up procedure: nothing is timed before the engine warms up",
-  },
-  {
-    k8s: "HPA",
-    f1: "The strategy wall lining up more cars as the load grows (an F1 without the 2-car cap)",
-  },
-  { k8s: "metrics-server", f1: "The telemetry sensors: without them the pit wall sees nothing" },
-  {
-    k8s: "resources.requests",
-    f1: "The declared energy/fuel allocation, the baseline for any percentage",
-  },
+export const INTRO: string[] = [
+  "This guide teaches Kubernetes from scratch, in eight stages and a bonus, with every exercise running on a Minikube cluster on your own machine. You start by understanding why an orchestrator exists and how to talk to the cluster through kubectl; then you study the anatomy of the cluster and Pods, Services and ConfigMaps, ReplicaSets and Deployments, persistent volumes, probes and the HPA. In the bonus stage, you put these pieces together in a deployment of a real Docker Hub image and decide which of them the app needs and which stay out. Before the stages, the next section introduces the F1 lens of the guide: a general comparison that shows the same system working inside a Formula 1 team.",
+  'Each stage depends only on what was explained before it and includes a small exercise that proves you understood. Kubernetes is learned by running things and by making mistakes on purpose, so do not skip the "Hands-on" blocks.',
+  "**How to use this guide:** keep a terminal open next to the text. All commands were designed for Minikube, which you install in Stage 01. When an example shows the expected output, compare it with yours. Pod names, IPs and timings will vary; the structure of the output is what matters. When an output is shortened, it is marked with `(...)`.",
+  "**Organize your files by stage.** Create one folder for each stage (`etapa03/`, `etapa04/`, `etapa05/` and so on) and save the YAMLs inside it. This is necessary because the name `deployment.yaml` repeats in Stages 05, 08 and 09, and `service.yaml` and `hpa.yaml` repeat in Stages 08 and 09, and working in a single folder would make one file overwrite the previous one. Run the commands from inside the stage folder. At the end of each stage there is a cleanup step; run it before moving on, so that old objects do not interfere with the following exercises.",
 ];
 
-// Pilot's notes: where the analogies break down (a forced analogy is worse than no analogy)
-export const ANALOGY_NOTES: string[] = [
-  'ReplicaSet (Stage 05): in F1, swapping a car only happens between sessions, and the rules cap each team at 2 cars. The ReplicaSet replaces Pods in seconds, at any moment, in any quantity. The "mechanics\' all-nighter" captures the mechanism (rebuilding from spec), not the timing or the cap.',
-  'HPA (Stage 08): scaling replicas has no direct parallel on a 2-car grid. The stated analogy is an "endurance race with no entry limit." The pit wall\'s behavior (reacting to telemetry, respecting the floor and ceiling) stays faithful.',
-  "Service (Stage 04): a real pit box serves one car at a time; a Service balances continuous traffic across N simultaneous replicas. What stays faithful is the fixed address plus tag-based selection.",
-  'Multi-container Pod (Stage 03): a car with a power unit plus MGU-K illustrates "distinct units sharing systems," but a Pod\'s containers are independent processes that can be swapped individually in the spec.',
-];
+export const LENS: GuideLens = {
+  paragraphs: [
+    "A Formula 1 team arrives at a Grand Prix weekend with two cars, a garage in the pit lane and a few dozen people with clearly separated roles. On the pit wall (the gantry facing the track) sit the strategist and the engineers who decide: what each car should do, when to stop, which target to chase. In the garage are the mechanics, organized in one crew per car, each with a chief mechanic. They do not decide strategy: they assemble, adjust and repair the cars according to what the pit wall defined. The cars, on the track, are the units that actually do the work. The regulations limit each team to two cars per race, and that limit will show up a few times as the point where the comparison stops holding.",
+    "Nobody on the pit wall touches the car. Information flows through two channels: the team radio and intercom, which carry orders and questions, and the telemetry, hundreds of sensors that continuously transmit the state of each car. To enter that channel you have to be on the team's frequency and hold a credential. Everything the team knows and decides is recorded on the data servers: the weekend plan, the versions of each part, the history of each car. Whoever wants to know how a car is doing consults that record through the official channel, instead of walking to the garage to ask.",
+    "The car itself is described by a specification sheet: chassis, power unit (the car's engine, which combines the combustion engine and the electrical part that recovers and returns energy), aerodynamic package, each component with its version. Two cars assembled from the same sheet are equivalent, and a chassis destroyed in a crash is replaced by another one assembled from the same sheet. The chassis is disposable; the specification is what remains. Separate from it there is the parameter sheet (engine maps, energy modes, targets), which changes the car's behavior without swapping any part. What the radio and the timing call is the car's race number, never the serial number of the chassis underneath it.",
+  ],
+  bridge: [
+    "It is the same division of labor that Kubernetes makes: the control plane decides like the pit wall, the nodes execute like the garages, the Pods run like the cars, each Pod comes out of a manifest the way the car comes out of the specification sheet, and everything that is known and ordered goes through a single channel, like the radio and the telemetry. In this guide, you take the place of the person who writes the plan and talks to the pit wall over the radio.",
+    "One fixed rule holds for the whole guide: each assembled chassis is a Pod. Swapping the chassis means creating a new Pod, with another serial number (another IP), while the race number (the Service) stays the same. Restarting a system that shut down inside the car, without swapping the chassis, is restarting a container inside the same Pod.",
+  ],
+  mappingNote:
+    "The table below translates each technical term in the guide into an everyday idea, with no F1 and no jargon. You do not need to memorize it; come back to it whenever a term shows up in the text.",
+  mapping: [
+    {
+      term: "Cluster",
+      plain: "A group of computers working together as if they were one.",
+    },
+    {
+      term: "Control plane (master node)",
+      plain:
+        "The management: it decides what runs on each computer and checks that everything matches what was asked, but it does not do the work itself.",
+    },
+    {
+      term: "Worker node",
+      plain: "One of the computers that actually does the work.",
+    },
+    {
+      term: "API Server",
+      plain: "The service desk: every request and every question goes through it.",
+    },
+    {
+      term: "kubectl",
+      plain: "The app you use to talk to the service desk.",
+    },
+    {
+      term: "kubeconfig",
+      plain: "The address of the service desk and your access badge, kept in a file.",
+    },
+    {
+      term: "Imperative and declarative",
+      plain:
+        'Giving an order on the spot ("do this now") or writing down how things should end up.',
+    },
+    {
+      term: "Events",
+      plain: "The time-stamped history of what happened to each item.",
+    },
+    {
+      term: "etcd",
+      plain:
+        "The official notebook where everything that was requested, and the current state of each thing, is written down.",
+    },
+    {
+      term: "kubelet",
+      plain: "The supervisor on each computer, who looks after what runs there.",
+    },
+    {
+      term: "kube-proxy",
+      plain: "The contact list on each computer, which knows where to forward each call.",
+    },
+    {
+      term: "Virtual machine",
+      plain:
+        "A whole computer simulated inside another one, with its own operating system: complete, but heavy.",
+    },
+    {
+      term: "Host kernel",
+      plain: "The core of the computer's system, shared by every program running on it.",
+    },
+    {
+      term: "Container image",
+      plain:
+        "A sealed recipe with a version number: followed anywhere, it always gives the same result.",
+    },
+    {
+      term: "Container",
+      plain:
+        "The program prepared from the recipe, running apart from the others; it can be restarted without touching the rest.",
+    },
+    {
+      term: "Pod",
+      plain:
+        "The smallest box the system manages: one or more programs that always travel together. If the box is replaced, it is a different box, with a different address.",
+    },
+    {
+      term: "Second container in the Pod",
+      plain:
+        "A helper program inside the same box, like a recorder that logs what the main one does.",
+    },
+    {
+      term: "Pod IP",
+      plain: "The box's address, which changes when the box is replaced.",
+    },
+    {
+      term: "Namespace",
+      plain: "Separate folders inside the same system, each with its own list of items.",
+    },
+    {
+      term: "Label",
+      plain: "A sticker on an item, used to find all items of the same kind at once.",
+    },
+    {
+      term: "Annotation",
+      plain: "A sticky note on an item, written for people to read; it is not used for searching.",
+    },
+    {
+      term: "YAML manifest",
+      plain: "The filled-in form that describes what you want, kept so it can be reused.",
+    },
+    {
+      term: "Desired state",
+      plain:
+        'A standing request, like "always keep 3 running", that the system works on its own to maintain.',
+    },
+    {
+      term: "Minikube",
+      plain: "A workbench version of the system that runs on your own computer for studying.",
+    },
+    {
+      term: "Service",
+      plain:
+        "A fixed service number that forwards the call to whoever is available, even when the people change.",
+    },
+    {
+      term: "ClusterIP, NodePort, LoadBalancer",
+      plain:
+        "An internal-only extension; the same extension opened on every computer for outside callers; a published public number.",
+    },
+    {
+      term: "ConfigMap",
+      plain: "The settings sheet kept apart from the program, read when the program starts.",
+    },
+    {
+      term: "Secret",
+      plain: "The same kind of sheet, for passwords and keys, kept with more care.",
+    },
+    {
+      term: "ReplicaSet",
+      plain: 'The rule "always N copies running": if one disappears, another is created.',
+    },
+    {
+      term: "Deployment",
+      plain:
+        "The one in charge of versions: it swaps versions carefully and keeps the history of earlier ones.",
+    },
+    {
+      term: "Rolling update",
+      plain: "Swapping the version one copy at a time, without closing the service.",
+    },
+    {
+      term: "Rollback",
+      plain: "Going back to the previous version, the one that worked.",
+    },
+    {
+      term: "emptyDir",
+      plain: "A temporary scratch pad, thrown away together with the box.",
+    },
+    {
+      term: "hostPath",
+      plain: "A drawer in one specific computer: it is only useful to whoever is on that computer.",
+    },
+    {
+      term: "PVC",
+      plain: 'The request for space to store data ("I need 1 GB").',
+    },
+    {
+      term: "PV",
+      plain: "The actual storage space that fulfills that request.",
+    },
+    {
+      term: "StorageClass",
+      plain: "The menu of storage types that can be created when someone asks.",
+    },
+    {
+      term: "restartPolicy",
+      plain: "The rule that restarts, on its own, a program that crashed, in the same box.",
+    },
+    {
+      term: "Probes",
+      plain: "Routine questions asked every few seconds to find out whether the program is fine.",
+    },
+    {
+      term: "Liveness, readiness, startup",
+      plain:
+        '"Are you alive?" (if not, restart); "can you serve?" (if not, stay out of the service); "have you finished starting?" (until then, the other questions wait).',
+    },
+    {
+      term: "HPA",
+      plain:
+        "Automatic adjustment of the number of copies to match demand, always between a minimum and a maximum.",
+    },
+    {
+      term: "metrics-server",
+      plain:
+        "The usage meter that feeds that adjustment; without it, there are no numbers to decide with.",
+    },
+    {
+      term: "resources.requests",
+      plain: "The declared reservation of resources; usage percentages are calculated from it.",
+    },
+  ],
+  limitsIntro:
+    "The comparison helps fix the division of roles, but it is not a perfect equivalence. These are the points where F1 stops applying for each stage:",
+  limits: [
+    "**Stage 01:** a team replaces a car in hours, between sessions, and the regulations fix the number at two cars; Kubernetes creates a new Pod in seconds, at any moment, and the limit on quantity is only what the cluster can handle.",
+    "**Stage 02:** the F1 radio is voice, interpreted by people; the Kubernetes API is a rigid HTTP protocol, in which every request has a method, a path and a response code, with no room for interpretation.",
+    "**Stage 03:** the systems of a car are physically integrated and designed together, while the containers of a Pod are independent processes that can be swapped one by one in the specification without touching the others.",
+    "**Stage 04:** a race number points to a single car, while the Service distributes requests among several replicas at the same time; load balancing has no equivalent in F1.",
+    "**Stage 05:** in F1, a car is replaced between sessions, in hours, and the regulations limit the team to two cars; the ReplicaSet replaces in seconds, at any moment, and keeps whatever number of replicas is declared.",
+    "**Stage 06:** in F1, the car's data is transmitted or downloaded to the servers, that is, a copy exists; the PVC copies nothing, the Pod writes directly to the external volume, and if the PVC is deleted with the `Delete` policy the data goes with it.",
+    "**Stage 07:** in F1, restarting a system on track involves the driver and almost always costs the session; in Kubernetes, the kubelet restarts the container in seconds, with nobody's intervention, and the Pod remains the same Pod, with the RESTARTS counter going up.",
+    "**Stage 08:** at a GP the team races with exactly two cars, by regulation; the HPA, which adds or removes replicas according to load, only has a parallel in an imaginary operation with no limit on cars, and this is the stage where the comparison strays furthest from real F1.",
+    "**Stage 09:** in an F1 car the driver changes maps and modes from the steering wheel in the middle of a lap, and the new value applies at once; in Kubernetes, an environment variable read from a ConfigMap only changes when the Pod is recreated.",
+  ],
+};
 
 export const LESSONS: Lesson[] = [
   {
@@ -132,171 +240,176 @@ export const LESSONS: Lesson[] = [
     navTitle: "Why K8s exists",
     tag: "motivation + setup",
     title: "Why Kubernetes exists",
-    narration:
-      "LIGHTS OUT! It's lights out at the Kubernetes GP! First corner, first brake, and the question that opens every championship: why does this sport exist? The answer to this stage carries the other seven. Stay with me.",
-    lead: "Think about the demand on a GP weekend: the team's website, timing, streaming. Everything sleeps all week and explodes on race Sunday. And there's the car that flies in the simulator but won't run on track: the classic \"works on my machine.\" Every project runs into both problems, and Kubernetes automates the fix for both.",
+    lead: 'Picture the e-commerce site of a mid-sized company. For eleven months it receives a predictable volume of visits. In the week of Black Friday, traffic multiplies several times over. If you size the servers for everyday traffic, the site goes down at the peak. If you size them for the peak, you pay for idle machines all year. The infrastructure needs to grow and shrink with demand.\n\nThere is a second, less visible problem. The developer runs the application on their own machine, QA tests on another one, and production is a third. Any difference in library version, operating system or configuration produces the classic "it works on my machine". Keeping dev, test and production identical by hand is a constant source of bugs.\n\nEvery software project runs into these two problems: keeping environments equal and scaling when demand changes. Kubernetes automates the solution to both.',
     concept: [
-      "The piece both solutions share is the container. A virtual machine is like hauling the entire factory to every GP: the carbon-fiber press, the wind tunnel, the office, all loaded onto the plane. A container is the car plus the team's kit. Each team has its own sealed garage, its own secrets, its own parts, but the circuit's structure (the paddock building, the power, the pit lane, in other words the host operating system's kernel) is shared by all ten teams. Cadillac, debuting this year, didn't build its own racetrack to compete: it showed up with its crates and plugged into the infrastructure that was already there.",
-      "In technical terms: a VM carries a full operating system (gigabytes, minutes to boot); a container shares the host OS's kernel and only brings the files, binaries, and libraries the app actually needs (megabytes, seconds). A container image is an entire environment, reproducible anywhere. It's the build spec that guarantees the car shipped to Suzuka is identical to the one that ran in Melbourne. Goodbye, \"works on my machine.\"",
-      "But containers solve the environment problem and create another one: with dozens or hundreds of them, someone has to create them, tear them down, watch their health, and recreate whatever fails. Doing that by hand does not scale. It's like asking one person to run both cars, the telemetry, and the pit stop, alone. Kubernetes (K8s) is the orchestrator that takes over those jobs: the entire pit wall plus garage operation.",
-      'Its philosophy is that of the race engineer calling a target: he doesn\'t issue an instruction every corner. He declares "target plus 0.3 a lap, engine mode 6," and the whole system works on its own to hold it. In K8s you declare the desired state ("I want 3 copies of this running") and it makes reality match that declaration, even at 3 a.m. when a container dies. The pit wall never sleeps.',
+      "The piece common to both solutions is the **container**.",
+      'A virtual machine (VM) carries virtualized hardware and a complete operating system: it takes up gigabytes and takes minutes to start. A container shares the kernel of the host operating system and carries only the files, binaries and libraries the app needs: it takes up megabytes and starts in seconds. A **container image** packages that whole environment and can be run identically anywhere, which solves the "it works on my machine" problem.',
+      "Containers solve the environment problem and create another one. With dozens or hundreds of them, someone has to create them, destroy them, watch the health of each one and recreate whatever fails. Doing that manually does not scale. **Kubernetes (K8s)** is the **orchestrator** that takes over these tasks.",
+      'The central idea of Kubernetes is the **desired state**. You do not run a sequence of orders ("start this container, then that one"). You declare the result you want ("I want 3 copies of this application running") and Kubernetes continuously compares what exists with what was declared, correcting any difference. If one of the copies disappears at 3 a.m. (the Pod is deleted or the node it was running on goes down), the cluster notices that there are 2 copies instead of 3 and creates the missing one, without anyone waking up. When what fails is only the process inside the container, another mechanism reacts, one you will clearly tell apart in Stage 07.',
     ],
-    pointsTitle: "The key concepts of this stage",
+    pointsTitle: "Key concepts",
     points: [
       {
-        t: "Container ≠ VM",
-        d: "VM = virtual hardware + full OS (the whole factory, shipped). Container = only what the app needs, sharing the host kernel (the car in the circuit's garage). Much lighter.",
-        color: "ember",
+        t: "Container",
+        d: "an isolated process that shares the host kernel and carries only what the app needs. Much lighter than a VM.",
+        color: "blue",
+      },
+      {
+        t: "Image",
+        d: "an immutable package with the app's environment. The container is an image in execution.",
+        color: "signal",
       },
       {
         t: "Horizontal scaling",
-        d: "More copies of the app splitting the load (what K8s automates). Vertical = more CPU/RAM on the same machine: lining up more cars vs. a bigger engine in a single car.",
-        color: "signal",
+        d: "more copies of the application sharing the load (this is what K8s automates). Vertical scaling is giving more CPU and RAM to the same machine.",
+        color: "violet",
       },
       {
-        t: "Cluster and Pod",
-        d: "K8s organizes machines (nodes) into clusters. Containers run grouped in Pods, the smallest managed unit. Cluster = the team on race weekend; Pod = the car.",
+        t: "Cluster and node",
+        d: "K8s organizes machines (nodes) into a cluster, which is treated as a single platform.",
+        color: "ember",
+      },
+      {
+        t: "Pod",
+        d: "the group of containers that K8s manages as a unit. It is the smallest managed unit (details in Stage 03).",
         color: "blue",
+      },
+      {
+        t: "Namespace",
+        d: "a logical separation of resources inside the cluster. When you indicate none, the namespace used is `default`.",
+        color: "signal",
       },
       {
         t: "kubectl",
-        d: "The command-line tool that talks to the cluster's REST API. It's your radio button (details in Stage 02).",
-        color: "blue",
+        d: "a command-line tool that talks to the cluster's REST API (details in Stage 02).",
+        color: "violet",
       },
       {
         t: "Minikube",
-        d: "A 1-node K8s cluster running on your machine. The factory simulator: built for practice, no risk of crashing the real car. It's this guide's lab.",
-        color: "signal",
+        d: "a 1-node K8s cluster running on your machine. Built for study, it is the lab of this guide.",
+        color: "ember",
       },
       {
         t: "Desired state",
-        d: "K8s's philosophy: you declare what you want, it makes it happen and keeps it that way. Something dies? It rebuilds it on its own. The target called over the radio.",
-        color: "violet",
+        d: "you declare what you want, and K8s makes it happen and keeps it that way. If something goes down, it recreates it.",
+        color: "blue",
       },
     ],
-    examplesTitle: "Setting up the lab (step by step)",
+    examplesTitle: "Setting up the lab",
     examples: [
       {
-        label: "environment setup",
+        label: "terminal",
         lang: "sh",
-        code: `# 1. Install Docker Desktop (docker.com). On Linux, use the Docker
-#    Engine (docs.docker.com/engine/install). Check:
-$ docker -v
-Docker version 27.x
-
-# 2. Install kubectl (kubernetes.io/docs/tasks/tools) and check:
-$ kubectl version --output=yaml
-
-# 3. Install Minikube (minikube.sigs.k8s.io/docs/start) and bring up the cluster:
-$ minikube start
-😄  minikube v1.33 on Windows 11
-✨  Using the docker driver
-🏄  Done! kubectl is now configured to use "minikube"
-
-# 4. Confirm the cluster is up:
-$ kubectl get nodes
-NAME       STATUS   ROLES           AGE   VERSION
-minikube   Ready    control-plane   1m    v1.30.x
-
-# 5. Empty cluster = success:
-$ kubectl get pods
-No resources found in default namespace.`,
-        note: "The first minikube start run downloads the cluster image and takes a few minutes. That's normal. It's the simulator's cold fire-up, and a cold simulator never starts instantly.",
+        code: '# 1. Install Docker Desktop (docker.com). On Linux, use Docker\n#    Engine (docs.docker.com/engine/install). Confirm:\n$ docker -v\nDocker version 27.x\n\n# 2. Install kubectl (kubernetes.io/docs/tasks/tools) and confirm.\n#    Use --client: there is no cluster yet, so only the client\n#    version can be queried (without --client, kubectl would try to talk\n#    to a nonexistent server and print a connection error)\n$ kubectl version --client\nClient Version: v1.30.x\nKustomize Version: v5.x\n\n# 3. Install Minikube (minikube.sigs.k8s.io/docs/start) and start the cluster:\n$ minikube start\n😄  minikube v1.33 on Windows 11\n✨  Using the docker driver\n🏄  Done! kubectl is now configured to use "minikube"\n\n# 4. Confirm the cluster is up:\n$ kubectl get nodes\nNAME       STATUS   ROLES           AGE   VERSION\nminikube   Ready    control-plane   1m    v1.30.x\n\n# 5. Empty cluster = success:\n$ kubectl get pods\nNo resources found in default namespace.\n\n# 6. Now that the cluster exists, the full version shows client and server:\n$ kubectl version --output=yaml\nclientVersion:\n  (...)\nserverVersion:\n  (...)',
+        note: "The first run of `minikube start` downloads the cluster image and takes a few minutes. This is normal.",
       },
     ],
     commands: [
-      { cmd: "minikube start", note: "brings up the local 1-node cluster" },
-      { cmd: "minikube stop", note: "stops the cluster without deleting anything" },
-      { cmd: "kubectl get nodes", note: "lists nodes and their status" },
-      { cmd: "kubectl get pods", note: "lists pods in the current namespace" },
+      {
+        cmd: "minikube start",
+        note: "starts the local 1-node cluster",
+      },
+      {
+        cmd: "minikube stop",
+        note: "stops the cluster without deleting anything",
+      },
+      {
+        cmd: "kubectl version --client",
+        note: "shows the kubectl version, with no cluster needed",
+      },
+      {
+        cmd: "kubectl get nodes",
+        note: "lists the nodes and the status of each one",
+      },
+      {
+        cmd: "kubectl get pods",
+        note: "lists the pods in the current namespace",
+      },
     ],
-    handsOnIntro:
-      "The smallest possible exercise: prove your lab is alive, the equivalent of the installation lap.",
     handsOn: [
-      'Run minikube start and wait for "Done!".',
-      "Run kubectl get nodes and check: the minikube node shows STATUS Ready. If it shows NotReady, wait a minute and check again.",
-      'Run kubectl get pods and check: "No resources found." An empty, ready cluster is exactly the starting point for the next stage: a clean garage before the car arrives.',
-      'Bonus: run minikube stop, then kubectl get nodes to see the connection error. Bring it back up with minikube start. Now you know what "cluster off the air" looks like in the terminal: a dead radio, and a dead radio mid-race is the worst feeling there is.',
+      'Run `minikube start` and wait for the "Done!".',
+      "Run `kubectl get nodes`. **Observe** the `minikube` node with `STATUS Ready`. If `NotReady` appears, wait 1 minute and repeat.",
+      "Run `kubectl get pods`. **Observe** `No resources found in default namespace.` An empty, ready cluster is the starting point of the next stage.",
+      'Bonus: run `minikube stop` and then `kubectl get nodes`. **Observe** the connection error message (the cluster does not respond). Start it again with `minikube start`. Now you know what "cluster down" looks like in the terminal.',
     ],
-    tip: "If minikube start fails, the most common cause is Docker Desktop not being open (on Linux, the service is stopped: sudo systemctl start docker). Bring Docker up first and try again. (Every simulator has a breaker someone forgot to flip.)",
+    tip: "If `minikube start` fails, the most common cause is Docker Desktop not being open. On Linux, the equivalent is the stopped service: `sudo systemctl start docker`. Start Docker first and try again.",
     takeaway:
-      "A container is a light, reproducible environment, the car that runs the same on any circuit; Kubernetes is the race engineer of desired state: you call the target, it holds it.",
-    outro:
-      "Sector 1 in the green! Lab standing, simulator on, cluster responding, a spotless start. Now comes the part every rookie underestimates: learning to talk on the radio. Stage 02 is next. Don't go anywhere.",
+      "A container is a light, replicable environment; Kubernetes maintains the desired state of those containers: you declare what you want, and it guarantees it.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/kubernetes/etapa01-evolucao-deploy.svg",
+            alt: "Three columns: traditional deployment, with apps directly on the operating system; virtualized deployment, with a hypervisor and one operating system per virtual machine; container deployment, with a container runtime on a single operating system.",
+            caption:
+              "From left to right: apps directly on the server, one VM with its own operating system for each app, and containers sharing the same operating system.",
+          },
+        ],
+        credit: "Diagram: kubernetes.io, The Kubernetes Authors, CC BY 4.0",
+      },
+    ],
+    handsOnIntro: "The smallest possible exercise: prove that the lab is alive.",
   },
-
   {
     id: "m2",
     num: "02",
     navTitle: "kubectl & API",
-    tag: "the radio button",
-    title: "kubectl and the API: how you command the cluster",
-    narration:
-      "Second stage and the track tightens: what good is having the car in the garage if you don't know how to key the radio? F1 lives on this channel. It's where Kimi Räikkönen immortalized \"leave me alone, I know what I'm doing\" at Abu Dhabi 2012, and won. Today you're the one learning to give the orders.",
-    lead: "Your cluster is standing, but it's a sealed box. How do you give it orders? How do you investigate when something breaks, with no \"physical\" access to the container? On track the driver has the same problem: at 300 km/h, there's no getting out to pop the hood. Everything he knows about the car arrives by radio and telemetry.",
+    tag: "command line + API",
+    title: "kubectl and the API, how you command the cluster",
+    lead: "The cluster is up (Stage 01), but you still do not know how to talk to it. Imagine that the checkout service stopped responding at 2 a.m. and you are on call. You need to find out which pods exist, what state they are in, what the app is printing and, if necessary, get inside the container to investigate. None of this can depend on physical access to the machine where the container runs.",
     concept: [
-      "Everything in Kubernetes goes through the master node's REST API. kubectl is that API's client: every command you type becomes an HTTP request (GET, POST, PUT, DELETE) against the cluster. In F1, the driver doesn't talk to the front-left tire mechanic, or to the factory. He talks to one person: the race engineer. Every message goes through that single channel, which validates it, logs it, and passes it on to whoever executes it. kubectl is your radio button; the API Server is the race engineer: nothing happens in the cluster without going through him.",
-      "The path of a command: you type kubectl get pods, kubectl reads the kubeconfig file (the API Server's address, credentials, and the current cluster context; Minikube sets this up on its own, and you can think of it as the paddock pass with the team's radio frequency already tuned in), and fires a GET /api/v1/pods at the API Server. The response comes back formatted in your terminal.",
-      "The API is split into groups: the 'core' group holds the fundamental resources (pods, services, replicasets); other groups handle security, storage, autoscaling, like the team's departments: chassis, aero, power unit, strategy. Since it's plain REST, you can call it from any language (Python, Go, Java, C#), which opens the door to automation.",
-      'There are two ways to work: imperative (kubectl run nginx --image=nginx, the direct order, the "box, box, box" over the radio: fast, decisive, good for tests) and declarative (write a YAML and run kubectl apply -f file.yaml, the race plan written Saturday night: documented, reviewed, versioned). In real projects declarative wins, because the file is versionable in Git. No serious team improvises the entire strategy live on the radio.',
+      "Everything in Kubernetes goes through the **REST API** of the master node (the *control plane*). `kubectl` is the client of that API: each command you type becomes an HTTP request (GET, POST, PUT or DELETE) against the cluster.",
+      "The path of a command is this:",
+      "1. You type `kubectl get pods`.",
+      "1. kubectl reads the **kubeconfig** file, which holds the API Server address, the credentials and the current cluster context. Minikube fills in this file by itself on `minikube start`.",
+      "1. kubectl sends a `GET` to the API Server (for the `default` namespace, the path is `/api/v1/namespaces/default/pods`).",
+      "1. The response comes back and kubectl formats it in the terminal.",
+      'The API is divided into groups. The "core" group holds the fundamental resources (pods, services, replicasets); other groups handle security, storage and autoscaling. Since it is plain REST, any language (Python, Go, Java, C#) can call it, which opens room for automation.',
+      "There are two ways of working with kubectl:",
+      "- **Imperative**: you give the direct order, as in `kubectl run nginx --image=nginx`. It is fast and good for tests.",
+      "- **Declarative**: you write a YAML file that describes the desired state and run `kubectl apply -f file.yaml`. It is the dominant mode in real projects, because the file can be versioned in Git, reviewed and reapplied.",
+      "In this guide we start with the imperative way, which is faster to learn, and move to the declarative way in Stage 03.",
     ],
-    pointsTitle: "The verbs that handle 90% of your day",
+    pointsTitle: "Key concepts",
     points: [
       {
-        t: "get",
-        d: "Query: lists resources and each one's status. kubectl get pods, get svc, get nodes... It's the glance at the timing screen.",
+        t: "API Server",
+        d: "the cluster's front door; it receives every request, validates it and executes it.",
         color: "blue",
       },
       {
-        t: "create / run / apply",
-        d: "Create: run spins up an imperative pod; apply -f applies a YAML (declarative).",
+        t: "kubeconfig",
+        d: "a file with the cluster address, credentials and current context.",
         color: "signal",
       },
       {
-        t: "delete",
-        d: "Remove: kubectl delete pod nginx. Careful: it can affect whatever depends on that resource.",
-        color: "ember",
-      },
-      {
-        t: "describe",
-        d: "Detail: config plus the Events section. First stop when something breaks. The session's telemetry history, event by event.",
+        t: "Imperative vs. declarative",
+        d: "giving step-by-step orders versus describing the final state.",
         color: "violet",
       },
       {
-        t: "logs",
-        d: "See what the container is printing. Your best friend for debugging: it's listening to the car's radio directly.",
-        color: "signal",
+        t: "Events",
+        d: "history of events for an object (image pulled, container created, failure). It appears at the end of `describe`.",
+        color: "ember",
       },
       {
-        t: "exec",
-        d: "Open a shell inside the container: kubectl exec -it <pod> -- /bin/sh. The mechanic plugging a laptop into the car.",
+        t: "Everyday verbs",
+        d: "- `get`: queries resources and the status of each one (`get pods`, `get svc`, `get nodes`). - `create` / `run` / `apply`: create resources. `run` creates an imperative pod; `apply -f` applies a YAML. - `delete`: removes. Be careful, it can affect whoever depends on the resource. - `describe`: shows the configuration and the Events section. It is the first stop when something gets stuck. - `logs`: shows what the container is printing. It is the main source of information when debugging. - `exec`: runs a command inside the container, for example a shell.",
         color: "blue",
       },
     ],
-    examplesTitle: "Worked example: a Pod's life cycle",
+    examplesTitle: "The life cycle of a Pod",
     examples: [
       {
-        label: "create → inspect → destroy",
+        label: "terminal",
         lang: "sh",
-        code: `# Creates a pod named "nginx" from the nginx:1.14.2 image on Docker Hub
-$ kubectl run nginx --image=nginx:1.14.2 --port=80
-pod/nginx created
-
-# Watch until the status reads Running (the first state is ContainerCreating)
-$ kubectl get pods
-NAME    READY   STATUS    RESTARTS   AGE
-nginx   1/1     Running   0          30s
-
-# Details plus events (look for the "Pulling image" line in Events)
-$ kubectl describe pod nginx
-
-# What the container is printing
-$ kubectl logs nginx
-
-# Cleanup
-$ kubectl delete pod nginx
-pod "nginx" deleted`,
-        note: "If the status sits at ImagePullBackOff, the cluster couldn't pull the image. Check the name/tag and your internet connection. It's the parts crate that never reached the paddock: without the right spec, the car doesn't go together.",
+        code: '# Creates a pod named "nginx" from the nginx:1.14.2 image on Docker Hub\n$ kubectl run nginx --image=nginx:1.14.2 --port=80\npod/nginx created\n\n# Follow until the status becomes Running (the first state is ContainerCreating)\n$ kubectl get pods\nNAME    READY   STATUS    RESTARTS   AGE\nnginx   1/1     Running   0          30s\n\n# Details + events (see the "Pulling image" line in the Events section)\n$ kubectl describe pod nginx\nName:         nginx\n(...)\nEvents:\n  Type    Reason     Age   From               Message\n  Normal  Scheduled  35s   default-scheduler  Successfully assigned default/nginx to minikube\n  Normal  Pulling    34s   kubelet            Pulling image "nginx:1.14.2"\n  Normal  Pulled     20s   kubelet            Successfully pulled image "nginx:1.14.2"\n  Normal  Created    20s   kubelet            Created container nginx\n  Normal  Started    20s   kubelet            Started container nginx\n\n# What the container is printing (nginx writes the access log to standard\n# output, so it only shows lines after requests arrive)\n$ kubectl logs nginx\n\n# Opens a shell inside the container (type "exit" to leave).\n# Note: after this command you are INSIDE the container and the prompt\n# becomes "# ". The lines below that start with "# " (ls and exit) are not\n# comments: they are commands typed in the container\'s shell.\n$ kubectl exec -it nginx -- /bin/sh\n# ls /usr/share/nginx/html\n50x.html  index.html\n# exit\n\n# Back in your terminal (prompt "$"). Cleanup:\n$ kubectl delete pod nginx\npod "nginx" deleted',
+        note: "If the status stays at `ImagePullBackOff`, the cluster could not download the image. Check the image name and tag and your internet connection. To see the HTTP request behind a command, raise kubectl's log level. The exact format changes from version to version, but you should find a line with the method, the API path and the status:",
+      },
+      {
+        label: "terminal (2)",
+        lang: "sh",
+        code: "$ kubectl get pods -v=6\n(...) GET https://192.168.49.2:8443/api/v1/namespaces/default/pods?limit=500 200 OK in 12 milliseconds\nNAME    READY   STATUS    RESTARTS   AGE\nnginx   1/1     Running   0          2m",
       },
     ],
     commands: [
@@ -304,943 +417,1084 @@ pod "nginx" deleted`,
         cmd: "kubectl run nginx --image=nginx:1.14.2 --port=80",
         note: "creates an imperative pod",
       },
-      { cmd: "kubectl describe pod <name>", note: "details + Events (troubleshooting)" },
-      { cmd: "kubectl logs <name>", note: "container output" },
-      { cmd: "kubectl exec -it <name> -- /bin/sh", note: "shell inside the container" },
-      { cmd: "kubectl delete pod <name>", note: "removes the pod" },
+      {
+        cmd: "kubectl get pods",
+        note: "lists the pods and their status",
+      },
+      {
+        cmd: "kubectl describe pod <name>",
+        note: "details and Events (troubleshooting)",
+      },
+      {
+        cmd: "kubectl logs <name>",
+        note: "container output",
+      },
+      {
+        cmd: "kubectl exec -it <name> -- /bin/sh",
+        note: "shell inside the container",
+      },
+      {
+        cmd: "kubectl delete pod <name>",
+        note: "removes the pod",
+      },
+      {
+        cmd: "kubectl get pods -v=6",
+        note: "shows the HTTP request that kubectl made",
+      },
     ],
-    handsOnIntro:
-      "Run the full cycle and force your first real K8s error. Every driver needs that first lap to feel out the limit:",
     handsOn: [
-      "Run the sequence from the example above (run → get → describe → logs → delete). In describe, look at the Events section: the Pulling image, Created container, Started container lines tell the pod's story in order, like a telemetry replay, frame by frame.",
-      "Now create a pod that's broken on purpose: kubectl run broken --image=nginx:a-tag-that-does-not-exist.",
-      "Run kubectl get pods and check the ImagePullBackOff (or ErrImagePull) status.",
-      "Run kubectl describe pod broken and look in Events for the message explaining the image wasn't found. You just practiced a real debugging flow.",
-      "Clean up: kubectl delete pod broken.",
+      "Run the sequence from the example (`run`, `get`, `describe`, `logs`, `delete`). **Observe** the `Events` section of `describe`: the lines `Pulling image`, `Created container` and `Started container` tell the pod's story in order.",
+      "Create a deliberately broken pod: `kubectl run quebrado --image=nginx:versao-que-nao-existe`.",
+      "Run `kubectl get pods`. **Observe** the status `ErrImagePull`, which soon becomes `ImagePullBackOff`.",
+      "Run `kubectl describe pod quebrado`. **Observe** in the Events the message saying the image was not found. You have just practiced the real debugging flow.",
+      "Run `kubectl get pods -v=6` and **observe** the line with `GET .../api/v1/namespaces/default/pods`. This is the command translated into HTTP.",
+      "Clean up: `kubectl delete pod quebrado`.",
     ],
-    tip: "Memorize this flow: get pods (what's the status?) → describe pod (what do the Events say?) → logs (what is the app saying?). That sequence solves most problems. It's the driver's post-incident protocol: timing screen → telemetry history → the car's radio.",
+    tip: "Memorize the debugging flow: `get pods` (what is the status?), then `describe pod` (what do the Events say?), then `logs` (what does the app say?). This sequence solves most problems.",
     takeaway:
-      "Everything in K8s is a call to the REST API; kubectl is your radio button and the API Server is the race engineer. And when something breaks, the path is always get → describe → logs.",
-    outro:
-      "Radio calibrated, and did you notice? Your first forced error, diagnosed without panic. This sector separates button-pushers from people who actually talk to the team. And heads up, because next comes the technical heart of the circuit: cluster anatomy and the spec sheet. Don't blink.",
+      "Everything in K8s is a call to the REST API, kubectl is the client of that API, and when something gets stuck the path is always get, describe, logs.",
+    handsOnIntro: "Run the complete cycle and provoke your first error on purpose.",
   },
-
   {
     id: "m3",
     num: "03",
     navTitle: "Cluster & Pods",
     tag: "architecture + labels",
-    title: "Cluster anatomy and its smallest unit: the Pod",
-    narration:
-      "We're entering the most technical corner complex on the track. Courage doesn't help here, precision does. And the sport's history shows no mercy for a spec out of place: in 1999 Ferrari nearly lost a win in Malaysia over millimeters on the barge boards. A spec isn't paperwork, it's the result. Today you write your first spec sheet.",
-    lead: "In Stage 02 you created a pod with an imperative command. It works, but it has two holes: you don't know exactly what got created or where. And if you need to recreate that same pod tomorrow, you're relying on memory. No team builds a car from memory: there's a spec sheet for everything, from wing angle to every bolt's torque.",
+    title: "The anatomy of the cluster and its smallest unit, the Pod",
+    lead: "In Stage 02 you created a pod with an imperative command. It works, but there are two gaps. First, you do not know what exactly was created or where inside the cluster. Second, if tomorrow you need to recreate that same pod in another environment, you will only have your memory of the command you typed. On top of that, imagine a team with 40 pods in the same cluster (checkout, catalog, payment, search). How do you list only the checkout ones? We need to understand the pieces of the cluster, describe objects in versionable files and group them by criteria that Kubernetes itself can use.",
     concept: [
-      "A cluster is a group of machines (nodes) working together, with well-defined roles: it's the team assembled for race weekend. The Pod is the smallest unit Kubernetes manages. On our map, the Pod is the car: an 'envelope' holding one or more containers that share networking and storage.",
-      "Four facts about Pods: (1) a Pod represents a running process and can hold more than one container sharing the same IP and volumes, like the power unit and the MGU-K in the same car; (2) Pods are ephemeral, constantly born and dying; the car that raced in the 2026 British Grand Prix gets stripped down to the last bolt before Spa, while the spec survives (keep this line, it's the root of Stages 04, 05, and 06); (3) every Pod gets an internal cluster IP, the car's position on track: real, it exists, but it keeps changing; (4) Pods are described in YAML, the car's spec sheet.",
-      "To organize dozens of Pods there are labels and annotations. In F1, every car component (power unit, turbo, MGU-K, gearbox) carries an FIA-sealed tracking tag: that's how the system knows which engine is in which car; the tag exists to IDENTIFY AND SELECT. The engineer's debrief notebook (\"driver reported vibration at turn 7\") is information for humans, and nobody filters components by notebook entry. Labels are the FIA tag (it's by label that a Service finds its Pods, as you'll see in Stage 04); annotations are the debrief notebook (author, documentation, audit trail; they do NOT take part in selection). That difference is what shows up on the test.",
+      "A **cluster** is a group of machines (**nodes**) working together, with well-defined roles:",
+      "- The **master node** (control plane) manages the cluster and decides where to run the Pods.",
+      "- The **worker nodes** run the Pods and the other resources.",
+      "- **etcd** is the distributed database that stores the configuration and state of everything in the cluster.",
+      "- The **kubelet** is the agent that runs on each node and manages the Pods of that node.",
+      "- **kube-proxy** forwards network traffic to the right Pod.",
+      "- The **API Server** is the front door, through which everything kubectl does passes (Stage 02).",
+      "The **Pod** is the smallest unit that Kubernetes manages: an envelope with one or more containers that share network and storage. Four facts about Pods:",
+      "1. A Pod represents a running process and can have more than one container, all sharing the same IP and the same volumes.",
+      "1. **Pods are ephemeral.** They are born and die all the time, and you must never count on a specific Pod existing tomorrow. This sentence is the root of Stages 04, 05 and 06.",
+      "1. Each Pod receives an internal cluster IP.",
+      "1. Pods are described in YAML.",
+      "To organize many objects there are **labels** and **annotations**. Labels are key-value pairs used to **identify and select** objects: it is by label that a Service finds its Pods (Stage 04) and that a Deployment knows which Pods are its own (Stage 05). Annotations are free-form metadata (author, documentation link, audit data) that **do not take part in selection**; they are for people and tools to read. This difference is a classic exam question.",
     ],
-    pointsTitle: "Who does what inside the cluster",
+    pointsTitle: "Key concepts",
     points: [
       {
         t: "Master node",
-        d: "The pit wall: manages the cluster and decides where Pods run.",
+        d: "manages the cluster and decides where to run the Pods.",
         color: "blue",
       },
       {
         t: "Worker node",
-        d: "The garages: run the Pods and other resources. Where the car gets built and actually runs.",
-        color: "blue",
+        d: "runs the Pods and other resources.",
+        color: "signal",
       },
       {
         t: "etcd",
-        d: "The team's central data system: a distributed database holding the cluster's config and state, every setup sheet there is.",
-        color: "ember",
+        d: "distributed database with the cluster's configuration and state.",
+        color: "violet",
       },
       {
         t: "kubelet",
-        d: "Each garage's head mechanic: the agent on every node that manages its local Pods.",
-        color: "signal",
+        d: "agent on each node that manages the local Pods.",
+        color: "ember",
       },
       {
         t: "kube-proxy",
-        d: "The pit lane marshal: routes network traffic to the right Pods.",
-        color: "signal",
+        d: "forwards network traffic to the right Pods.",
+        color: "blue",
       },
       {
         t: "API Server",
-        d: "The race engineer: everything kubectl does passes through here (Stage 02).",
+        d: "front door for everything kubectl does.",
+        color: "signal",
+      },
+      {
+        t: "Pod",
+        d: "one or more containers with shared network and volumes; ephemeral.",
         color: "violet",
       },
-    ],
-    examplesTitle: "Your first YAML: memorize this skeleton",
-    examples: [
       {
-        label: "my-pod.yaml",
-        lang: "yaml",
-        code: `apiVersion: v1                # the K8s API version for this object
-kind: Pod                     # the object's TYPE
-metadata:                     # data ABOUT the object
-  name: my-pod
-  labels:                     # labels: key-value pairs used to SELECT
-    app: myapp
-    environment: study
-  annotations:                # annotations: free-form metadata (docs)
-    author: "Davi Gomes"
-spec:                         # the SPEC: what runs inside
-  containers:
-    - name: my-container
-      image: nginx:1.14.2
-      ports:
-        - containerPort: 80`,
-        note: "Every K8s object follows this skeleton: apiVersion + kind + metadata + spec. The kind and the spec's contents change; the rest is always the same. It's like the technical regulations: once you understand one article's structure, you can read all the others.",
+        t: "Label",
+        d: "key-value pair to identify and select objects.",
+        color: "ember",
       },
       {
-        label: "working with labels",
+        t: "Annotation",
+        d: "free-form metadata for documentation, with no role in selection.",
+        color: "blue",
+      },
+      {
+        t: "Manifest",
+        d: "YAML file that describes an object. Every manifest has `apiVersion`, `kind`, `metadata` and `spec`.",
+        color: "signal",
+      },
+    ],
+    examplesTitle: "The first YAML",
+    examples: [
+      {
+        label: "the first YAML",
+        lang: "yaml",
+        code: 'apiVersion: v1                # K8s API version for this object\nkind: Pod                     # the TYPE of object created\nmetadata:                     # data ABOUT the object\n  name: meu-pod\n  labels:                     # labels: key-value pairs to SELECT\n    app: myapp\n    ambiente: estudo\n  annotations:                # annotations: free-form metadata (docs)\n    autor: "Davi Gomes"\nspec:                         # the SPECIFICATION: what runs inside\n  containers:\n    - name: meu-container\n      image: nginx:1.14.2\n      ports:\n        - containerPort: 80',
+        intro:
+          "Create the `etapa03/` folder and save the manifest below in it as `meu-pod.yaml`. This is the skeleton you need to know by heart.",
+        note: "Every K8s object follows this skeleton: `apiVersion` + `kind` + `metadata` + `spec`. What changes from one object to another is the value of `kind` and the content of `spec`; the rest is always the same. Whoever masters this skeleton can read any manifest.",
+      },
+      {
+        label: "terminal",
         lang: "sh",
-        code: `# Apply the YAML (declarative)
-$ kubectl apply -f my-pod.yaml
-pod/my-pod created
-
-# List, showing labels
-$ kubectl get pods --show-labels
-NAME      READY   STATUS    LABELS
-my-pod    1/1     Running   environment=study,app=myapp
-
-# Filter by label: K8s's core mechanism
-$ kubectl get pods -l app=myapp
-NAME      READY   STATUS    RESTARTS   AGE
-my-pod    1/1     Running   0          1m
-
-# Add a label to a pod that already exists
-$ kubectl label pod my-pod team=devops`,
-        note: 'That -l filter looks trivial right now, but Services, ReplicaSets, and Deployments find "their" Pods exactly this way: by label selector. It\'s the thread that stitches the next stages together, the same way the FIA tag stitches a car to its box and to the results sheet.',
+        code: "# Applies the YAML (declarative)\n$ kubectl apply -f meu-pod.yaml\npod/meu-pod created\n\n# Lists showing the labels\n$ kubectl get pods --show-labels\nNAME      READY   STATUS    RESTARTS   AGE   LABELS\nmeu-pod   1/1     Running   0          20s   ambiente=estudo,app=myapp\n\n# Filters by label: the central mechanism of K8s\n$ kubectl get pods -l app=myapp\nNAME      READY   STATUS    RESTARTS   AGE\nmeu-pod   1/1     Running   0          1m\n\n# Adds a label to a pod that already exists\n$ kubectl label pod meu-pod time=devops\npod/meu-pod labeled",
+        note: 'The `-l` filter looks simple, but Services, ReplicaSets and Deployments find "their" Pods exactly this way, by **label selector**. The next stages depend on this mechanism.',
       },
     ],
     commands: [
-      { cmd: "kubectl apply -f file.yaml", note: "creates/updates from a YAML" },
-      { cmd: "kubectl get pods --show-labels", note: "lists pods, showing their labels" },
-      { cmd: "kubectl get pods -l app=myapp", note: "filters by label" },
-      { cmd: "kubectl delete -f file.yaml", note: "removes whatever the file created" },
+      {
+        cmd: "kubectl apply -f file.yaml",
+        note: "creates or updates from the YAML",
+      },
+      {
+        cmd: "kubectl get pods --show-labels",
+        note: "lists showing the labels",
+      },
+      {
+        cmd: "kubectl get pods -l app=myapp",
+        note: "filters by label",
+      },
+      {
+        cmd: "kubectl label pod <name> key=value",
+        note: "adds a label to an existing pod",
+      },
+      {
+        cmd: "kubectl delete -f file.yaml",
+        note: "removes what the file created",
+      },
     ],
     handsOn: [
-      "Save the YAML above as my-pod.yaml and apply it with kubectl apply -f my-pod.yaml.",
-      "Run kubectl get pods --show-labels and check both labels in the last column.",
-      "Run kubectl get pods -l app=myapp, then kubectl get pods -l app=something-else. Notice: the first finds the pod, the second comes back empty. Right tag, car found; wrong tag, empty garage.",
-      "Add a label live: kubectl label pod my-pod team=devops and confirm with --show-labels.",
-      "Don't delete the pod: it'll be the Service's target in the next stage. (If you already deleted it, just apply the YAML again. That's the beauty of declarative: the spec sheet rebuilds the identical car.)",
+      "Save the YAML above as `etapa03/meu-pod.yaml` and apply it with `kubectl apply -f meu-pod.yaml`.",
+      "Run `kubectl get pods --show-labels`. **Observe** the two labels in the last column.",
+      "Run `kubectl get pods -l app=myapp` and then `kubectl get pods -l app=outra-coisa`. **Observe**: the first finds the pod, the second answers `No resources found in default namespace.` This is the selection mechanism in action.",
+      "Add a label on the fly with `kubectl label pod meu-pod time=devops` and confirm with `--show-labels`.",
+      "Do not delete the pod now: it will be the target of the Service in the next stage, and its cleanup is at the end of Stage 04. If you deleted it, apply the YAML again. This is the advantage of the declarative way: the file recreates the identical object.",
     ],
-    tip: "Labels = operational selection (what K8s uses). Annotations = documentation (what humans use). A Pod's author? Annotation. Grouping an app's Pods? Label. The FIA tag versus the debrief notebook.",
+    tip: "Labels are operational selection (K8s uses them). Annotations are documentation (people use them). To record the author of a Pod, use an annotation; to group the Pods of an application, use a label.",
     takeaway:
-      "Every K8s object is apiVersion + kind + metadata + spec, the car's spec sheet; and labels are the FIA tag by which everything in the cluster finds everything else.",
-    outro:
-      "What a clean sector, ladies and gentlemen! YAML skeleton in your pocket, labels mastered. And notice how the guide set this up: that app: myapp label still alive on track is the overtake being prepared for the next stage. Off to the pit box!",
+      "Every K8s object is apiVersion + kind + metadata + spec, and labels are the mechanism by which everything in the cluster finds everything else.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/kubernetes/etapa03-arquitetura-cluster.svg",
+            alt: "Diagram of a cluster: on the left, the control plane with kube-api-server, etcd, scheduler, controller manager and cloud-controller-manager; on the right, two nodes, each with kubelet, kube-proxy, container runtime and Pods.",
+            caption:
+              "The control plane decides and stores the state (API Server, etcd, scheduler, controller manager); each node runs the Pods with kubelet and kube-proxy. The cloud-controller-manager only exists in cloud clusters.",
+          },
+        ],
+        credit: "Diagram: kubernetes.io, The Kubernetes Authors, CC BY 4.0",
+      },
+      {
+        items: [
+          {
+            src: "/guides/kubernetes/etapa03-pods.svg",
+            alt: "Four Pods with different IPs: the first with one container, the second with one container and a volume, the third with two containers and a volume, the fourth with several containers and volumes.",
+            caption:
+              "Each Pod has its own IP. Inside it, one or more containers share that IP and the declared volumes.",
+          },
+        ],
+        credit: "Diagram: kubernetes.io, The Kubernetes Authors, CC BY 4.0",
+      },
+    ],
   },
-
   {
     id: "m4",
     num: "04",
     navTitle: "Services & ConfigMap",
     tag: "networking + config",
-    title: "Services: a fixed address for Pods that keep changing",
-    narration:
-      "Lap 4 and the classic pit lane problem shows up: how do you find a car that keeps changing position? Anyone who follows F1 knows address and pit procedure are never a detail. Ask Christijan Albers, who left the box in 2007 with the fuel hose still attached. A fixed address and config kept out of the chassis: that's what this stage is about.",
-    lead: "Remember fact #2 from Stage 03? Pods are ephemeral: every new Pod is born with a different IP. Trying to talk to them by IP is like finding a car by its track position: on lap 12 it's P4, by lap 30 it's P7. And there's a second problem: config baked into the image forces a rebuild for every change. A new chassis every time the pit wall asks for half a degree more wing.",
+    title: "Services and ConfigMaps, a fixed address and external configuration",
+    lead: "From Stage 03, Pods are ephemeral and each new Pod is born with a different IP. Now imagine the front end of an e-commerce site calling the orders API. Today the API is at IP `10.244.0.5`. Tomorrow the Pod dies, is recreated and becomes `10.244.0.9`. If the front end has the old IP written in its code, it breaks at every recreation. How does anyone talk to Pods reliably if the address keeps changing?\n\nThere is a second problem. Every service needs configuration (ports, URLs of other services, flags). If these values live inside the container image, every change forces a rebuild and a republish of the image. Changing a URL should not require a new build.",
     concept: [
-      "Problem 1 → Service. The Service is the team's pit box: the box's position in the pit lane stays fixed all season, everyone knows where Ferrari's box is. Which car pulls in each lap changes (Leclerc's, Hamilton's, a chassis built yesterday), and whoever needs the box doesn't care: the address is the same, and the box serves any car carrying the team's tag.",
-      "The flow: a request hits the Service (fixed IP and name), the Service selects Pods by label selector (Stage 03's mechanism, the FIA tag again), and spreads traffic evenly across the healthy replicas. The Service's name becomes an internal cluster hostname: if the Service is called \"auth-service,\" any Pod reaches it at http://auth-service, even if the Pods behind it swap IPs a thousand times.",
-      "Problem 2 → ConfigMap. The ConfigMap is the setup sheet kept separate from the chassis: wing, pressures, maps. None of it is welded to the car; it lives on a sheet the mechanics apply before the car leaves the garage. You store the values in one central object and inject them three ways: environment variables (the most common, via envFrom), mounted files (great for long configs), or command-line arguments. Config changed? Update the ConfigMap; the image stays the same. Half a degree of wing doesn't need a new chassis.",
+      "**Problem 1: the Service.** The Service is a stable entry point that finds the Pods by label and balances traffic among them. The flow is:",
+      "1. A request arrives at the Service, which has a fixed IP and name.",
+      "1. The Service selects the Pods by **label selector** (the mechanism from Stage 03).",
+      "1. Traffic is distributed in a balanced way among the healthy replicas.",
+      "The Service name becomes an **internal hostname** of the cluster. If the Service is called `auth-service`, any Pod in the cluster can reach `http://auth-service`, even if the Pods behind it change IP repeatedly.",
+      "There are three types of Service:",
+      "- **ClusterIP** (the default): internal IP, reachable only from inside the cluster. It serves communication between services (for example, API to database).",
+      "- **NodePort**: opens a fixed port (from 30000 to 32767) on every node. Access from outside is done through `node-IP:port`. It is the way to expose something on Minikube.",
+      "- **LoadBalancer**: provisions an external load balancer with a public IP. It is the type used in production in the cloud (AWS, GCP, Azure).",
+      "**Problem 2: the ConfigMap.** The ConfigMap stores configuration in an object separate from the container. You inject it into the Pod in three ways:",
+      "- **environment variables** (the most common, via `envFrom`);",
+      "- **mounted files** (great for long configurations);",
+      "- **command-line arguments**.",
+      "When the configuration changes, you update the ConfigMap and the image stays the same, with no rebuild. But pay attention to one detail: **environment variables are read when the container starts**. Updating the ConfigMap does not change the variables of a Pod that is already running; the Pod needs to be recreated to see the new values (you will see this happen in practice in Stage 09). ConfigMaps mounted as files, on the other hand, are usually updated inside the Pod after some time, without recreating it, but the app needs to reread the file to use the new value.",
     ],
-    pointsTitle: "The 3 kinds of Service",
+    pointsTitle: "Key concepts",
     points: [
       {
-        t: "ClusterIP (default)",
-        d: "Internal IP, cluster-only. The internal radio channel: only the team hears it. Use it for service-to-service traffic (e.g., API ↔ database).",
+        t: "Service",
+        d: "stable address (IP and name) that selects Pods by label and balances traffic.",
         color: "blue",
       },
       {
-        t: "NodePort",
-        d: "A fixed port (30000–32767) opened on the node. The circuit's numbered service gate, the way to expose something on Minikube.",
+        t: "selector",
+        d: "the key-value pair that links the Service to the Pods; it must match the label of the Pods.",
         color: "signal",
       },
       {
-        t: "LoadBalancer",
-        d: "An external load balancer with a public IP. The circuit's official main entrance, ticket booth included. This is the production type in the cloud (AWS, GCP, Azure).",
+        t: "port / targetPort / nodePort",
+        d: "`port` is where the Service listens; `targetPort` is the container port that receives; `nodePort` is the port exposed on the node (only for the NodePort type).",
         color: "violet",
       },
+      {
+        t: "ClusterIP",
+        d: "internal access only. **NodePort**: external access through a node port. **LoadBalancer**: external access through a public IP in the cloud.",
+        color: "ember",
+      },
+      {
+        t: "Endpoints",
+        d: "the list of Pod IPs the Service is actually using; empty when no Pod matches the selector.",
+        color: "blue",
+      },
+      {
+        t: "ConfigMap",
+        d: "object with key-value configuration pairs, separate from the image.",
+        color: "signal",
+      },
+      {
+        t: "envFrom",
+        d: "injects all the keys of a ConfigMap as environment variables (read only when the container is created).",
+        color: "violet",
+      },
+      {
+        t: "Secret",
+        d: "sibling of the ConfigMap, meant for passwords and keys.",
+        color: "ember",
+      },
     ],
-    examplesTitle: "The YAMLs: watch the selector",
+    examplesTitle: "Look at the selector",
     examples: [
       {
-        label: "app.yaml (Service)",
+        label: "app.yaml",
         lang: "yaml",
-        code: `# app.yaml: save the Service in this file
-apiVersion: v1
-kind: Service
-metadata:
-  name: my-service              # becomes the internal hostname
-spec:
-  type: NodePort                # swap for ClusterIP (internal) or LoadBalancer (cloud)
-  selector:                     # ← THE LINK: looks for Pods with this label
-    app: myapp
-  ports:
-    - protocol: TCP
-      port: 80                  # port the Service listens on
-      targetPort: 80            # port the container receives on
-      nodePort: 30080           # port exposed on the node (NodePort only)`,
-        note: "The Service's selector matches the Pod's label (app: myapp), the exact my-pod you created in Stage 03. That's how it knows where to send traffic: the box reads the tag on the car pulling in.",
+        code: "# app.yaml: save the Service in this file\napiVersion: v1\nkind: Service\nmetadata:\n  name: meu-service            # becomes the internal hostname\nspec:\n  type: NodePort               # switch to ClusterIP (internal) or LoadBalancer (cloud)\n  selector:                    # ← THE LINK: looks for Pods with this label\n    app: myapp\n  ports:\n    - protocol: TCP\n      port: 80                 # port the Service listens on\n      targetPort: 80           # container port that receives\n      nodePort: 30080          # port exposed on the node (NodePort only)",
+        intro: "Create the `etapa04/` folder and save this stage's manifests in it.",
+        note: "The Service `selector` matches the Pod label (`app: myapp`), exactly the `meu-pod` from Stage 03. This is how the Service knows where to send traffic.",
+      },
+      {
+        label: "terminal",
+        lang: "sh",
+        code: "$ kubectl apply -f app.yaml\nservice/meu-service created\n\n$ kubectl get svc\nNAME          TYPE        CLUSTER-IP    EXTERNAL-IP   PORT(S)        AGE\nkubernetes    ClusterIP   10.96.0.1     <none>        443/TCP        1h\nmeu-service   NodePort    10.96.xx.xx   <none>        80:30080/TCP   10s\n\n# Generates the access URL (on Windows/Docker, keep the terminal open: it is a tunnel)\n$ minikube service meu-service --url\nhttp://127.0.0.1:53412   ← open in the browser: nginx page",
+        note: "Now the ConfigMap, injected into a Pod as environment variables:",
       },
       {
         label: "configmap-pod.yaml",
         lang: "yaml",
-        code: `# configmap-pod.yaml: both objects in the same file, separated by ---
-# 1) The ConfigMap with the values...
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: my-config
-data:
-  MESSAGE: "hello from the configmap!"
-  MODE: "study"
----
-# 2) ...injected as environment variables into the Pod
-apiVersion: v1
-kind: Pod
-metadata:
-  name: pod-config
-spec:
-  containers:
-    - name: app
-      image: nginx:1.14.2
-      envFrom:                 # injects ALL the keys at once
-        - configMapRef:
-            name: my-config`,
-        note: "Confirm the injection with: kubectl exec pod-config -- env",
+        code: '# configmap-pod.yaml: both objects in the same file, separated by ---\n# 1) The ConfigMap with the values...\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: minha-config\ndata:\n  MENSAGEM: "olá do configmap!"\n  MODO: "estudo"\n---\n# 2) ...injected as environment variables into the Pod\napiVersion: v1\nkind: Pod\nmetadata:\n  name: pod-config\nspec:\n  containers:\n    - name: app\n      image: nginx:1.14.2\n      envFrom:                 # injects ALL keys at once\n        - configMapRef:\n            name: minha-config',
       },
       {
-        label: "testing in the browser",
+        label: "terminal (2)",
         lang: "sh",
-        code: `$ kubectl apply -f app.yaml
-$ kubectl get svc
-NAME          TYPE       CLUSTER-IP    PORT(S)
-my-service    NodePort   10.96.xx.xx   80:30080/TCP
-
-# Generates the access URL (on Windows/Docker, leave the terminal open: it's a tunnel)
-$ minikube service my-service --url
-http://127.0.0.1:53412   ← open it in your browser: the nginx page!`,
+        code: "$ kubectl apply -f configmap-pod.yaml\nconfigmap/minha-config created\npod/pod-config created\n\n# Confirm the injection: the ConfigMap keys appear as variables\n$ kubectl exec pod-config -- env\n(...)\nMENSAGEM=olá do configmap!\nMODO=estudo\n(...)",
       },
     ],
     commands: [
-      { cmd: "kubectl get svc", note: "lists Services" },
-      { cmd: "minikube service <name> --url", note: "access URL for a NodePort" },
-      { cmd: "kubectl get configmap", note: "lists ConfigMaps" },
-      { cmd: "kubectl exec <pod> -- env", note: "checks injected variables" },
+      {
+        cmd: "kubectl get svc",
+        note: "lists the Services",
+      },
+      {
+        cmd: "minikube service <name> --url",
+        note: "access URL for a NodePort",
+      },
+      {
+        cmd: "kubectl get endpoints <service>",
+        note: "lists the Pod IPs the Service is using",
+      },
+      {
+        cmd: "kubectl get configmap",
+        note: "lists the ConfigMaps",
+      },
+      {
+        cmd: "kubectl exec <pod> -- env",
+        note: "checks the injected environment variables",
+      },
     ],
     handsOn: [
-      "With the Stage 03 my-pod running (label app: myapp), save the Service YAML as app.yaml and apply it.",
-      "Run minikube service my-service --url, open the URL in your browser, and check the nginx welcome page. You just reached an ephemeral Pod through a stable address: you found the car by its box, not by its track position.",
-      "Test the link: delete the pod (kubectl delete pod my-pod) and reload the browser to see the error (empty box, no car with the team's tag). Recreate it with kubectl apply -f my-pod.yaml and reload: it's back, without touching the Service. The box never moved.",
-      "Apply the ConfigMap + pod (kubectl apply -f configmap-pod.yaml), run kubectl exec pod-config -- env, and check MESSAGE and MODE in the variable list. The setup sheet made it onto the car.",
+      "With the `meu-pod` from Stage 03 running (label `app: myapp`), save the Service YAML as `etapa04/app.yaml` and apply it.",
+      "Run `minikube service meu-service --url` and open the URL in the browser. **Observe** the nginx welcome page. You reached an ephemeral Pod through a stable address.",
+      "Test the link: delete the pod (`kubectl delete pod meu-pod`) and reload the browser. **Observe** that the page stops loading (the browser shows connection refused or timed out, depending on the system and the driver), since there is no Pod left with the label. Confirm the cause with `kubectl get endpoints meu-service`: the endpoints list is empty.\n```sh\n$ kubectl get endpoints meu-service\nNAME          ENDPOINTS   AGE\nmeu-service   <none>      5m\n```\nRecreate the pod with `kubectl apply -f ../etapa03/meu-pod.yaml` and reload. Access is back without you touching the Service, and `kubectl get endpoints meu-service` shows an IP again (something like `10.244.0.7:80`).",
+      "Apply the ConfigMap and the pod (`kubectl apply -f configmap-pod.yaml`) and run `kubectl exec pod-config -- env`. **Observe** `MENSAGEM` and `MODO` in the list of variables.",
+      'Clean up the objects of this stage and the previous one:\n```sh\n$ kubectl delete -f app.yaml -f configmap-pod.yaml -f ../etapa03/meu-pod.yaml\nservice "meu-service" deleted\nconfigmap "minha-config" deleted\npod "pod-config" deleted\npod "meu-pod" deleted\n```\n(The order of the lines may vary.) Also close the `minikube service` terminal, with Ctrl+C.',
     ],
-    tip: "Golden rule: expose the minimum. Database = ClusterIP (internal channel; race strategy doesn't leak over an open radio). Only the system's entry point becomes NodePort/LoadBalancer. For passwords and keys, ConfigMap's secure sibling is the Secret: the confidential engine maps not every mechanic on the team gets to see.",
+    tip: "Golden rule: expose the minimum. A database should be ClusterIP, invisible from outside. Only the system's entry point becomes NodePort or LoadBalancer. For passwords and keys, the safe sibling of the ConfigMap is the Secret.",
     takeaway:
-      "Service is the pit box: a fixed address for cars (Pods) that keep changing, found by their tag (label); ConfigMap is the setup sheet, config kept outside the chassis (image).",
-    outro:
-      "Purple sector! A Pod reached through a stable address, config kept outside the chassis. And you even proved the link by deleting the car and watching the box stand there unmoved. Stay sharp, though, because next comes the corner that decides races: what happens when the car STOPS on track?",
+      "A Service gives a fixed address to Pods that change (finding them by label); a ConfigMap takes configuration out of the image, but environment variables only change when the Pod is recreated.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/kubernetes/etapa04-service-labels.svg",
+            alt: "A Service with selector app=A routes traffic to three Pods labeled app: A, managed by a Deployment and a ReplicaSet; a Pod labeled app: B is left out.",
+            caption:
+              "The Service finds the Pods by the selector `app=A`, not by IP. The Pod with `app: B` gets no traffic from this Service. Deployment and ReplicaSet are covered in Stage 05.",
+          },
+        ],
+        credit: "Diagram: kubernetes.io, The Kubernetes Authors, CC BY 4.0",
+      },
+    ],
   },
-
   {
     id: "m5",
     num: "05",
     navTitle: "Deployments",
     tag: "self-healing + scale",
-    title: "Self-healing and scale: ReplicaSets and Deployments",
-    narration:
-      "THIS is where the point-scorers separate from the rest of the grid! At the 2026 British Grand Prix, on lap 46, the Red Bull engine died and Verstappen watched the finish from the wall. Zero points. In production, your single Pod dying at 3 a.m. is exactly that scene. Self-healing and the way back: the most important stage of the guide starts NOW.",
-    lead: "Up to now you've created Pods by hand. Great for learning, but think about the 2026 British Grand Prix: Verstappen stopped on lap 46 and that was it, there's no substitute mid-race. In production, your one Pod dying overnight is the same thing: the site is down until someone wakes up. And when you ship 2.0, how do you swap versions without taking the service down? And if it ships with a catastrophic bug, how do you get back fast?",
+    title: "Self-healing and scaling with ReplicaSets and Deployments",
+    lead: "So far you have created Pods manually, which is fine for learning. In production, three situations break this model.",
     concept: [
-      'ReplicaSet: the team boss of headcount. You declare "replicas: 3" and it watches the Pods by label selector (the FIA tag, again!). One drops? It notices the count is short and spins up another in seconds, without you asking. It\'s the team boss\'s non-negotiable rule, "N cars ready, always": the driver wrecks the chassis Saturday, the mechanics work through the night, and Sunday there\'s a whole car on the grid, rebuilt from spec. That\'s Kubernetes self-healing, Stage 01\'s "desired state" kept for real.',
-      "The analogy breaks here, and it's worth flagging: in F1, replacing a car only happens between sessions, and the rules cap each team at 2 cars. The ReplicaSet has no parc fermé and no rulebook: it replaces the Pod in seconds, any time, any quantity. Think of K8s as an endurance race with no entry limit, where the \"mechanics' all-nighter\" takes thirty seconds.",
-      "Deployment: the spec manager. It wraps the ReplicaSet and adds the development program: Rolling Update (swap the image, and it brings up new replicas while gradually shutting down the old ones, so the service never goes dark, like an upgrade rolled into one car while the other keeps running the old spec), Rollback (kubectl rollout undo goes back to the previous version in seconds: the new floor doesn't work, the car reverts to the old spec; Ferrari showed up in Barcelona this year with a new package and Hamilton won, but if the package had hurt the car, they would have reverted to the Monaco spec with no drama), and manual scale (kubectl scale --replicas=5: five cars on the grid).",
-      "The ReplicaSet and Deployment YAMLs are nearly identical, but in practice we almost always use the Deployment, for version control. Nobody manages just the car count; you manage the count AND each one's spec. The Deployment creates and manages the ReplicaSet under the hood.",
+      "Two pieces solve this, one wrapping the other.",
+      "**ReplicaSet: guarantees the number of replicas.** You declare `replicas: 3` and it monitors the Pods by label selector. If a Pod disappears, the ReplicaSet notices that the count dropped and creates another in seconds, without anyone asking. This is **self-healing**, the desired state from Stage 01 maintained in practice. The ReplicaSet takes care of Pods that **disappear**. If what fails is only the process inside the container (a crash), the Pod still exists and whoever restarts the container is the kubelet, inside the same Pod; this separation is detailed in Stage 07.",
+      "**Deployment: manages versions.** It creates and manages the ReplicaSet under the hood and adds:",
+      "- **Rolling Update**: when you change the image, the Deployment brings up new replicas and shuts down the old ones gradually, and the service never goes down.",
+      "- **Rollback**: if the new version breaks, `kubectl rollout undo` returns to the previous one in seconds.",
+      "- **Manual scaling**: `kubectl scale --replicas=5` changes the number of replicas with one command.",
+      "Each version of the template has its own ReplicaSet. When the version changes, the Deployment creates a new ReplicaSet and shrinks the old one to zero. The name of a Pod reveals who it belongs to: in `nginx-fiap-7d4b9c-aaa`, the `7d4b9c` part identifies the ReplicaSet (the version), and the final suffix identifies the Pod. When the middle suffix changes in the middle of a rolling update, you are looking at Pods from a new ReplicaSet.",
+      "The ReplicaSet and Deployment YAMLs are almost identical, but day to day we nearly always use the Deployment, precisely because of version control.",
     ],
-    pointsTitle: "What each one guarantees",
+    pointsTitle: "Key concepts",
     points: [
       {
         t: "ReplicaSet",
-        d: "N replicas running ALWAYS. One drops, another is born in seconds: the mechanics' all-nighter, compressed. Selection by label selector.",
+        d: "keeps N replicas running at all times; if one goes down, another is born. It selects Pods by label selector.",
         color: "blue",
       },
       {
-        t: "Rolling Update",
-        d: "Gradual version swap: brings up the new ones, shuts down the old. Zero downtime: the upgrade rolled in one car at a time.",
+        t: "Deployment",
+        d: "manages ReplicaSets and the version history; it is the object you use in practice.",
         color: "signal",
       },
       {
-        t: "Rollback",
-        d: "New version broke something? kubectl rollout undo restores the previous one in seconds, back to the spec that worked.",
+        t: "template",
+        d: "the Pod mold embedded in the Deployment (it is the Pod skeleton from Stage 03).",
+        color: "violet",
+      },
+      {
+        t: "Rolling Update",
+        d: "gradual version swap, with no downtime.",
         color: "ember",
       },
+      {
+        t: "Rollback",
+        d: "return to a previous revision with `rollout undo`.",
+        color: "blue",
+      },
+      {
+        t: "Revision",
+        d: "each change to the Deployment template generates a revision in the history, and each revision corresponds to a ReplicaSet.",
+        color: "signal",
+      },
     ],
-    examplesTitle: "The full Deployment + its life cycle",
+    examplesTitle: "The complete Deployment and its life cycle",
     examples: [
       {
-        label: "deployment.yaml",
+        label: "the complete Deployment and its life cycle",
         lang: "yaml",
-        code: `apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: nginx-fiap
-spec:
-  replicas: 3                  # I want 3 copies, always
-  selector:
-    matchLabels:
-      app: nginx-app           # I manage Pods with this label...
-  template:                    # ...and this is each Pod's "mold"
-    metadata:
-      labels:
-        app: nginx-app         # has to match the selector above
-    spec:
-      containers:
-        - name: nginx
-          image: nginx:1.14.2  # changing this version triggers the rolling update
-          ports:
-            - containerPort: 80`,
-        note: "Notice: the template is literally the Pod skeleton from Stage 03, embedded inside the Deployment. Nothing here is new, it's composition: the car's spec sheet, attached to the team boss's order (\"three cars at this spec, always\").",
+        code: 'apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: nginx-fiap\nspec:\n  replicas: 3                  # I want 3 copies, always\n  selector:\n    matchLabels:\n      app: nginx-app           # I manage the Pods with this label...\n  template:                    # ...and this is the "mold" of each Pod\n    metadata:\n      labels:\n        app: nginx-app         # must match the selector ↑\n    spec:\n      containers:\n        - name: nginx\n          image: nginx:1.14.2  # changing this version triggers the rolling update\n          ports:\n            - containerPort: 80',
+        intro:
+          "Create the `etapa05/` folder and save the manifest below in it as `deployment.yaml`.",
+        note: "The `template` is literally the Pod skeleton from Stage 03 inside the Deployment. Nothing here is new: the Deployment composes pieces you already know.",
       },
       {
-        label: "self-healing in action",
+        label: "terminal",
         lang: "sh",
-        code: `$ kubectl apply -f deployment.yaml
-$ kubectl get pods
-nginx-fiap-7d4b9c-aaa   1/1   Running
-nginx-fiap-7d4b9c-bbb   1/1   Running
-nginx-fiap-7d4b9c-ccc   1/1   Running
-
-# Kill a pod on purpose:
-$ kubectl delete pod nginx-fiap-7d4b9c-aaa
-
-# Look again: a NEW pod is already spinning up to hold the 3 replicas
-$ kubectl get pods
-nginx-fiap-7d4b9c-bbb   1/1   Running
-nginx-fiap-7d4b9c-ccc   1/1   Running
-nginx-fiap-7d4b9c-ddd   0/1   ContainerCreating   ← self-healing!`,
+        code: '$ kubectl apply -f deployment.yaml\ndeployment.apps/nginx-fiap created\n$ kubectl get pods\nnginx-fiap-7d4b9c-aaa   1/1   Running\nnginx-fiap-7d4b9c-bbb   1/1   Running\nnginx-fiap-7d4b9c-ccc   1/1   Running\n\n# The ReplicaSet that the Deployment created under the hood\n# (the RS name is the prefix of the Pod names)\n$ kubectl get rs\nNAME                DESIRED   CURRENT   READY   AGE\nnginx-fiap-7d4b9c   3         3         3       30s\n\n# Kill a pod on purpose:\n$ kubectl delete pod nginx-fiap-7d4b9c-aaa\npod "nginx-fiap-7d4b9c-aaa" deleted\n\n# Look again: a NEW pod is already being born to keep the 3 replicas\n$ kubectl get pods\nnginx-fiap-7d4b9c-bbb   1/1   Running\nnginx-fiap-7d4b9c-ccc   1/1   Running\nnginx-fiap-7d4b9c-ddd   0/1   ContainerCreating   ← self-healing',
+        note: "In the outputs of this stage, the RESTARTS and AGE columns were omitted to fit on screen, and the name suffixes change on every run (the hashes in the example are illustrative).",
       },
       {
-        label: "update + rollback",
+        label: "terminal (2)",
         lang: "sh",
-        code: `# Rolling update: swap the image
-$ kubectl set image deployment/nginx-fiap nginx=nginx:1.16.1
-$ kubectl rollout status deployment/nginx-fiap
-deployment "nginx-fiap" successfully rolled out
-
-# Break it on purpose (an image that doesn't exist):
-$ kubectl set image deployment/nginx-fiap nginx=nginx:does-not-exist
-$ kubectl get pods
-nginx-fiap-7d4b9c-bbb   1/1   Running            ← old pods hold the service up
-nginx-fiap-9f8e2a-xyz   0/1   ImagePullBackOff   ← new ones stuck
-
-# Rollback: revert everything to the previous version
-$ kubectl rollout undo deployment/nginx-fiap
-deployment.apps/nginx-fiap rolled back`,
-        note: "K8s only shuts down the old Pods once the new ones are ready. Since the broken image never becomes ready, the old ones keep the service running: the old-spec cars keep scoring points while the new spec never even clears the crash test.",
+        code: '# Rolling update: swaps the image\n$ kubectl set image deployment/nginx-fiap nginx=nginx:1.16.1\ndeployment.apps/nginx-fiap image updated\n$ kubectl rollout status deployment/nginx-fiap\ndeployment "nginx-fiap" successfully rolled out\n\n# A new ReplicaSet took over; the old one is left with 0 replicas (but still\n# exists, and it is what makes rollback possible)\n$ kubectl get rs\nNAME                DESIRED   CURRENT   READY   AGE\nnginx-fiap-6b5d8f   3         3         3       20s\nnginx-fiap-7d4b9c   0         0         0       2m\n\n# Break it on purpose (an image that does not exist):\n$ kubectl set image deployment/nginx-fiap nginx=nginx:nao-existe\n$ kubectl get pods\nnginx-fiap-6b5d8f-bbb   1/1   Running            ← old ones hold the service\nnginx-fiap-9f8e2a-xyz   0/1   ImagePullBackOff   ← new ones stuck\n\n# A third ReplicaSet appeared, with 1 Pod that never gets ready\n$ kubectl get rs\nNAME                DESIRED   CURRENT   READY   AGE\nnginx-fiap-6b5d8f   3         3         3       1m\nnginx-fiap-7d4b9c   0         0         0       3m\nnginx-fiap-9f8e2a   1         1         0       15s\n\n# Rollback: returns to the revision before the broken one (nginx:1.16.1)\n$ kubectl rollout undo deployment/nginx-fiap\ndeployment.apps/nginx-fiap rolled back\n\n# Recorded revisions (approximate format)\n$ kubectl rollout history deployment/nginx-fiap\nREVISION  CHANGE-CAUSE\n1         <none>\n3         <none>\n4         <none>',
+        note: "K8s only shuts down the old Pods when the new ones are ready. Since the broken image never becomes ready, the old ones keep serving and the service stays up. A broken deploy does not take down what was already working. Also note that `undo` goes back to the immediately previous revision, which here used `nginx:1.16.1`, and not to the original `nginx:1.14.2`. The restored revision gets a new number in the history (2 reappears as 4) and reuses its ReplicaSet (`6b5d8f`), while the ReplicaSet of the broken version (`9f8e2a`) goes back to 0 replicas.",
       },
     ],
     commands: [
-      { cmd: "kubectl scale deployment <name> --replicas=5", note: "manual scale" },
-      { cmd: "kubectl set image deployment/<name> ctn=img:tag", note: "triggers a rolling update" },
-      { cmd: "kubectl rollout status deployment/<name>", note: "tracks the rollout" },
-      { cmd: "kubectl rollout history deployment/<name>", note: "lists revisions" },
-      { cmd: "kubectl rollout undo deployment/<name>", note: "rollback!" },
+      {
+        cmd: "kubectl get rs",
+        note: "lists the ReplicaSets (one per template version)",
+      },
+      {
+        cmd: "kubectl scale deployment <name> --replicas=5",
+        note: "manual scaling",
+      },
+      {
+        cmd: "kubectl set image deployment/<name> ctn=img:tag",
+        note: "triggers a rolling update",
+      },
+      {
+        cmd: "kubectl rollout status deployment/<name>",
+        note: "follows the swap",
+      },
+      {
+        cmd: "kubectl rollout history deployment/<name>",
+        note: "lists the revisions",
+      },
+      {
+        cmd: "kubectl rollout undo deployment/<name>",
+        note: "performs the rollback",
+      },
+    ],
+    handsOn: [
+      "Apply `deployment.yaml` and confirm the 3 pods `Running`. Also run `kubectl get rs` and **observe** the `nginx-fiap-<hash>` ReplicaSet with 3 replicas: the prefix of the Pod names is its name.",
+      "Delete a pod by hand (copy a real name from `kubectl get pods`) and run `kubectl get pods` again, quickly. **Observe** the replacement in `ContainerCreating`. You tried to violate the desired state and the cluster corrected it.",
+      "Run the rolling update to `nginx:1.16.1` and follow it with `kubectl rollout status`. **Observe** the success message. Run `kubectl get rs` and **observe** that there are now two ReplicaSets: the new one with 3 replicas and the old one with 0. This is why the suffix of the Pod names changed.",
+      "Break it on purpose with the image `nginx:nao-existe`. **Observe** in `kubectl get pods` the old pods `Running` holding the service and the new ones in `ImagePullBackOff`, and in `kubectl get rs` a third ReplicaSet with `READY 0`.",
+      "Run `kubectl rollout undo deployment/nginx-fiap` and confirm with `kubectl rollout history deployment/nginx-fiap`. **Observe** that the list goes 1, 3, 4: revision 2 became 4. Confirm the current image with `kubectl describe deployment nginx-fiap | grep Image`, which should show `nginx:1.16.1`. You did a rollback in one command.",
+      'Clean up: `kubectl delete -f deployment.yaml` (output: `deployment.apps "nginx-fiap" deleted`). The Deployment\'s ReplicaSets and Pods are removed along with it.',
+    ],
+    tip: 'Do the self-healing test at least once: apply the deployment, delete a pod by hand and watch the replacement be born. That is the moment when the "desired state" model stops being theory.',
+    takeaway:
+      "Nobody creates a standalone Pod in production: the Deployment guarantees N replicas (self-healing), swaps versions without downtime and goes back in one command, using one ReplicaSet per version.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/kubernetes/etapa05-rolling-update-1.svg",
+            alt: "Rolling update, frame 1: a Service in front of four Pods of the old version, spread across three nodes, with the Deployment managing all of them.",
+            caption: "1. Before the update: every Pod runs the old version behind the Service.",
+          },
+          {
+            src: "/guides/kubernetes/etapa05-rolling-update-2.svg",
+            alt: "Rolling update, frame 2: a Pod of the new version appears with a new IP, and an old Pod starts to leave.",
+            caption: "2. A new Pod comes up with another IP; an old one starts to leave.",
+          },
+          {
+            src: "/guides/kubernetes/etapa05-rolling-update-3.svg",
+            alt: "Rolling update, frame 3: another Pod of the new version comes in with a new IP; old Pods are still serving.",
+            caption:
+              "3. The swap continues one Pod at a time, and the Service keeps serving with the ready Pods.",
+          },
+          {
+            src: "/guides/kubernetes/etapa05-rolling-update-4.svg",
+            alt: "Rolling update, frame 4: every Pod runs the new version, with new IPs, behind the same Service.",
+            caption:
+              "4. Done: every Pod is on the new version, and the Service address did not change.",
+          },
+        ],
+        credit: "Diagram: kubernetes.io, The Kubernetes Authors, CC BY 4.0",
+      },
     ],
     handsOnIntro:
-      "The moment the grandstands were waiting for: the guide's own pit stop. But here, unlike a tire change, rushing is the enemy: the value of this exercise is in WATCHING each state change in the terminal. Stay calm, keep your eyes open.",
-    handsOn: [
-      "Apply deployment.yaml and confirm the 3 pods are Running: three cars on track, same spec.",
-      "Delete a pod by hand (copy a real name from kubectl get pods) and run kubectl get pods again, fast, to catch the replacement in ContainerCreating. You just tried to violate the desired state and the cluster corrected it.",
-      "Run the rolling update to nginx:1.16.1, track it with kubectl rollout status, and watch for the success message. The upgrade rolled in car by car, nobody left the track.",
-      "Break it on purpose with the nginx:does-not-exist image and watch kubectl get pods show old pods Running, holding the service, and new ones stuck in ImagePullBackOff.",
-      "Run kubectl rollout undo deployment/nginx-fiap and confirm with kubectl rollout history, checking the listed revisions. You just did a production rollback in one command: back to qualifying spec without losing the race.",
-    ],
-    tip: "Run the self-healing test at least once: kill a pod and watch its replacement get born, the mechanics' all-nighter compressed into seconds. It's the moment Kubernetes finally clicks.",
-    takeaway:
-      "Nobody runs a standalone Pod in production, because a car with no team never finishes the race: the Deployment guarantees N replicas (self-healing), swaps specs without pulling anyone off track (rolling update), and reverts to the previous spec in one command (rollback).",
-    outro:
-      "And the grandstand is on its feet! You KILLED a Pod and the cluster rebuilt it before the replay even finished. A decisive sector, completed in the green. Now, the question that haunts every top team: what about the DATA?",
+      "This is the central exercise of the guide. Take it calmly and observe each state.",
   },
-
   {
     id: "m6",
     num: "06",
     navTitle: "Volumes",
     tag: "data persistence",
-    title: "Volumes: data that outlives the Pod",
-    narration:
-      "We're entering the high-speed sector, and the subject that never makes the highlight reel but wins championships: data. Williams dominated the '90s because it turned telemetry into development before anyone else did. A car gets stripped down; history, never. Stage 06, and it counts.",
-    lead: "Pods are ephemeral, and Stage 05 made that radical, with pods dying and being born on every rolling update. Great for the app, catastrophic for data: the car that raced today gets stripped to the monocoque, but gigabytes of telemetry are already back at the factory before the driver even pulls off his helmet. If the PostgreSQL Pod gets recreated mid-update, every Black Friday order disappears with it. Data that matters can't live on a container's filesystem.",
+    title: "Volumes, data that outlives the Pod",
+    lead: "Pods are ephemeral, and Stage 05 showed how frequent that is: pods are recreated at every rolling update. For a stateless API this is great. For a database it is a disaster. Imagine the e-commerce PostgreSQL Pod being recreated during an update, and all the Black Friday orders disappearing with it, because they were written to the container's filesystem. Real data cannot live inside the container.",
     concept: [
-      "Kubernetes solves this with a chain of 4 concepts: Volume, PersistentVolume (PV), PersistentVolumeClaim (PVC), and StorageClass (SC). Memorize it through the team's data operation: the PVC is the data engineer's REQUEST (\"I need 1Gi, read-write from one node\"); the PV is the factory's physical STORAGE that fills the request (NFS, AWS EBS, hostPath...); the StorageClass is the CATALOG of storage types (the fast trackside server? the factory datacenter?).",
-      "The Pod only references the PVC: the car doesn't know (and doesn't need to know) which rack in the factory holds its telemetry. That separation is what lets the same YAML run on Minikube and on AWS, the same way the same data procedure works at Interlagos and at Suzuka. On Minikube, the 'standard' StorageClass already provisions PVs automatically: you make the request (PVC) and the storage (PV) appears.",
-      "PVC access modes (who can mount the volume): ReadWriteOnce (read-write from ONE node, the typical database case; only the team's own garage writes to its own data), ReadOnlyMany (read-only, many nodes, for static assets; like the FIA timing feed: every team reads it, nobody changes it), and ReadWriteMany (read-write from many nodes; needs NFS or similar).",
+      "Kubernetes solves this with a chain of four concepts: **Volume**, **PersistentVolume (PV)**, **PersistentVolumeClaim (PVC)** and **StorageClass (SC)**.",
+      '- The **PVC** is the storage *request*: "I want 1Gi, read and write by one node".',
+      "- The **PV** is the *real disk* that fulfills the request (NFS, AWS EBS, hostPath and others).",
+      "- The **StorageClass** describes *types* of disk (standard, fast SSD) and lets the cluster create PVs automatically when a PVC asks for them.",
+      "The Pod references only the PVC and does not need to know where the disk physically is. This separation lets the same Pod YAML run on Minikube and on AWS, changing only what fulfills the request. On Minikube, the `standard` StorageClass already provisions PVs automatically: you create the PVC and the PV appears.",
+      "The most common **volume types**:",
+      "- **emptyDir**: born empty together with the Pod and **dies with the Pod**. It serves for temporary files and for sharing data between containers of the same Pod.",
+      "- **hostPath**: mounts a directory of the node inside the container. It is useful in development and dangerous in production, because it ties the Pod to that node.",
+      "- **persistentVolumeClaim**: the right way for real data, which survives restarts and recreation of the Pod.",
+      "The PVC **access modes** define who can mount the volume:",
+      "- **ReadWriteOnce (RWO)**: read and write by a single node. It is the typical case for a database.",
+      "- **ReadOnlyMany (ROX)**: read-only, by several nodes. It serves static assets.",
+      "- **ReadWriteMany (RWX)**: read and write by several nodes. It requires NFS or an equivalent backend.",
     ],
-    pointsTitle: "The storage chain",
+    pointsTitle: "Key concepts",
     points: [
       {
         t: "emptyDir",
-        d: "Lives and dies with the Pod. The garage whiteboard: session notes, wiped when the weekend ends. For temporary data and sharing between a Pod's own containers.",
-        color: "signal",
-      },
-      {
-        t: "hostPath",
-        d: "Mounts a directory from the NODE into the container. That circuit's freight crate: fine for dev; be careful in production (it ties the Pod to that node).",
-        color: "ember",
-      },
-      {
-        t: "PVC → PV",
-        d: "The request (Claim) matches the storage (Volume). Data survives the Pod dying: telemetry safe at the factory.",
+        d: "temporary volume that lives and dies with the Pod.",
         color: "blue",
       },
       {
+        t: "hostPath",
+        d: "node directory mounted in the container; ties the Pod to the node.",
+        color: "signal",
+      },
+      {
+        t: "PVC (PersistentVolumeClaim)",
+        d: "storage request made by the user.",
+        color: "violet",
+      },
+      {
+        t: "PV (PersistentVolume)",
+        d: "the disk that fulfills the request.",
+        color: "ember",
+      },
+      {
         t: "StorageClass",
-        d: "The catalog: provisions PVs automatically by profile. On Minikube, the 'standard' class already handles this.",
+        d: "storage profile that provisions PVs automatically.",
+        color: "blue",
+      },
+      {
+        t: "Bound",
+        d: "status indicating that the PVC was bound to a PV.",
+        color: "signal",
+      },
+      {
+        t: "volumeMounts / volumes",
+        d: "in the Pod, `volumes` declares the source and `volumeMounts` defines where it appears inside the container.",
         color: "violet",
       },
     ],
-    examplesTitle: "Prove the persistence: write, destroy, read it back",
+    examplesTitle: "Write, destroy, read back",
     examples: [
       {
         label: "pvc.yaml",
         lang: "yaml",
-        code: `apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: my-pvc
-spec:
-  accessModes:
-    - ReadWriteOnce            # one node reads and writes (typical for a database)
-  resources:
-    requests:
-      storage: 1Gi             # how much disk I want
-# on Minikube, the "standard" StorageClass provisions the PV on its own`,
+        code: '# pvc.yaml\napiVersion: v1\nkind: PersistentVolumeClaim\nmetadata:\n  name: meu-pvc\nspec:\n  accessModes:\n    - ReadWriteOnce            # one node reads and writes (typical for a database)\n  resources:\n    requests:\n      storage: 1Gi             # how much disk I want\n# on Minikube, the "standard" StorageClass provisions the PV by itself',
+        intro: "Create the `etapa06/` folder and save this stage's manifests in it.",
       },
       {
-        label: "pod-with-pvc.yaml",
+        label: "pod-com-pvc.yaml",
         lang: "yaml",
-        code: `apiVersion: v1
-kind: Pod
-metadata:
-  name: persistent-pod
-spec:
-  containers:
-    - name: app
-      image: nginx:1.14.2
-      volumeMounts:
-        - name: data
-          mountPath: /data     # where the volume shows up in the container
-  volumes:
-    - name: data
-      persistentVolumeClaim:   # ← points to the PVC (instead of emptyDir)
-        claimName: my-pvc`,
+        code: "# pod-com-pvc.yaml\napiVersion: v1\nkind: Pod\nmetadata:\n  name: pod-persistente\nspec:\n  containers:\n    - name: app\n      image: nginx:1.14.2\n      volumeMounts:\n        - name: dados\n          mountPath: /dados    # where the volume appears in the container\n  volumes:\n    - name: dados\n      persistentVolumeClaim:   # ← points to the PVC (instead of emptyDir)\n        claimName: meu-pvc",
       },
       {
-        label: "the survival test",
+        label: "terminal",
         lang: "sh",
-        code: `$ kubectl apply -f pvc.yaml -f pod-with-pvc.yaml
-
-# Bound = the PV was created and linked to the request
-$ kubectl get pvc
-NAME     STATUS   VOLUME         CAPACITY   ACCESS MODES
-my-pvc   Bound    pvc-3f2a1...   1Gi        RWO
-
-# Write a file to the volume
-$ kubectl exec persistent-pod -- sh -c "echo 'i survived!' > /data/test.txt"
-
-# DESTROY the pod (the PVC keeps existing)
-$ kubectl delete pod persistent-pod
-
-# Recreate the pod and read the file:
-$ kubectl apply -f pod-with-pvc.yaml
-$ kubectl exec persistent-pod -- cat /data/test.txt
-i survived!            ← the Pod died, the data didn't.`,
-        note: "It's the car stripped down after the race with the telemetry intact back at the factory: the fresh chassis for Spa is born already carrying Silverstone's full history.",
+        code: '$ kubectl apply -f pvc.yaml -f pod-com-pvc.yaml\npersistentvolumeclaim/meu-pvc created\npod/pod-persistente created\n\n# Bound = the PV was created and bound to the request\n$ kubectl get pvc\nNAME      STATUS   VOLUME         CAPACITY   ACCESS MODES\nmeu-pvc   Bound    pvc-3f2a1...   1Gi        RWO\n\n# Write a file to the volume\n$ kubectl exec pod-persistente -- sh -c "echo \'sobrevivi!\' > /dados/teste.txt"\n\n# DESTROY the pod (the PVC still exists)\n$ kubectl delete pod pod-persistente\npod "pod-persistente" deleted\n\n# Recreate the pod and read the file:\n$ kubectl apply -f pod-com-pvc.yaml\npod/pod-persistente created\n$ kubectl exec pod-persistente -- cat /dados/teste.txt\nsobrevivi!            ← the Pod died, the data did not',
+        note: "To see the contrast, create a second manifest, `pod-emptydir.yaml`, with **another Pod name** and an `emptyDir` in place of the PVC. Do not edit `pod-com-pvc.yaml` and reapply it: the `spec` of an existing Pod cannot be changed (Kubernetes refuses the change of volumes), so the change only works if the Pod is deleted and created again, or if it is a new file and a new name, as here.",
+      },
+      {
+        label: "pod-emptydir.yaml",
+        lang: "yaml",
+        code: "# pod-emptydir.yaml\napiVersion: v1\nkind: Pod\nmetadata:\n  name: pod-efemero              # different name from pod-persistente\nspec:\n  containers:\n    - name: app\n      image: nginx:1.14.2\n      volumeMounts:\n        - name: dados\n          mountPath: /dados      # same mount point as the previous example\n  volumes:\n    - name: dados\n      emptyDir: {}               # born empty with the Pod and dies with the Pod",
+      },
+      {
+        label: "terminal (2)",
+        lang: "sh",
+        code: '$ kubectl apply -f pod-emptydir.yaml\npod/pod-efemero created\n\n# Write the file, destroy the Pod and recreate it from the same YAML\n$ kubectl exec pod-efemero -- sh -c "echo \'vou sumir\' > /dados/teste.txt"\n$ kubectl delete pod pod-efemero\npod "pod-efemero" deleted\n$ kubectl apply -f pod-emptydir.yaml\npod/pod-efemero created\n\n# The file no longer exists: the emptyDir died together with the old Pod\n$ kubectl exec pod-efemero -- cat /dados/teste.txt\ncat: /dados/teste.txt: No such file or directory\ncommand terminated with exit code 1',
       },
     ],
     commands: [
-      { cmd: "kubectl get pvc", note: "volume requests (Bound = ok)" },
-      { cmd: "kubectl get pv", note: "the cluster's persistent disks" },
-      { cmd: "kubectl delete pvc <name>", note: "removes the request (and frees the disk)" },
+      {
+        cmd: "kubectl get pvc",
+        note: "lists the volume requests (`Bound` indicates success)",
+      },
+      {
+        cmd: "kubectl get pv",
+        note: "lists the cluster's persistent disks",
+      },
+      {
+        cmd: "kubectl delete pvc <name>",
+        note: "removes the request. With Minikube's `standard` StorageClass, the corresponding PV is usually deleted along with it, data included (the default reclaim policy is `Delete`; check your cluster's with `kubectl get storageclass`)",
+      },
     ],
     handsOn: [
-      "Apply the PVC and run kubectl get pvc. Check the STATUS: Bound: your request was filled by a PV created automatically (confirm with kubectl get pv).",
-      "Run the full sequence from the example: write the file → delete the pod → recreate the pod → read the file. Watch \"i survived!\" come back. That's the PVC's contract: the car dies, the telemetry stays.",
-      "Bonus experiment (the contrast that teaches): repeat the test swapping the volume for emptyDir, and when you recreate the Pod, the file will be gone. That's the difference between the garage whiteboard and the factory server, felt firsthand.",
+      "Apply the PVC and run `kubectl get pvc`. **Observe** the `STATUS Bound`: the request was fulfilled by an automatically created PV. Confirm with `kubectl get pv`.",
+      "Run the complete sequence from the example: write the file, delete the pod, recreate the pod, read the file. **Observe** the `sobrevivi!` come back. This is the PVC contract.",
+      "Contrast experiment: save `pod-emptydir.yaml` and repeat the sequence (write, delete, recreate, read). **Observe** the `No such file or directory` at the end: the file vanished. This is the difference between ephemeral and persistent, seen in practice.",
+      "Clean up, in this order: `kubectl delete pod pod-persistente pod-efemero` and then `kubectl delete pvc meu-pvc`. With the PVC deleted, `kubectl get pv` should be empty (the PV was removed along with it, as described above).",
     ],
-    tip: "Important data ALWAYS goes in a PVC. If data vanished after a restart, I'd bet it was living in emptyDir or the container's filesystem: someone wrote the race strategy on the whiteboard and the cleaning crew came through.",
+    tip: "Important data always sits behind a PVC. If data vanished after a restart or a recreation, it was almost certainly in `emptyDir` or in the container's own filesystem.",
     takeaway:
-      "PVC is the request, PV is the storage, StorageClass is the catalog. And data that matters always lives behind a PVC: the car gets stripped down, the telemetry never does.",
-    outro:
-      "\"I SURVIVED!\" And the file came back! The car was stripped down to the monocoque and the telemetry was right there, intact, at the factory. Green sector. But hold on tight, because next comes the sneakiest trap on the circuit: the car that's running... but isn't.",
+      "The PVC is the request, the PV is the disk, the StorageClass describes the disk types, and data that matters always lives behind a PVC.",
   },
-
   {
     id: "m7",
     num: "07",
     navTitle: "Probes",
     tag: "app health",
-    title: "Probes: how the cluster knows your app is actually alive",
-    narration:
-      "Careful, this corner is BLIND! At the 2026 British Grand Prix, the whole world watched: Antonelli started from pole, set a 1:31.777 (the fastest lap of the race), and crossed the line FIFTEENTH. Fifty-two laps on track, and nothing about it was healthy. And the veterans remember Senna at Interlagos, 1991: the car was moving, but only sixth gear still worked. That's exactly the gap probes close.",
-    lead: "Antonelli was out there, running, for all 52 laps, and something was clearly not healthy anyway. It's identical in the cluster: your app deadlocks at 3 a.m., the process is still standing (Kubernetes sees Running across the board), but no request gets answered. Stage 05's self-healing only recreates pods that DIE; it can't see pods that are alive but stuck: the car that's running... but isn't.",
+    title: "Probes, how the cluster knows your app is alive",
+    lead: 'At 3 a.m., your app enters a deadlock. The process is still up, so as far as Kubernetes is concerned everything is `Running`, but no request is answered. The recovery mechanisms you have seen so far act when a process ends or when a Pod disappears; none of them sees a process that is alive but stuck. There is also a similar case: the app has just started, but it is still loading data and should not receive traffic, and the Service is already sending requests to it. Without extra information, the cluster cannot tell "running" from "working".',
     concept: [
-      "Probes are health checks declared in the Pod's manifest. It's telemetry plus a radio check: the team doesn't trust the fact that the car is moving. It checks specific channels at regular intervals: oil pressure, power unit temperature, the driver's response on the radio. It's not enough for the car to be on track; it has to respond to being poked.",
-      'How a probe checks (3 mechanisms): httpGet (the kubelet fires a GET at an endpoint like /health and expects 200 OK; the most common one, the radio check: "give me an OK, driver"), tcpSocket (tests whether the port accepts a connection, for services that don\'t speak HTTP; the radio carrier opens, even with no actual talk), and exec (runs a command inside the container; exit code 0 = healthy, the mechanic plugging in a laptop and running diagnostics).',
-      "Best practices from the lesson: use all three probes together in production; use different endpoints for each probe (separate telemetry channels; you don't measure oil pressure on the brake sensor); start from the default settings and only tune intervals when the app actually needs it; monitor probe failures (e.g., with Prometheus), because they're the first sign of trouble, like that flicker in the telemetry two laps before a part fails.",
+      'Before probes, it is worth separating three situations that in everyday talk everyone calls "the app went down", because each one is handled by a different mechanism:',
+      "1. **The process inside the container ends** (a crash, out of memory, an unhandled exception). The Pod still exists and the one that reacts is the node's **kubelet**: it restarts the **container inside the same Pod**, according to the Pod's `restartPolicy` (the default is `Always`). The Pod's name and IP do not change, and the `RESTARTS` column goes up. This happens with no probe configured.",
+      "1. **The Pod disappears** (someone deleted it, the node went down). The whole Pod ceases to exist and the one that reacts is the **ReplicaSet** (Stage 05), which creates a **new Pod**, with a new name and IP. A standalone Pod, without a ReplicaSet or Deployment, does not come back.",
+      "1. **The process is still alive but stuck** (deadlock, infinite loop, exhausted dependency). Nothing ended and no Pod disappeared, so the two previous mechanisms do not notice. Only a **liveness probe** detects it, and when it fails the kubelet restarts the container, as in case 1.",
+      "**Probes** are health checks declared in the Pod manifest. The kubelet runs them periodically and acts according to the result.",
+      "There are three probes, and the most important point is what happens when each one **fails**:",
+      '- **Liveness** asks "is it alive?". If it fails, the kubelet **restarts the container** (inside the same Pod). It is for apps that hang and only come back with a restart.',
+      '- **Readiness** asks "is it ready to receive requests?". If it fails, the Pod **leaves the load balancer** (the Service stops sending traffic) **without being restarted**. It is for apps that load data before serving or that are temporarily unavailable.',
+      '- **Startup** asks "has it finished initializing?". While it runs, it **holds back the other probes**, preventing liveness from killing a slow app too early.',
+      "Each probe can check in three ways:",
+      "- **httpGet**: the kubelet makes a GET to an endpoint (for example `/health`) and expects a success status (200 OK). It is the most common. An error status, such as 404 or 500, counts as a failure.",
+      "- **tcpSocket**: tests whether the port accepts a connection. It serves services that do not speak HTTP.",
+      "- **exec**: runs a command inside the container; exit code 0 means healthy.",
+      "Good practices from the lesson: use all three probes together in production; use different endpoints for each probe; start with the default settings and adjust intervals only when the app asks for it; monitor probe failures (for example, with Prometheus), because they are the first sign of trouble.",
     ],
-    pointsTitle: "The 3 probes and what happens when they fail",
+    pointsTitle: "Key concepts",
     points: [
       {
-        t: "Liveness",
-        d: '"Is it alive?" Fails → the Pod gets RESTARTED. The full cycle: turn the car off and back on. For apps that hang and only come back with a restart.',
-        color: "ember",
+        t: "restartPolicy",
+        d: "Pod policy for containers that end (default `Always`); it is what restarts a container that went down, with or without probes.",
+        color: "blue",
       },
       {
-        t: "Readiness",
-        d: "\"Ready for traffic?\" Fails → it LEAVES the load balancer, no restart. The box's red light: held in the garage, nobody strips it down. For apps that load data before they're ready.",
+        t: "Liveness probe",
+        d: "failed, the kubelet restarts the container.",
         color: "signal",
       },
       {
-        t: "Startup",
-        d: '"Done booting?" While it runs, it HOLDS the other two off. The power unit\'s fire-up procedure: nobody clocks a lap time on a cold engine. For apps that are slow to boot.',
+        t: "Readiness probe",
+        d: "failed, the Pod leaves the load balancer without restarting.",
         color: "violet",
       },
+      {
+        t: "Startup probe",
+        d: "until it passes, the others stay suspended.",
+        color: "ember",
+      },
+      {
+        t: "httpGet / tcpSocket / exec",
+        d: "the three checking mechanisms.",
+        color: "blue",
+      },
+      {
+        t: "periodSeconds",
+        d: "how many seconds apart the probe runs.",
+        color: "signal",
+      },
+      {
+        t: "failureThreshold",
+        d: "how many consecutive failures are tolerated before acting (the default is 3).",
+        color: "violet",
+      },
+      {
+        t: "initialDelaySeconds",
+        d: "how long to wait before the first check.",
+        color: "ember",
+      },
     ],
-    examplesTitle: "A Pod with all 3 probes, plus a teaching sabotage",
+    examplesTitle: "Worked examples",
     examples: [
       {
-        label: "pod-with-probes.yaml",
+        label: "a Pod with the three probes",
         lang: "yaml",
-        code: `apiVersion: v1
-kind: Pod
-metadata:
-  name: probes-example
-spec:
-  containers:
-    - name: app
-      image: example:latest
-      ports:
-        - containerPort: 80
-      livenessProbe:           # fails → RESTARTS the pod
-        httpGet:
-          path: /health
-          port: 80
-        periodSeconds: 10      # checks every 10s
-        timeoutSeconds: 5
-        failureThreshold: 3    # 3 failures in a row → restart (3 is the default)
-      readinessProbe:          # fails → LEAVES the load balancer
-        httpGet:
-          path: /ready         # good practice: a separate endpoint
-          port: 80
-        periodSeconds: 5
-      startupProbe:            # holds the others off until the app is up
-        httpGet:
-          path: /startup
-          port: 80
-        initialDelaySeconds: 120   # slow app: wait 2 minutes
-        periodSeconds: 30`,
-        note: "This YAML is illustrative: the example:latest image is fictional. The runnable experiment is in the next tab.",
+        code: "apiVersion: v1\nkind: Pod\nmetadata:\n  name: exemplo-probes\nspec:\n  containers:\n    - name: app\n      image: exemplo:latest\n      ports:\n        - containerPort: 80\n      livenessProbe:           # failed → RESTARTS the container\n        httpGet:\n          path: /health\n          port: 80\n        periodSeconds: 10      # checks every 10s\n        timeoutSeconds: 5\n        failureThreshold: 3    # 3 consecutive failures → restarts (3 is the default)\n      readinessProbe:          # failed → LEAVES the load balancer\n        httpGet:\n          path: /ready         # good practice: separate endpoint\n          port: 80\n        periodSeconds: 5\n      startupProbe:            # holds the others until the app is up\n        httpGet:\n          path: /startup\n          port: 80\n        initialDelaySeconds: 120   # slow app: waits 2min\n        periodSeconds: 30",
+        note: "This YAML is illustrative: the `exemplo:latest` image is fictitious. The runnable experiment comes next, and in Stage 09 you will see the probes working on a real image. A caveat about the `startupProbe` in the example: `initialDelaySeconds: 120` is valid, but the most common way to give a slow app time is to multiply `failureThreshold` by `periodSeconds` (for example, 30 attempts every 10 seconds give up to 300 seconds). That way the startupProbe finishes as soon as the app responds, instead of always waiting a fixed delay.",
       },
       {
         label: "liveness-exec.yaml",
         lang: "yaml",
-        code: `# liveness-exec.yaml: the sabotage is a busybox that creates /tmp/healthy,
-# stays "healthy" for 30s, deletes the file, and the probe starts failing.
-apiVersion: v1
-kind: Pod
-metadata:
-  name: liveness-exec
-spec:
-  containers:
-    - name: liveness
-      image: busybox
-      args:                         # the "sabotage script":
-        - /bin/sh
-        - -c
-        - touch /tmp/healthy; sleep 30; rm -f /tmp/healthy; sleep 600
-      livenessProbe:
-        exec:
-          command:                  # probe: does the file exist? (exit 0 = healthy)
-            - cat
-            - /tmp/healthy
-        initialDelaySeconds: 5     # wait 5s before the first check
-        periodSeconds: 5           # check every 5s`,
-        note: "It's an oil pressure sensor sabotaged on purpose: 30 seconds of a good reading, then silence on the telemetry.",
+        code: "# liveness-exec.yaml\napiVersion: v1\nkind: Pod\nmetadata:\n  name: liveness-exec\nspec:\n  containers:\n    - name: liveness\n      image: busybox\n      args:                         # the sabotage script:\n        - /bin/sh\n        - -c\n        - touch /tmp/healthy; sleep 30; rm -f /tmp/healthy; sleep 600\n      livenessProbe:\n        exec:\n          command:                  # probe: does the file exist? (exit 0 = healthy)\n            - cat\n            - /tmp/healthy\n        initialDelaySeconds: 5     # waits 5s before the 1st check\n        periodSeconds: 5           # checks every 5s",
+        intro:
+          'Save the manifest in `etapa07/liveness-exec.yaml`. The idea is to use a busybox container that creates the file `/tmp/healthy`, lives 30 seconds "healthy", deletes the file and keeps running. The liveness probe runs `cat /tmp/healthy`: with the file present, the command exits with 0 (healthy); without the file, it fails. This is case 3 from the list above: the process is still alive (the `sleep 600`), but it stops being healthy.',
       },
       {
-        label: "watch the restart",
+        label: "terminal",
         lang: "sh",
-        code: `$ kubectl apply -f liveness-exec.yaml
-
-# Watch it live (Ctrl+C to exit):
-$ kubectl get pods -w
-NAME            READY   STATUS    RESTARTS
-liveness-exec   1/1     Running   0
-liveness-exec   1/1     Running   1 (5s ago)    ← automatic restart!
-liveness-exec   1/1     Running   2 (10s ago)   ← and again...
-
-# Investigate like a pro:
-$ kubectl describe pod liveness-exec
-Events:
-  Warning  Unhealthy  Liveness probe failed: cat: /tmp/healthy: No such file
-  Normal   Killing    Container liveness failed liveness probe, will be restarted`,
-        note: "Timeline: 30s healthy → file deleted → 3 failures in a row (the failureThreshold default; the pit wall doesn't call for an engine reset on the first bad reading either, it confirms three times) → kubelet restarts it. Since the script starts over, the cycle repeats forever, on purpose, so you can watch it.",
+        code: '$ kubectl apply -f liveness-exec.yaml\npod/liveness-exec created\n\n# Watch in real time (Ctrl+C to leave).\n# Shortened output: each new line appears tens of seconds apart.\n# The "(Ns ago)" part shows how long ago the last restart was,\n# and not the interval between one restart and the next. The first\n# restart shows up about 45s after the start; the following ones take\n# longer, because the kubelet waits for the container to terminate before recreating it.\n$ kubectl get pods -w\nNAME            READY   STATUS    RESTARTS\nliveness-exec   1/1     Running   0                ← right after the start\nliveness-exec   1/1     Running   1 (2s ago)       ← about 45s later: automatic restart\nliveness-exec   1/1     Running   2 (1s ago)       ← one cycle later, much later: and again...\n\n# Investigate like a professional:\n$ kubectl describe pod liveness-exec\nEvents:\n  Warning  Unhealthy  Liveness probe failed: cat: /tmp/healthy: No such file\n  Normal   Killing    Container liveness failed liveness probe, will be restarted',
+        note: "The timeline of the experiment: 30s healthy, the file is deleted, 3 consecutive failures (the default `failureThreshold`), the kubelet restarts the container. Since the script starts over from zero after the restart, the cycle repeats indefinitely, on purpose, so you can observe it. Note that the Pod is always the same (`liveness-exec`): what was restarted was the container. Now, to see the difference from case 1, provoke a crash without any probe:",
+      },
+      {
+        label: "terminal (2)",
+        lang: "sh",
+        code: '# A container that ends with an error 5 seconds after starting, without probes\n$ kubectl run crash --image=busybox -- /bin/sh -c "sleep 5; exit 1"\npod/crash created\n\n# The kubelet restarts the container by itself (restartPolicy Always), with\n# ever longer intervals between attempts (approximate format)\n$ kubectl get pods\nNAME    READY   STATUS             RESTARTS      AGE\ncrash   0/1     CrashLoopBackOff   2 (20s ago)   50s\n\n$ kubectl describe pod crash\n(...)\n    Last State:     Terminated\n      Reason:       Error\n      Exit Code:    1\n(...)\n# No "Liveness probe failed" event: there is no probe at all, and the\n# container was restarted by the kubelet anyway.',
       },
     ],
     commands: [
-      { cmd: "kubectl get pods -w", note: "watches changes live" },
-      { cmd: "kubectl describe pod <name>", note: "Events show the probe failures" },
+      {
+        cmd: "kubectl get pods -w",
+        note: "follows changes in real time",
+      },
+      {
+        cmd: "kubectl describe pod <name>",
+        note: "the Events show probe failures; `Last State` shows why the previous container ended",
+      },
     ],
     handsOn: [
-      'Apply liveness-exec.yaml, run kubectl get pods -w, and watch the RESTARTS column climb on its own every ~35-45s. Every increment is the kubelet sending "turn the car off and on" to a Pod that stopped answering the telemetry.',
-      "In another terminal, run kubectl describe pod liveness-exec and look in Events for the Warning Unhealthy plus Normal Killing pair. Learn to recognize that duo: in production, it's the signature of a failing probe.",
-      "Clean up: kubectl delete pod liveness-exec.",
+      "Apply `liveness-exec.yaml` and run `kubectl get pods -w`. **Observe** the `RESTARTS` column go up by itself: the first restart appears about 45 seconds after the start (30s healthy plus 3 failures spaced 5s apart). Each increment is the kubelet restarting a container that stopped passing the check.",
+      "In another terminal, run `kubectl describe pod liveness-exec`. **Observe** in the Events the pair `Warning Unhealthy` followed by `Normal Killing`. Learn to recognize this pair: in production, it is the diagnosis of a failing probe.",
+      "Run the crash experiment (`kubectl run crash ...`) and compare. **Observe** that `RESTARTS` also goes up, but `describe` shows `Last State: Terminated` with `Exit Code: 1` and no `Liveness probe failed` event. This is case 1, handled by the kubelet without a probe; the one in step 2 is case 3, which only liveness solves.",
+      "Clean up: `kubectl delete pod liveness-exec crash`.",
     ],
-    tip: "Running does NOT mean healthy. Antonelli ran all 52 laps at Silverstone with pole and the fastest lap in his pocket, and finished P15. A car on track isn't a competitive car; a standing process isn't a working app. That's exactly why probes exist.",
+    tip: "`Running` does not mean healthy. An app can be running and stuck in a deadlock. This is exactly why probes exist.",
     takeaway:
-      "Liveness fails = turn the car off and on (restart); Readiness fails = the box's red light (leaves the load balancer without restarting); Startup = the power unit's fire-up (holds the other two off until the app finishes warming up).",
-    outro:
-      "RESTARTS climbing on its own on screen: you sabotaged the sensor and watched the pit wall call the reset, three readings confirmed, no panic. Few sectors teach this much with so little YAML. And now, the final straight of the circuit: the cluster is about to learn to drive itself.",
+      "A process that crashes is restarted by the kubelet, a Pod that disappears is recreated by the ReplicaSet, and a process that is alive but stuck is detected only by liveness: a failed liveness probe restarts the container, a failed readiness probe takes the Pod out of the load balancer without restarting, and a startup probe holds back both until the app finishes starting.",
   },
-
   {
     id: "m8",
     num: "08",
     navTitle: "Autoscaling (HPA)",
     tag: "automatic scaling",
-    title: "HPA: automatic scaling driven by metrics",
-    narration:
-      "FINAL STAGE, checkered flag in sight! And what a way to close it out: the pit wall calling strategy in real time. That's how Ross Brawn won Hungary in 1998, with Schumacher flying and a three-stop strategy recalculated mid-race. Today, the one reading and reacting is the HPA, and the desired-state loop opened back in Stage 01 closes right in front of you.",
-    lead: "Go back to Stage 01's problem: demand explodes on race Sunday. You already know how to scale by hand (kubectl scale, Stage 05), but are you going to sit at the terminal adjusting replicas for every spike? At 2 a.m. too? No pit wall works that way: strategy reacts to the race in real time, based on telemetry. The loop needs to close: the cluster has to measure the load and scale itself.",
+    title: "HPA, automatic scaling based on metrics",
+    lead: "Go back to the e-commerce site from Stage 01: Black Friday has arrived. You already know how to scale manually with `kubectl scale --replicas=...` (Stage 05). Staying on call at the terminal adjusting replicas at every traffic peak, including at 2 a.m., is not viable. The cluster should measure the load and adjust the number of replicas by itself.",
     concept: [
-      "The Horizontal Pod Autoscaler (HPA) watches Pod metrics (CPU, memory...) and adjusts the replica count between a minimum and a maximum you define. It's the strategy wall with the power to line up more cars as the race load grows, keeping in mind Stage 05's deal: F1 itself caps out at 2 cars, so think of it as an endurance race with no entry limit. The pace tightened past the target? Line up more cars (up to the ceiling). The race calmed down? Pull back gradually.",
-      "How it works: the HPA compares Pod utilization against the configured target (e.g., keep average CPU at 70%). Went over? It creates replicas (up to the max). Dropped? It removes them (down to the min), saving resources. Scale-down is deliberately slow (~5 minutes of stability) so it doesn't 'porpoise' on every quick blip. It's the same reason the pit wall doesn't rewrite strategy over every cloud on the radar: it waits for the pattern to confirm before it tears down the operation over the first safety car.",
-      "Supported metrics: CPU (the most common), memory, custom app metrics (requests/sec, queue depth), external metrics (e.g., Prometheus), and disk I/O. The right metric depends on the app's profile, the same way you pick a strategy around what actually degrades the car: tires at Barcelona, brakes at Montreal.",
-      "Two prerequisites that trip everyone up: (1) the cluster needs metrics-server to read CPU/memory. On Minikube: minikube addons enable metrics-server. No sensors on the car, and the pit wall sees nothing. (2) The container MUST declare resources.requests.cpu, because '70% CPU' means 70% OF WHAT THE POD ASKED FOR, the same way ERS energy allocation per lap works: 'I used 70%' only makes sense against a declared allocation. Without requests, the HPA shows <unknown> and doesn't scale.",
+      "The **Horizontal Pod Autoscaler (HPA)** monitors Pod metrics (CPU, memory and others) and adjusts the number of replicas between a minimum and a maximum that you define.",
+      "How it works: the HPA compares the current utilization of the Pods with the configured **target** (for example, keeping average CPU at 70%). If utilization goes above the target, it creates replicas, up to the maximum. If it drops, it removes replicas, down to the minimum, saving resources. The **scale down is deliberately slow** (about 5 minutes of stability) to avoid constant oscillation in the face of quick load variations.",
+      "Once an HPA controls a Deployment, it is the HPA that decides the number of replicas within the range `minReplicas` to `maxReplicas`. The `replicas` value written in the Deployment manifest holds only until the HPA acts: if it is above the floor and there is no load, the HPA reduces it after a few minutes (you will see this in Stage 09).",
+      "**Which metrics the HPA can use.** CPU and memory are read natively, through the metrics-server. The others require additional components installed in the cluster: custom metrics from your app (requests per second, queue size), external metrics (for example, coming from Prometheus) and disk I/O need a custom or external metrics adapter. Without that adapter, only CPU and memory are available. The right metric depends on the app's profile: a CPU-heavy app scales by CPU; one that consumes a lot of RAM scales by memory.",
+      "Two prerequisites are often forgotten:",
+      "1. The cluster needs the **metrics-server** to read CPU and memory. On Minikube: `minikube addons enable metrics-server`.",
+      '1. The container **must declare `resources.requests.cpu`**, because "70% CPU" means 70% **of what the Pod requested**. Without requests, the HPA shows `<unknown>` and does not scale.',
     ],
-    pointsTitle: "What the HPA understands",
+    pointsTitle: "Key concepts",
     points: [
       {
-        t: "CPU / Memory",
-        d: "The classic metrics. A percentage calculated against the container's resources.requests: the percentage of the declared allocation, never a raw absolute number.",
+        t: "HPA",
+        d: "controller that adjusts the number of replicas of a Deployment according to metrics.",
         color: "blue",
       },
       {
-        t: "Custom metrics",
-        d: "From your own app (req/s, queue depth) or external ones (Prometheus). Scale on what actually matters, because every track degrades something different.",
+        t: "metrics-server",
+        d: "component that collects CPU and memory from the Pods; prerequisite of the HPA.",
+        color: "signal",
+      },
+      {
+        t: "resources.requests",
+        d: "amount of resource the container declares it needs; basis of the percentage calculation.",
         color: "violet",
       },
       {
-        t: "min / max",
-        d: "You always set the floor and the ceiling on replicas. The HPA works inside that range, the same way strategy works inside the rulebook.",
+        t: "resources.limits",
+        d: "ceiling of resource the container may consume.",
+        color: "ember",
+      },
+      {
+        t: "millicore (m)",
+        d: "CPU unit; `100m` equals 0.1 CPU.",
+        color: "blue",
+      },
+      {
+        t: "minReplicas / maxReplicas",
+        d: "floor and ceiling of replicas; the HPA works within that range.",
         color: "signal",
       },
+      {
+        t: "averageUtilization",
+        d: "average usage percentage, relative to `requests`, that the HPA tries to maintain.",
+        color: "violet",
+      },
+      {
+        t: "Metrics adapter",
+        d: "extra component needed for metrics other than CPU or memory.",
+        color: "ember",
+      },
     ],
-    examplesTitle: "Deployment + HPA + Service + load test",
+    examplesTitle: "Deployment, HPA, Service and load test",
     examples: [
       {
-        label: "deployment.yaml (with requests!)",
+        label: "deployment.yaml",
         lang: "yaml",
-        code: `apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: nginx-hpa
-spec:
-  replicas: 1                  # start with 1; the HPA takes it from here
-  selector:
-    matchLabels:
-      app: nginx-hpa
-  template:
-    metadata:
-      labels:
-        app: nginx-hpa
-    spec:
-      containers:
-        - name: nginx
-          image: nginx:1.14.2
-          resources:           # WITHOUT requests the HPA can't compute %
-            requests:
-              cpu: "100m"      # 100 millicores = 0.1 CPU
-            limits:
-              cpu: "200m"`,
+        code: '# deployment.yaml\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: nginx-hpa\nspec:\n  replicas: 1                  # starts with 1; the HPA takes over from here\n  selector:\n    matchLabels:\n      app: nginx-hpa\n  template:\n    metadata:\n      labels:\n        app: nginx-hpa\n    spec:\n      containers:\n        - name: nginx\n          image: nginx:1.14.2\n          resources:           # WITHOUT requests the HPA does not calculate %\n            requests:\n              cpu: "100m"      # 100 millicores = 0.1 CPU\n            limits:\n              cpu: "200m"',
+        intro:
+          "Create the `etapa08/` folder and save the three manifests in it (the names `deployment.yaml` and `service.yaml` also appear in Stage 09, hence the separation by folder).",
       },
       {
         label: "hpa.yaml",
         lang: "yaml",
-        code: `apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: nginx-hpa
-spec:
-  scaleTargetRef:              # WHO the HPA controls
-    apiVersion: apps/v1
-    kind: Deployment
-    name: nginx-hpa
-  minReplicas: 1               # floor
-  maxReplicas: 10              # ceiling
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: 70   # target: average CPU at 70%`,
+        code: "# hpa.yaml\napiVersion: autoscaling/v2\nkind: HorizontalPodAutoscaler\nmetadata:\n  name: nginx-hpa\nspec:\n  scaleTargetRef:              # WHAT the HPA controls\n    apiVersion: apps/v1\n    kind: Deployment\n    name: nginx-hpa\n  minReplicas: 1               # floor\n  maxReplicas: 10              # ceiling\n  metrics:\n    - type: Resource\n      resource:\n        name: cpu\n        target:\n          type: Utilization\n          averageUtilization: 70   # target: average CPU at 70%",
+        note: "So that the load generator can find the app by name, also create a ClusterIP Service called `nginx-hpa`, following the same pattern as Stage 04:",
       },
       {
         label: "service.yaml",
         lang: "yaml",
-        code: `# service.yaml: so the load generator can find the app by name
-# (Stage 04's fixed-address pit box, now on the internal channel)
-apiVersion: v1
-kind: Service
-metadata:
-  name: nginx-hpa              # internal hostname used by the generator
-spec:
-  type: ClusterIP              # internal traffic only (Stage 04's golden rule)
-  selector:
-    app: nginx-hpa             # matches the Deployment pods' label
-  ports:
-    - port: 80
-      targetPort: 80`,
+        code: "# service.yaml\napiVersion: v1\nkind: Service\nmetadata:\n  name: nginx-hpa              # internal hostname used by the generator\nspec:\n  type: ClusterIP              # internal traffic only (golden rule of Stage 04)\n  selector:\n    app: nginx-hpa             # matches the label of the Deployment's pods\n  ports:\n    - port: 80\n      targetPort: 80",
       },
       {
-        label: "generating load and watching it scale",
+        label: "terminal",
         lang: "sh",
-        code: `# Prerequisite: metrics-server
-$ minikube addons enable metrics-server
-
-$ kubectl apply -f deployment.yaml -f hpa.yaml -f service.yaml
-
-# Generate load from inside the cluster:
-$ kubectl run generator --image=busybox -it --rm -- /bin/sh -c \\
-  "while true; do wget -q -O- http://nginx-hpa; done"
-
-# In ANOTHER terminal, watch:
-$ kubectl get hpa -w
-NAME        TARGETS         MINPODS  MAXPODS  REPLICAS
-nginx-hpa   cpu: 0%/70%     1        10       1
-nginx-hpa   cpu: 152%/70%   1        10       1
-nginx-hpa   cpu: 152%/70%   1        10       3    ← scaled itself!
-
-# Stop the load (Ctrl+C) and wait ~5min: replicas shrink back down.`,
-        note: "Plan B if TARGETS never clears 70% (static nginx is too efficient for its own good): run 2-3 generators in parallel (generator2, generator3), drop requests.cpu to '50m', or swap the image for registry.k8s.io/hpa-example, the official tutorial's php-apache, which burns CPU on every request. In production, K6 and JMeter run this kind of test in a controlled way.",
+        code: "# Prerequisite: metrics-server\n$ minikube addons enable metrics-server\n💡  metrics-server is an addon maintained by Kubernetes. (...)\n🌟  The 'metrics-server' addon is enabled\n\n$ kubectl apply -f deployment.yaml -f hpa.yaml -f service.yaml\ndeployment.apps/nginx-hpa created\nhorizontalpodautoscaler.autoscaling/nginx-hpa created\nservice/nginx-hpa created\n\n# Generate load from inside the cluster:\n$ kubectl run gerador --image=busybox -it --rm -- /bin/sh -c \\\n  \"while true; do wget -q -O- http://nginx-hpa; done\"\n\n# In ANOTHER terminal, watch:\n$ kubectl get hpa -w\nNAME        TARGETS         MINPODS  MAXPODS  REPLICAS\nnginx-hpa   cpu: 0%/70%     1        10       1\nnginx-hpa   cpu: 152%/70%   1        10       1\nnginx-hpa   cpu: 152%/70%   1        10       3    ← scaled by itself\n\n# Raw metric that feeds the HPA (approximate format):\n$ kubectl top pods\nNAME                        CPU(cores)   MEMORY(bytes)\nnginx-hpa-5d8f7b6c4-abcde   152m         3Mi\n\n# Stop the load (Ctrl+C) and wait ~5min: the replicas shrink back.",
+        note: 'In production, tools such as K6 and JMeter run this load test in a controlled way. **Plan B, if TARGETS does not go above 70%.** Nginx serving a static page is too efficient and a single generator may not produce enough load. There are three ways out, from the simplest to the most faithful to the official Kubernetes tutorial: • Run 2 or 3 generators in parallel: repeat the `kubectl run` in other terminals, changing the name (`gerador2`, `gerador3`). • Reduce `requests.cpu` to `"50m"` in the Deployment and reapply. The same consumption now counts double in percentage. • Swap the image for `registry.k8s.io/hpa-example` (the php-apache from the official tutorial, which consumes CPU on every request and was made for this demonstration).',
       },
     ],
     commands: [
-      { cmd: "minikube addons enable metrics-server", note: "HPA prerequisite" },
-      { cmd: "kubectl get hpa -w", note: "watches the HPA react to load" },
-      { cmd: "kubectl top pods", note: "CPU/memory per pod" },
+      {
+        cmd: "minikube addons enable metrics-server",
+        note: "prerequisite of the HPA",
+      },
+      {
+        cmd: "kubectl get hpa -w",
+        note: "follows the HPA reacting to the load",
+      },
+      {
+        cmd: "kubectl top pods",
+        note: "CPU and memory per pod",
+      },
       {
         cmd: "kubectl autoscale deployment <n> --cpu-percent=70 --min=1 --max=10",
-        note: "creates an imperative HPA",
+        note: "creates an HPA imperatively",
       },
     ],
-    handsOnIntro: "The weekend's final quick lap, with every sector coming together at once:",
     handsOn: [
-      "Enable metrics-server and apply all three YAMLs (Deployment, HPA, Service). Run kubectl get hpa and check the targets: if it shows <unknown>, wait about a minute (a freshly installed sensor gives no reading before its first lap).",
-      "Start the load generator in one terminal and kubectl get hpa -w in another, and watch the CPU percentage shoot past 70% and the REPLICAS column climb. If it plateaus below target, use the load tab's plan B. Confirm with kubectl get pods: new pods were born without a single command from you, the pit wall lined up cars on its own, reading the telemetry.",
-      "Stop the load (Ctrl+C) and keep watching: replicas take about 5 minutes to shrink back. That slowness is deliberate (nobody tears down the garage the moment things go quiet).",
-      "Use kubectl top pods during the test to see the raw metric feeding the HPA, the telemetry behind the strategy call.",
+      "Enable the metrics-server and apply the three YAMLs (Deployment, HPA, Service). Run `kubectl get hpa` and **observe** the targets. If `<unknown>` appears, wait about 1 minute: the metrics-server needs to collect the first reading.",
+      "Start the load generator in one terminal and run `kubectl get hpa -w` in another. **Observe** the CPU percentage go above 70% and then the `REPLICAS` column go up. If the percentage stalls below the target, use plan B. Confirm with `kubectl get pods`: new pods were born without any command from you.",
+      "Stop the load (Ctrl+C) and keep watching. **Observe** that the replicas take about 5 minutes to shrink. This slowness is deliberate.",
+      "Run `kubectl top pods` during the test to see the raw metric that feeds the HPA.",
+      "Clean up: `kubectl delete -f deployment.yaml -f hpa.yaml -f service.yaml`. The `gerador` pod was created with `--rm` and deleted itself when you interrupted the load; confirm with `kubectl get pods`. Keep the metrics-server enabled, because Stage 09 also uses the HPA.",
     ],
-    tip: "kubectl get hpa showing <unknown> in the targets? Either metrics-server isn't running, or the container never declared resources.requests. Always one of those two causes: either the sensor is off, or nobody declared the reference allocation.",
+    tip: "If `kubectl get hpa` shows `<unknown>` in the targets, there are two possible causes: the metrics-server is not active or the container did not declare `resources.requests`.",
     takeaway:
-      "HPA = desired state applied to scale: you set the target, floor, and ceiling, and the pit wall does the rest. But without metrics-server (sensors) and resources.requests (declared allocation), it sees nothing.",
-    outro:
-      "And the cluster SCALED ITSELF, ladies and gentlemen! Replicas climbing on screen without a single command, and the loop closes: you declare the target, the pit wall runs the race. The eight official stages end here. Before the cool-down lap, though, the garage calls one more time: take all these separate pieces and build the complete car for real, with a production image. Bonus stage, stay with me.",
+      "The HPA is the desired state applied to scaling: you define a target, a floor and a ceiling, but without the metrics-server and without resources.requests it sees nothing, and only CPU and memory come ready (the rest requires an adapter).",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/kubernetes/etapa08-hpa.svg",
+            alt: "The Horizontal Pod Autoscaler adjusts the scale of a Deployment, which in turn manages Pods 1 to N.",
+            caption:
+              "The HPA does not create Pods: it changes the Deployment's replica count, and the Deployment creates or removes the Pods. (RC, in the diagram, is the old ReplicationController; in this guide the target is always a Deployment.)",
+          },
+        ],
+        credit: "Diagram: kubernetes.io, The Kubernetes Authors, CC BY 4.0",
+      },
+    ],
+    handsOnIntro: "The final experiment of this part, which joins Deployment, Service and HPA.",
   },
-
   {
     id: "m9",
     num: "09",
     navTitle: "Professional example",
-    tag: "capstone · real docker hub",
-    title: "The professional example: everything applied to a real Docker Hub image",
-    narration:
-      "The checkered flag is not the end of a season, only the end of ONE race. What separates the champion from the rest of the grid is what happens next: the debrief, where every piece tested on its own over the weekend becomes the complete car that races all season. This bonus stage sits outside the official set of 8 lessons: take the eight parts you calibrated separately and build the real car.",
-    lead: "The previous eight stages deliberately used nginx: a simple, quiet image that let you learn each mechanism without distractions. No team sends out a car that has never run as a complete package, though. This stage combines ConfigMap, Deployment, Service, and HPA as they appear in practice: one real application, stefanprodan/podinfo from Docker Hub, with genuine health endpoints instead of the illustrative YAML from Stage 07.",
+    tag: "bonus · real docker hub image",
+    title: "Bonus, a professional application with a real Docker Hub image",
+    lead: "The eight previous stages used nginx on purpose: a simple image, with no noise, so you could learn the mechanics of each piece. But a real deployment is not made of isolated pieces. Three questions only appear when you put everything together: how the pieces fit together in a real app, how to test probes in an application with real health endpoints (instead of the illustrative YAML from Stage 07) and which pieces to use, or leave out, for that specific app.",
     concept: [
-      "Podinfo (docker.io/stefanprodan/podinfo) is an open source project built to be exercised: it exposes real /healthz and /readyz endpoints, accepts configuration through environment variables (PODINFO_UI_MESSAGE and PODINFO_UI_COLOR, injected by the same ConfigMap mechanism from Stage 04), and provides a /panic endpoint that deliberately crashes the process. You can test liveness on a real application without sabotaging a busybox with sleep and rm as in Stage 07.",
-      "The four files below connect through the same thread that holds the entire guide together: the app: podinfo label, the FIA tag from Stage 03. The ConfigMap injects variables through envFrom (Stage 04); the Deployment declares 3 replicas with resources.requests, required by the HPA from Stage 08, plus the two probes that make sense for a fast-starting app: liveness at /healthz and readiness at /readyz (Stage 07). The Service is a NodePort because podinfo IS the entry point here, following Stage 04's rule of thumb. The HPA reads the CPU request declared by the Deployment and scales between 2 and 8 replicas (Stage 08).",
-      "Notice what is NOT included: not every part you learned belongs on every car. The startupProbe from Stage 07 is omitted because podinfo starts in a fraction of a second. Using a component only because it exists in the manual is not engineering, it is decoration, and decoration adds weight.",
-      "What about the PVC from Stage 06? It is deliberately left out of the Deployment too, for a technical reason. That PVC uses ReadWriteOnce, and only one node at a time can mount that volume for read-write access. Copying the same volumes.persistentVolumeClaim into a Deployment with replicas: 3 is a classic mistake made by someone who memorized YAML without understanding it. The accident may appear to work in single-node Minikube, but in a multi-node production cluster extra replicas can get stuck on FailedAttachVolume while fighting over the same disk. If this app truly needed persistent state, the right answer would be a shared cache, such as podinfo's --cache-server option with Redis, or a StatefulSet with volumeClaimTemplates for state per replica, a separate PVC for each car. That belongs to the advanced module. Stage 06 remains completely valid for its own scenario, such as one database Pod, just not for this one.",
+      "This stage builds a complete deployment with the `stefanprodan/podinfo` image from Docker Hub (`docker.io/stefanprodan/podinfo`). Podinfo is an open source project designed to be used in demonstrations. It exposes real `/healthz` and `/readyz`, accepts configuration through environment variables (`PODINFO_UI_MESSAGE`, `PODINFO_UI_COLOR`) and has a `/panic` endpoint that **ends the process** on purpose.",
+      "That last point deserves care, because `/panic` and liveness test different things. When the podinfo process ends, the one that restarts the container is the **kubelet, through the Pod's `restartPolicy`** (case 1 of Stage 07). This would happen even if the manifest had no `livenessProbe` at all. Liveness only comes into play in case 3, a process that is alive but does not respond in a healthy way. That is why this exercise uses `/panic` to demonstrate the restart of a container that went down, and tests liveness for real by pointing the probe at a path that does not exist, so that the endpoint starts returning 404 and the probe fails.",
+      "The four manifests fit together through the label `app: podinfo`, the same mechanism that stitched the whole guide together (Stage 03):",
+      "- The **ConfigMap** injects the variables via `envFrom` (Stage 04).",
+      "- The **Deployment** declares 3 replicas (Stage 05), `resources.requests` (required for the HPA, Stage 08) and two probes: liveness on `/healthz` and readiness on `/readyz` (Stage 07).",
+      "- The **Service** is NodePort because here podinfo is the system's entry point, applying the golden rule of Stage 04.",
+      "- The **HPA** reads the CPU declared in the Deployment and scales between 2 and 8 replicas (Stage 08).",
+      "There is an interaction between the Deployment and the HPA that is worth knowing: the Deployment declares `replicas: 3`, but the HPA has `minReplicas: 2`. While there is some load, or in the first minutes, you will see 3 replicas. Without load, after about 5 minutes (the stability window from Stage 08), the HPA reduces the Deployment to 2. From then on, the one in charge of the number of replicas is the HPA, and the manifest's `replicas: 3` stops applying. In production, it is common to omit `replicas` from the Deployment when an HPA exists, precisely to avoid this dispute.",
+      "What was **not** included also matters. Not every piece you learned fits every app.",
+      "- The **startupProbe** (Stage 07) was left out because podinfo starts in fractions of a second. Using a piece just because it exists in the manual adds configuration with no benefit.",
+      "- The **PVC** (Stage 06) was also left out of the Deployment, for a technical reason. The problem: the PVC from Stage 06 uses `ReadWriteOnce`, and that mode cannot be shared among replicas on different nodes. On Minikube (a single node), attaching `volumes.persistentVolumeClaim` to a Deployment with several replicas may even start without complaint, but on a cluster with several nodes the extra replicas get stuck, competing for the same disk (the event shows up as `FailedAttachVolume`). The ways out, if the app needed state: a truly shared cache (podinfo has the `--cache-server` flag to talk to a Redis) or one disk per replica, with a StatefulSet and `volumeClaimTemplates`, a subject for the advanced module. Stage 06 remains valid: it is the right answer for its scenario, a single Pod with data, like a database.",
     ],
-    pointsTitle: "Each part, matched to the stage that taught it",
+    pointsTitle: "Key concepts",
     points: [
-      { t: "ConfigMap → env vars", d: "Stage 04: injects PODINFO_UI_MESSAGE and PODINFO_UI_COLOR through envFrom. It changes configuration, not the image.", color: "blue" },
-      { t: "Deployment → 3 replicas", d: "Stage 05: real self-healing, ready for a rolling update whenever the image changes.", color: "signal" },
-      { t: "Probes → real healthz/readyz", d: "Stage 07: liveness and readiness checking a real application, with no illustrative YAML.", color: "ember" },
-      { t: "Service → NodePort", d: "Stage 04: podinfo is the entry point here, so it is exposed; a database behind it would use ClusterIP.", color: "violet" },
-      { t: "HPA → 2 to 8 replicas", d: "Stage 08: scales from the same CPU request declared in the Deployment's resources.requests.", color: "blue" },
-      { t: "PVC → explained, not copied", d: "Stage 06: deliberately omitted because an RWO volume does not serve replicas on multiple nodes. The stage remains correct for its scenario.", color: "signal" },
+      {
+        t: "ConfigMap with envFrom",
+        d: "external configuration injected as variables (Stage 04).",
+        color: "blue",
+      },
+      {
+        t: "Deployment with 3 replicas",
+        d: "self-healing and readiness for a rolling update (Stage 05).",
+        color: "signal",
+      },
+      {
+        t: "Real probes",
+        d: "liveness on `/healthz`, readiness on `/readyz` (Stage 07).",
+        color: "violet",
+      },
+      {
+        t: "restartPolicy",
+        d: "what restarts a container whose process ended (`/panic`), unrelated to liveness.",
+        color: "ember",
+      },
+      {
+        t: "NodePort Service",
+        d: "the app is the entry point, so it is exposed (Stage 04).",
+        color: "blue",
+      },
+      {
+        t: "HPA between 2 and 8 replicas",
+        d: "scales by the CPU declared in `requests` and, without load, reduces the 3 initial replicas to 2 (Stage 08).",
+        color: "signal",
+      },
+      {
+        t: "Fixed version tag",
+        d: "using `podinfo:6.14.1` instead of `latest`, so that the deploy is reproducible.",
+        color: "violet",
+      },
+      {
+        t: "rollout restart",
+        d: "command that recreates the Pods of a Deployment, needed for them to read a changed ConfigMap.",
+        color: "ember",
+      },
+      {
+        t: "Endpoints",
+        d: "list of Pods that are actually receiving traffic from a Service; Pods with a failing readiness leave it.",
+        color: "blue",
+      },
     ],
-    examplesTitle: "The 4 production manifests plus the complete test",
+    examplesTitle: "The four manifests and the complete test",
     examples: [
       {
         label: "configmap.yaml",
         lang: "yaml",
-        code: `# configmap.yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: podinfo-config
-data:
-  PODINFO_UI_MESSAGE: "hello from pitstop.dev!"  # appears in the app
-  PODINFO_UI_COLOR: "#34d399"                    # banner color in the UI`,
-        note: "This is the same envFrom mechanism from Stage 04, but these keys are variables that podinfo actually reads to build its own interface, as confirmed by the project's official chart.",
+        code: '# configmap.yaml\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: podinfo-config\ndata:\n  PODINFO_UI_MESSAGE: "olá do pitstop.dev!"   # appears on the app screen\n  PODINFO_UI_COLOR: "#34d399"                 # banner color in the UI',
+        intro: "Create the `etapa09/` folder and save the four manifests in it.",
+        note: "It is the same mechanism as Stage 04 (`envFrom`), but here the keys are variables that podinfo really reads to build its own interface.",
       },
       {
         label: "deployment.yaml",
         lang: "yaml",
-        code: `# deployment.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: podinfo
-spec:
-  replicas: 3                        # real self-healing, Stage 05
-  selector:
-    matchLabels:
-      app: podinfo
-  template:
-    metadata:
-      labels:
-        app: podinfo                 # matches the selector above and the Service
-    spec:
-      containers:
-        - name: podinfo
-          image: stefanprodan/podinfo:6.14.1  # real Docker Hub image, pinned version
-          ports:
-            - containerPort: 9898
-          envFrom:                   # injects the whole ConfigMap, Stage 04
-            - configMapRef:
-                name: podinfo-config
-          resources:                 # required for HPA percentage, Stage 08
-            requests:
-              cpu: "100m"
-              memory: "64Mi"
-            limits:
-              cpu: "200m"
-              memory: "128Mi"
-          livenessProbe:             # "alive?" failure -> restart, Stage 07
-            httpGet:
-              path: /healthz
-              port: 9898
-            periodSeconds: 10
-            failureThreshold: 3
-          readinessProbe:            # "ready for traffic?" failure -> leaves Service
-            httpGet:
-              path: /readyz
-              port: 9898
-            periodSeconds: 5`,
-        note: "No startupProbe and no volumes, by design. A professional manifest declares what the app needs, not everything the course has taught.",
+        code: '# deployment.yaml\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: podinfo\nspec:\n  replicas: 3                        # real self-healing, Stage 05 (the HPA may reduce to 2)\n  selector:\n    matchLabels:\n      app: podinfo\n  template:\n    metadata:\n      labels:\n        app: podinfo                 # matches the selector ↑ and the Service\n    spec:\n      containers:\n        - name: podinfo\n          image: stefanprodan/podinfo:6.14.1  # real Docker Hub image, fixed version (never "latest" in production)\n          ports:\n            - containerPort: 9898\n          envFrom:                   # injects the whole ConfigMap (Stage 04)\n            - configMapRef:\n                name: podinfo-config\n          resources:                 # required for the HPA to calculate %, Stage 08\n            requests:\n              cpu: "100m"\n              memory: "64Mi"\n            limits:\n              cpu: "200m"\n              memory: "128Mi"\n          livenessProbe:             # "is it alive?" failed → restarts the container, Stage 07\n            httpGet:\n              path: /healthz\n              port: 9898\n            periodSeconds: 10\n            failureThreshold: 3\n          readinessProbe:            # "ready for traffic?" failed → leaves the Service\n            httpGet:\n              path: /readyz\n              port: 9898\n            periodSeconds: 5',
+        note: "This manifest has no `startupProbe` and no `volumes`, on purpose, for the reasons explained above. A professional manifest declares what the app needs, not everything the course taught.",
       },
       {
         label: "service.yaml",
         lang: "yaml",
-        code: `# service.yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: podinfo
-spec:
-  type: NodePort
-  selector:
-    app: podinfo
-  ports:
-    - port: 9898
-      targetPort: 9898
-      nodePort: 30898`,
+        code: "# service.yaml\napiVersion: v1\nkind: Service\nmetadata:\n  name: podinfo\nspec:\n  type: NodePort                # entry point here = golden rule of Stage 04\n  selector:\n    app: podinfo                # finds the Pods by label, always\n  ports:\n    - port: 9898\n      targetPort: 9898\n      nodePort: 30898",
       },
       {
         label: "hpa.yaml",
         lang: "yaml",
-        code: `# hpa.yaml
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: podinfo
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: podinfo
-  minReplicas: 2
-  maxReplicas: 8
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: 70`,
+        code: "# hpa.yaml\napiVersion: autoscaling/v2\nkind: HorizontalPodAutoscaler\nmetadata:\n  name: podinfo\nspec:\n  scaleTargetRef:\n    apiVersion: apps/v1\n    kind: Deployment\n    name: podinfo\n  minReplicas: 2                 # production does not go below 2, even without load\n  maxReplicas: 8\n  metrics:\n    - type: Resource\n      resource:\n        name: cpu\n        target:\n          type: Utilization\n          averageUtilization: 70",
+        note: "The tests below follow the order of the exercise. They were written to work both with 3 replicas (in the first minutes) and with 2 (after the HPA reduces them); the points where the number matters are indicated.",
       },
       {
-        label: "apply plus production test",
+        label: "terminal",
         lang: "sh",
-        code: `# Apply all 4 manifests at once
-$ kubectl apply -f configmap.yaml -f deployment.yaml -f service.yaml -f hpa.yaml
-configmap/podinfo-config created
-deployment.apps/podinfo created
-service/podinfo created
-horizontalpodautoscaler.autoscaling/podinfo created
-
-# Wait for all 3 replicas to be Running and the HPA to leave <unknown>
-$ kubectl get pods,hpa
-
-# Open the real UI: message and color come from the ConfigMap
-$ minikube service podinfo --url
-http://127.0.0.1:53412   <- refresh it: the hostname changes as the Service balances replicas
-
-# Editing a ConfigMap does NOT restart Pods by itself
-$ kubectl edit configmap podinfo-config
-$ kubectl exec deploy/podinfo -- env | grep MESSAGE
-PODINFO_UI_MESSAGE=hello from pitstop.dev!   <- still the OLD value
-
-$ kubectl rollout restart deployment/podinfo
-deployment.apps/podinfo restarted
-
-# Real liveness: /panic crashes the process
-$ kubectl exec deploy/podinfo -- curl -s localhost:9898/panic
-$ kubectl get pods -w
-podinfo-7f9c6d-abc   1/1   Running   1 (4s ago)   <- restarted by itself
-
-# Real readiness: disable /readyz without killing the process
-$ kubectl exec deploy/podinfo -- curl -s -X POST localhost:9898/readyz/disable
-$ kubectl get endpoints podinfo
-podinfo   10.244.0.5:9898,10.244.0.6:9898   <- the disabled pod disappeared`,
-        note: "Use curl, not wget: that is what the official podinfo image installs. If /panic does not crash it on the first try, repeat the call because the response can arrive before the process exits.",
+        code: '# 1) Applies the 4 manifests at once\n$ kubectl apply -f configmap.yaml -f deployment.yaml -f service.yaml -f hpa.yaml\nconfigmap/podinfo-config created\ndeployment.apps/podinfo created\nservice/podinfo created\nhorizontalpodautoscaler.autoscaling/podinfo created\n\n# 2) Wait for the replicas to be Running and the HPA to leave <unknown> (shortened output)\n$ kubectl get pods,hpa\nNAME                           READY   STATUS    RESTARTS   AGE\npod/podinfo-7f9c6d-abc         1/1     Running   0          1m\npod/podinfo-7f9c6d-def         1/1     Running   0          1m\npod/podinfo-7f9c6d-ghi         1/1     Running   0          1m\n\nNAME                                          REFERENCE            TARGETS       MINPODS   MAXPODS   REPLICAS   AGE\nhorizontalpodautoscaler.autoscaling/podinfo   Deployment/podinfo   cpu: 3%/70%   2         8         3          1m\n\n# 3) Load balancing. In one terminal, keep the tunnel open:\n$ minikube service podinfo --url\nhttp://127.0.0.1:53412   ← do not close this terminal (it is the tunnel)\n\n# In ANOTHER terminal, five requests in a row (use the URL your terminal showed).\n# Each request opens a new connection, so the Service may pick different replicas:\n$ for i in 1 2 3 4 5; do curl -s http://127.0.0.1:53412 | grep hostname; done\n  "hostname": "podinfo-7f9c6d-abc",\n  "hostname": "podinfo-7f9c6d-ghi",\n  "hostname": "podinfo-7f9c6d-abc",\n  "hostname": "podinfo-7f9c6d-def",\n  "hostname": "podinfo-7f9c6d-ghi",\n\n# 4) Production gotcha: changing the ConfigMap does NOT restart the Pods by itself.\n#    Edit configmap.yaml (change the message to "mensagem nova") and reapply:\n$ kubectl apply -f configmap.yaml\nconfigmap/podinfo-config configured\n$ kubectl exec deploy/podinfo -- env | grep MESSAGE\nPODINFO_UI_MESSAGE=olá do pitstop.dev!   ← still the OLD value\n\n$ kubectl rollout restart deployment/podinfo\ndeployment.apps/podinfo restarted\n$ kubectl rollout status deployment/podinfo\ndeployment "podinfo" successfully rolled out\n$ kubectl exec deploy/podinfo -- env | grep MESSAGE\nPODINFO_UI_MESSAGE=mensagem nova         ← only now do the Pods read the new value\n\n# 5) Process crash: restart by the kubelet (restartPolicy), NOT by liveness.\n#    We save the name of one Pod so we always talk to the same one.\n$ POD=$(kubectl get pods -l app=podinfo -o name | head -n 1)\n$ kubectl exec $POD -- curl -s localhost:9898/panic\n$ kubectl get pods -w\nNAME                 READY   STATUS    RESTARTS      AGE\npodinfo-7f9c6d-abc   1/1     Running   1 (4s ago)    3m   ← same Pod, container restarted\n\n$ kubectl describe $POD\n(...)\n    Last State:     Terminated\n      Reason:       Error\n      Exit Code:    (value other than 0)\n(...)\n# No "Liveness probe failed" appears in the Events: the process\n# ended, and the kubelet solves that without needing a probe.\n\n# 6) Real liveness: point the probe at a path that does not exist (404)\n$ kubectl patch deployment podinfo --type=json \\\n  -p=\'[{"op":"replace","path":"/spec/template/spec/containers/0/livenessProbe/httpGet/path","value":"/nao-existe"}]\'\ndeployment.apps/podinfo patched\n\n# The new Pods start and pass readiness (/readyz is still valid), but\n# about 30 seconds later (3 consecutive failures, every 10s) RESTARTS starts going up.\n# During the failure, the STATUS may alternate between Running and CrashLoopBackOff\n# (the kubelet waits an increasing interval before each new restart); this is expected:\n$ kubectl get pods -w\n\n$ kubectl describe pods -l app=podinfo\nEvents:\n  Warning  Unhealthy  Liveness probe failed: HTTP probe failed with statuscode: 404\n  Normal   Killing    Container podinfo failed liveness probe, will be restarted\n\n# Restore the original probe: reapplying the manifest brings back the /healthz path.\n# Note: the apply also sets replicas back to 3 (the manifest value);\n# if there is no load, the HPA reduces it to 2 again after about 5 minutes.\n$ kubectl apply -f deployment.yaml\ndeployment.apps/podinfo configured\n\n# Wait for the swap to finish BEFORE the next step. Without that, the "head -n 1"\n# in step 7 may pick an old Pod that is still terminating.\n$ kubectl rollout status deployment/podinfo\ndeployment "podinfo" successfully rolled out\n\n# 7) Real readiness: turn off /readyz of ONE Pod without killing the process\n$ POD=$(kubectl get pods -l app=podinfo -o name | head -n 1)\n$ kubectl exec $POD -- curl -s -X POST localhost:9898/readyz/disable\n\n# Wait about 15 seconds (periodSeconds 5 x 3 failures) and compare:\n$ kubectl get pods\nNAME                 READY   STATUS    RESTARTS   AGE\npodinfo-7f9c6d-abc   0/1     Running   0          6m   ← Running, but out of the load balancer\npodinfo-7f9c6d-def   1/1     Running   0          6m\n\n$ kubectl get endpoints podinfo\nNAME      ENDPOINTS           AGE\npodinfo   10.244.0.6:9898     6m   ← 1 IP (with 2 replicas); with 3 replicas it would be 2 IPs\n\n# Optional: puts the Pod back in the load balancer\n$ kubectl exec $POD -- curl -s -X POST localhost:9898/readyz/enable',
+        note: "Two remarks about the test. `curl` is used instead of `wget` because it is what the official podinfo image has installed. And if `/panic` does not bring the process down the first time, repeat it: the response sometimes arrives fragmented before the process actually dies. A remark about the browser: if you open the URL from step 3 in the browser and reload, it is common for the hostname **not** to change on every reload. The browser reuses the open HTTP connection, and the Service's balancing happens per connection, not per request. The `curl` loop, which opens a new connection on every turn, is the reliable test. The distribution is also random, not alternating: consecutive repetitions may appear.",
       },
     ],
     commands: [
-      { cmd: "kubectl apply -f a.yaml -f b.yaml -f c.yaml -f d.yaml", note: "applies several manifests at once" },
-      { cmd: "kubectl rollout restart deployment/<name>", note: "forces Pods to read a changed ConfigMap" },
-      { cmd: "kubectl exec deploy/<name> -- <command>", note: "runs a command in a Deployment Pod without knowing its exact name" },
-      { cmd: "kubectl get endpoints <service>", note: "shows who is actually receiving traffic now, including readiness effects" },
+      {
+        cmd: "kubectl apply -f a.yaml -f b.yaml -f c.yaml -f d.yaml",
+        note: "applies several manifests at once",
+      },
+      {
+        cmd: "kubectl rollout restart deployment/<name>",
+        note: "forces the Pods to read a ConfigMap that changed",
+      },
+      {
+        cmd: "kubectl exec deploy/<name> -- <command>",
+        note: "runs in a Pod of the Deployment without needing to know the exact name",
+      },
+      {
+        cmd: "kubectl patch deployment <name> --type=json -p='[...]'",
+        note: "changes a field of the Deployment without editing the file",
+      },
+      {
+        cmd: "kubectl get endpoints <service>",
+        note: "shows who is actually receiving traffic right now (affected by readiness)",
+      },
     ],
-    handsOnIntro: "The bonus guide's final corner: assemble everything, break it deliberately, and prove that you understand it.",
     handsOn: [
-      "Save the four YAML files (configmap.yaml, deployment.yaml, service.yaml, hpa.yaml) and apply them with one kubectl apply command that references all four.",
-      "Run kubectl get pods,hpa until you see 3/3 Running and a real CPU value in the HPA, not <unknown>. If it stalls, confirm that Stage 08's metrics-server is still enabled.",
-      "Open minikube service podinfo --url in a browser and refresh it a few times. Watch the hostname change. This is the same Service from Stage 04, now balancing three real replicas.",
-      "Reproduce the ConfigMap gotcha: edit the message, confirm that kubectl exec ... env still shows the old value, then run kubectl rollout restart deployment/podinfo. Confirm the change again.",
-      "Trigger liveness deliberately with curl .../panic and follow kubectl get pods -w until RESTARTS climbs on its own, without a manual restart.",
-      "Disable readiness with curl -X POST .../readyz/disable and use kubectl get endpoints podinfo to confirm that the Pod left the list without restarting. That is the garage's red light on a real app.",
-      "Finish by generating load as in Stage 08, using the same busybox generator against http://podinfo:9898, and watch the HPA scale this Deployment by itself.",
+      "Save the four YAMLs in `etapa09/` (`configmap.yaml`, `deployment.yaml`, `service.yaml`, `hpa.yaml`) and apply them with a single `kubectl apply` pointing to the four files.",
+      "Run `kubectl get pods,hpa` until you see the pods `Running` (3 at the start) and the HPA with a real CPU value (not `<unknown>`). If it gets stuck, confirm that the Stage 08 metrics-server is still active. Remember that, without load, the HPA will reduce the 3 replicas to 2 in about 5 minutes; this is expected, and the following steps work with either number.",
+      "Run `minikube service podinfo --url`, keep that terminal open and, in another, run the loop `for i in 1 2 3 4 5; do curl -s <URL> | grep hostname; done`. **Observe** more than one hostname in the output. If you prefer the browser, know that it usually reuses the connection and may always show the same hostname.",
+      "Reproduce the ConfigMap gotcha: edit the message in `configmap.yaml`, apply it with `kubectl apply -f configmap.yaml`, confirm that `kubectl exec ... env` still shows the old value and only then run `kubectl rollout restart deployment/podinfo`. Confirm the change again. (You can also use `kubectl edit configmap podinfo-config`, which opens the system's default editor, usually vi; editing the file and reapplying is simpler and keeps the YAML versioned as the source of truth.)",
+      "Provoke a crash with `curl .../panic` and follow `kubectl get pods -w` until you see `RESTARTS` go up by itself, without you restarting anything. **Observe** with `kubectl describe` that the previous container is `Terminated` with a nonzero exit code and that there is no liveness event: the one that restarted it was the kubelet, through the `restartPolicy`.",
+      "Test liveness for real: change the probe path to `/nao-existe` with `kubectl patch`, wait about 30 seconds and **observe** `RESTARTS` go up (the status may alternate with `CrashLoopBackOff` between one restart and the next, which is expected) and, in `describe`, the events `Liveness probe failed: HTTP probe failed with statuscode: 404` and `Killing`. Restore with `kubectl apply -f deployment.yaml` and run `kubectl rollout status deployment/podinfo`, waiting for the `successfully rolled out` message before step 7, so that `head -n 1` does not pick an old Pod that is still terminating. Know that this `apply` sets `replicas` back to 3; the HPA reduces it to 2 again if there is no load.",
+      "Turn off the readiness of one Pod with `curl -X POST .../readyz/disable` and, after about 15 seconds, confirm with `kubectl get pods` (`READY 0/1`, `RESTARTS` unchanged) and `kubectl get endpoints podinfo` that this Pod left the list, without being restarted. With 2 replicas, 1 IP remains; with 3, 2 remain.",
+      "Finish by generating load as in Stage 08 (the same busybox generator against `http://podinfo:9898`) and **observe** the HPA scale this Deployment by itself.",
+      "Clean up: `kubectl delete -f configmap.yaml -f deployment.yaml -f service.yaml -f hpa.yaml`. Close the `minikube service` terminal with Ctrl+C. If you want to shut the lab down, `minikube stop`.",
     ],
-    tip: "The ConfigMap gotcha catches every junior team at least once: editing the ConfigMap does not restart anything by itself unless a sidecar such as Reloader handles it. In production, applying a new configuration is usually followed by kubectl rollout restart deployment/<name>.",
-    takeaway: "A professional manifest is not the sum of everything you learned. It is a deliberate selection of what the app needs (ConfigMap, replicas, real probes, Service, HPA) and what it does not need (a startupProbe for a fast app, a PVC in a scaled Deployment). Understanding why every piece belongs or stays out is the difference between memorizing YAML and designing a system.",
-    outro: "Back in the pit lane, parked, engine off. Nine stages later (eight on the official grid and this bonus pit stop), the simulator became real garage experience: you assembled, broke, and healed a real app using a production image from Docker Hub. The official championship, Thiago Adriano's 8 lessons, ends here. The track stays open: each platform below is another free-practice session.",
+    tip: "The ConfigMap gotcha is a common mistake: editing the ConfigMap restarts nothing by itself (unless something like a Reloader takes care of it). In production, the command after applying a new configuration is almost always `kubectl rollout restart deployment/<name>`.",
+    takeaway:
+      "A professional manifest is not the sum of everything you learned: it is the choice of what the app needs (ConfigMap, replicas, real probes, Service, HPA) and the conscious refusal of what it does not need (startupProbe on a fast app, PVC on a Deployment with several replicas); and a process crash is handled by the kubelet, while only a probe that fails proves liveness.",
+    handsOnIntro:
+      "In this exercise you build the complete deployment, provoke controlled failures and confirm each behavior. The command blocks for each step are in the example above.",
   },
 ];
 
-// ===== FREE PRACTICE PLATFORMS =====
+export const CHECKLIST: ChecklistGroup[] = [
+  {
+    title: "Stage 01: Motivation and setup",
+    items: [
+      "I can explain the difference between a container and a VM and why the container is lighter.",
+      "I started Minikube and saw the `Ready` node in `kubectl get nodes`.",
+      'I know what "desired state" means and can give an example.',
+    ],
+  },
+  {
+    title: "Stage 02: kubectl and the API",
+    items: [
+      "I created an imperative pod with `kubectl run` and saw it reach `Running`.",
+      "I provoked an `ImagePullBackOff` on purpose and found the cause in the Events of `describe`.",
+      "I can recite the debugging flow: get, describe, logs.",
+      "I can explain the path of a command: kubeconfig, API Server, response.",
+    ],
+  },
+  {
+    title: "Stage 03: Cluster, Pods and labels",
+    items: [
+      "I can state the role of master, worker, etcd, kubelet, kube-proxy and API Server.",
+      "I wrote a Pod YAML from scratch following apiVersion + kind + metadata + spec.",
+      "I filtered pods with `-l` and can explain when to use a label and when to use an annotation.",
+    ],
+  },
+  {
+    title: "Stage 04: Services and ConfigMap",
+    items: [
+      "I exposed a pod via NodePort and opened the page in the browser with `minikube service --url`.",
+      "I deleted the pod, saw the Service left without endpoints (`kubectl get endpoints`) and saw access return when I recreated the pod.",
+      "I can say which Service type to use for an internal database, a test on Minikube and production in the cloud.",
+      "I injected a ConfigMap as environment variables, confirmed with `kubectl exec -- env` and can explain why changing the ConfigMap does not change the variables of a running Pod.",
+    ],
+  },
+  {
+    title: "Stage 05: ReplicaSets and Deployments",
+    items: [
+      "I deleted a pod of a Deployment and saw the replacement be born by itself (self-healing).",
+      "I did a rolling update, broke a deploy on purpose and went back with `rollout undo`.",
+      "I used `kubectl get rs` to see one ReplicaSet per version and can explain why the suffix of the Pod names changes on a version swap.",
+      "I can explain why the old pods hold the service when the new image fails.",
+    ],
+  },
+  {
+    title: "Stage 06: Volumes",
+    items: [
+      "I can explain the chain PVC (request), PV (disk), StorageClass (disk types).",
+      "I wrote a file to a PVC, destroyed the pod, recreated it and read the file back.",
+      "I repeated the test with `emptyDir` (in a Pod with another name) and saw the file vanish.",
+      "I can say when to use emptyDir, hostPath and persistentVolumeClaim.",
+    ],
+  },
+  {
+    title: "Stage 07: Probes",
+    items: [
+      "I can say what happens when each probe fails (liveness, readiness, startup).",
+      "I can tell the three cases apart: process crash (the kubelet restarts the container), Pod that disappears (the ReplicaSet creates a new Pod) and process alive but stuck (only liveness detects it).",
+      "I ran the liveness-exec experiment and saw the RESTARTS column go up by itself, with the pair `Unhealthy` and `Killing` in the Events.",
+      "I can explain why `Running` does not mean healthy.",
+    ],
+  },
+  {
+    title: "Stage 08: HPA",
+    items: [
+      "I can state the two prerequisites of the HPA (metrics-server and resources.requests).",
+      "I can say which metrics come ready (CPU and memory) and which require an adapter.",
+      "I generated load and saw the HPA increase the replicas without any command from me.",
+      "I can explain why the scale down takes about 5 minutes.",
+    ],
+  },
+  {
+    title: "Stage 09: Professional application",
+    items: [
+      "I applied the four podinfo manifests and saw the replicas `Running` with the HPA reading the CPU.",
+      "I reproduced the ConfigMap gotcha and solved it with `rollout restart`.",
+      "I provoked a crash with `/panic` and can explain that the restart was done by the kubelet (restartPolicy), not by liveness.",
+      "I provoked a real liveness failure (probe on a nonexistent path, 404) and saw the events `Liveness probe failed` and `Killing`.",
+      "I restored the probe with `kubectl apply` and waited for `rollout status` to finish before moving on.",
+      "I took a Pod out of the Service with `/readyz/disable` and confirmed with `kubectl get endpoints` and `READY 0/1`, with no restart.",
+      "I can explain why the HPA reduces the 3 replicas to 2 and why the startupProbe and the PVC were left out of this Deployment.",
+    ],
+  },
+  {
+    title: "",
+    items: [],
+    outro:
+      "**Next steps:** with all items checked, repeat the exercises on one of the platforms listed in the previous section, this time without consulting the guide. The next topic is the advanced module, where the StatefulSet mentioned in Stage 09 appears.",
+  },
+];
+
+export const NOTES: string[] = [
+  "This block gathers details that help you read the examples safely. Nothing here changes the path of the exercises; they are clarifications about behaviors that tend to raise questions.",
+  "**About what you will see in the terminal**",
+  "**Example outputs.** The outputs shown are typical formats. Pod names, ReplicaSet hashes, IPs, ages and columns vary with the Kubernetes version and the environment. Compare the structure, not the exact text. The `rollout history` and `kubectl top` outputs are approximate, and the `get pods -w` outputs are shortened: in a real environment, the lines appear with longer intervals than the example suggests.",
+  "**API path (Stage 02).** `kubectl get pods` in the `default` namespace makes `GET /api/v1/namespaces/default/pods`. The path `/api/v1/pods` lists pods from all namespaces. `-v=6` shows the actual request, and the format of the log line varies between kubectl versions.",
+  "**kubectl version before the cluster (Stage 01).** `kubectl version` without `--client` tries to query the server. Before `minikube start` this ends in a connection error, which is expected and does not indicate a faulty installation.",
+  "**`kubectl get endpoints` (Stages 04 and 09).** In recent Kubernetes versions, the command may display a deprecation warning in favor of EndpointSlices. It remains useful for the exercises; the alternative is `kubectl get endpointslices`.",
+  "**About behaviors that surprise**",
+  "**Rollback (Stage 05).** `rollout undo` goes back to the immediately previous revision, not to the original. In the example, it restores `nginx:1.16.1`, not `nginx:1.14.2`. The restored revision gets a new number in the history and reuses its ReplicaSet.",
+  "**`kubectl delete pvc` (Stage 06).** With Minikube's `standard` StorageClass, the reclaim policy is usually `Delete`: deleting the PVC deletes the PV and the data. Check your cluster's policy with `kubectl get storageclass`. In production environments, this policy is an important decision.",
+  "**Changing an existing Pod (Stage 06).** The `spec` of a Pod cannot be modified after it is created (with few exceptions, such as the image). To change the volume type, create a Pod with another name or delete and recreate the Pod.",
+  "**Restart timing (Stage 07).** In the liveness-exec experiment, the first restart happens at around 45 seconds (30s healthy plus 3 failures spaced 5s apart). The following cycles may take longer, because the kubelet waits for the container to terminate (up to 30s by default, the `terminationGracePeriodSeconds`) before recreating it.",
+  "**Who restarts what (Stages 07 and 09).** The kubelet restarts containers whose process ended, because of the `restartPolicy`, with or without a probe. The liveness probe exists for the case where the process is still alive but does not respond. An endpoint that brings the process down (like podinfo's `/panic`) demonstrates the first case, not the second.",
+  "**HPA metrics (Stage 08).** The HPA natively reads CPU and memory, via the metrics-server. Requests per second, Prometheus metrics, disk I/O and any other metric require a custom or external metrics adapter installed in the cluster.",
+  "**HPA and `replicas` (Stages 08 and 09).** With an active HPA, the number of replicas is decided by it within `minReplicas` and `maxReplicas`. The Deployment's `replicas` works as a starting point and is adjusted by the HPA, which explains the 3 replicas becoming 2 in Stage 09. Reapplying the manifest (`kubectl apply`) sets `replicas` back to the value written in it, and the HPA adjusts again after the stability window.",
+  "**Service balancing (Stage 09).** Balancing is per connection and the choice of replica is random. Clients that reuse the connection (like a browser) tend to always talk to the same replica.",
+  "**startupProbe (Stage 07).** The most common way to give a slow app time is `failureThreshold` multiplied by `periodSeconds`, instead of a fixed `initialDelaySeconds`. The example with `initialDelaySeconds: 120` is valid and was kept out of fidelity to the source material.",
+  "**Terminology and points to verify**",
+  '**Master node and control plane.** The lesson material uses "Master node". Current Kubernetes documentation prefers **control plane**, which is what appears in the ROLES column of `kubectl get nodes` in Stage 01. Both names refer to the same thing.',
+  "**Image tag (Stage 09).** The tag `stefanprodan/podinfo:6.14.1` comes from the guide's material. Confirm on Docker Hub that it exists before running; if it does not, use a more recent published tag. The fixed tag, instead of `latest`, is the didactic point and remains.",
+  "**Supporting manifests.** The files `liveness-exec.yaml` (Stage 07), the HPA `service.yaml` (Stage 08) and `pod-emptydir.yaml` (Stage 06) are supporting additions to the exercises, following the pattern of the official Kubernetes documentation.",
+];
 
 export type Platform = {
   name: string;
