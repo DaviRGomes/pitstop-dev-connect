@@ -54,6 +54,7 @@ const guides = [
     name: "containers",
     pt: () => import("../src/data/containers.ts"),
     en: () => import("../src/data/containers.en.ts"),
+    shape: "lens",
   },
   {
     name: "escalabilidade",

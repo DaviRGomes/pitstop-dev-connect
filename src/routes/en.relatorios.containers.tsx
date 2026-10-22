@@ -1,12 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { guardDraft } from "@/lib/drafts";
-import { ANALOGY_NOTES, DE_PARA, LESSONS } from "@/data/containers.en";
+import { CHECKLIST, INTRO, LENS, LESSONS, NOTES } from "@/data/containers.en";
+import { GuideProgress, GuideRail } from "@/components/guide/GuideKit";
 import {
-  DeParaDetails,
-  GuideProgress,
-  GuideRail,
-  LessonSection,
-} from "@/components/guide/GuideKit";
+  ChecklistSection,
+  LensSection,
+  Md,
+  TechLessonSection,
+  type TechCopy,
+} from "@/components/guide/LensKit";
 import { useGuideProgress, useScrollSpy, useSectionReveal } from "@/components/guide/hooks";
 import { f1Logo } from "@/assets/brand/paths";
 import { reportHead } from "@/lib/seo";
@@ -18,7 +20,7 @@ export const Route = createFileRoute("/en/relatorios/containers")({
       locale: "en",
       title: "Containers and Docker: from image to production | pitstop.dev",
       description:
-        "An immersive guide to containers, images, Dockerfiles, networking, volumes, Docker Compose, security, and troubleshooting with hands-on examples.",
+        "A containers and Docker guide in 13 stages: images, Dockerfile, layers, volumes, networks, Compose, security, secrets, troubleshooting and observability, with a general Formula 1 lens.",
       ptPath: "/relatorios/containers",
       enPath: "/en/relatorios/containers",
     }),
@@ -27,18 +29,15 @@ export const Route = createFileRoute("/en/relatorios/containers")({
 
 const NAV = [
   { id: "inicio", num: "00", title: "Start" },
-  ...LESSONS.map((lesson) => ({
-    id: lesson.id,
-    num: lesson.num,
-    title: lesson.navTitle,
-  })),
+  { id: "lente", num: "F1", title: "The F1 lens" },
+  ...LESSONS.map((l) => ({ id: l.id, num: l.num, title: l.navTitle })),
+  { id: "checklist", num: "14", title: "Checklist" },
 ];
 
-const PROGRESS_KEY = "pitstop-progress-containers-en";
-
-const LESSON_COPY = {
+const LESSON_COPY: TechCopy = {
   stage: "Stage",
-  howItWorks: "How it works",
+  problem: "The problem",
+  howItWorks: "The concept",
   commandsTitle: "Essential commands for this stage",
   handsOn: "Hands-on",
   tip: "Tip:",
@@ -48,11 +47,12 @@ const LESSON_COPY = {
 };
 
 function Index() {
-  const [done, setDone] = useGuideProgress(PROGRESS_KEY);
+  const [done, setDone] = useGuideProgress("pitstop-progress-containers-en");
   useSectionReveal();
-  const activeId = useScrollSpy(NAV.map((item) => item.id));
+  const activeId = useScrollSpy(NAV.map((n) => n.id));
 
-  const doneCount = LESSONS.filter((lesson) => done[lesson.id]).length;
+  const doneCount = LESSONS.filter((l) => done[l.id]).length;
+  const [opening, ...howTo] = INTRO;
 
   return (
     <div className="shell">
@@ -65,7 +65,7 @@ function Index() {
           <>
             interactive guide · react
             <br />
-            content from Lessons 01 through 06
+            content from lessons 1–6
           </>
         }
       />
@@ -79,62 +79,55 @@ function Index() {
             <h1 className="htitle">
               Containers and Docker
               <br />
-              live from the <span className="b">paddock</span>.
+              through the <span className="b">F1</span> lens.
             </h1>
             <p className="narration">
-              This guide teaches containers and Docker in thirteen stages, from the idea to
-              production. You study what a container isolates and how it differs from a virtual
-              machine, how images are built with a Dockerfile and reuse cached layers, how to
-              persist data with volumes, connect services through internal networks and DNS,
-              orchestrate everything with Docker Compose, bring the image into CI, harden security,
-              handle secrets, and troubleshoot problems. Through the F1 lens, the image is the car's
-              build specification and the container is the car assembled from it: the same setup
-              holds from the developer's machine to the production grid.
+              <Md text={opening} />
             </p>
-            <p className="lead">
-              Every concept is read the way a team prepares a car to race on any circuit:{" "}
-              <strong>the problem each piece solves</strong>, a technically honest F1 analogy, files
-              commented line by line, commands with the expected output, and a{" "}
-              <strong>hands-on</strong> section per stage.
-            </p>
-            <DeParaDetails
-              summaryLabel="The cheat sheet: pin this to your visor"
-              intro={
-                <>
-                  The same analogy holds from the first stage to the last.{" "}
-                  <b>Don't try to memorize this table now.</b> It is the track map, not the exam: go
-                  straight to Stage 01 and come back here whenever an analogy shows up in the text.
-                </>
-              }
-              headers={["Docker and containers", "Formula 1"]}
-              mapping={DE_PARA.map((mapping) => ({
-                left: mapping.docker,
-                right: mapping.f1,
-              }))}
-              breaksLabel="Where the analogies break down (a driver who hides the car's limits crashes into the wall):"
-              notes={ANALOGY_NOTES}
-            />
+            {howTo.map((p, i) => (
+              <p className="lead" key={i}>
+                <Md text={p} />
+              </p>
+            ))}
             <GuideProgress doneCount={doneCount} total={LESSONS.length} label="YOUR PROGRESS" />
           </header>
 
+          <LensSection
+            lens={LENS}
+            copy={{
+              eyebrow: "The F1 lens of this guide",
+              title: "The car built from the sheet",
+              mappingTitle: "The terms in plain words",
+              headers: ["Technical term", "In plain words"],
+              limitsTitle: "Where the comparison stops",
+            }}
+          />
+
           {LESSONS.map((lesson) => (
-            <LessonSection
+            <TechLessonSection
               key={lesson.id}
               lesson={lesson}
               done={!!done[lesson.id]}
-              onToggleDone={() =>
-                setDone((current) => ({ ...current, [lesson.id]: !current[lesson.id] }))
-              }
+              onToggleDone={() => setDone((d) => ({ ...d, [lesson.id]: !d[lesson.id] }))}
               copy={LESSON_COPY}
             />
           ))}
+
+          <ChecklistSection
+            id="checklist"
+            eyebrow="Stage 14 · review"
+            title="Self-assessment checklist"
+            groups={CHECKLIST}
+            notesTitle="Teacher's notes: technical precisions"
+            notes={NOTES}
+          />
 
           <footer>
             <span className="foot-brand">
               <img src={f1Logo} alt="" width={38} height={19} />
               <span>
-                <b>pitstop.dev</b> · Containers and Docker guide, stage by stage, based on Lessons
-                01 through 06 of the module.
+                <b>pitstop.dev</b> · Containers and Docker guide, stage by stage, based on lessons
+                1–6 of the module.
               </span>
             </span>
           </footer>

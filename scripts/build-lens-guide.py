@@ -2,7 +2,7 @@
 """Regenera os dados dos guias no formato lente de F1 + etapas técnicas (src/data/<guia>.ts e
 <guia>.en.ts) a partir de relatorios/<pasta>/final.md e final.en.md.
 
-Uso: python3 scripts/build-lens-guide.py [basico|avancado|servidores-web|all] [pt|en]
+Uso: python3 scripts/build-lens-guide.py [basico|avancado|servidores-web|containers|all] [pt|en]
      (sem argumentos: todos os guias, nos dois idiomas)
 
 Mantém o bloco de PLATFORMS que já existe no arquivo de dados do guia básico (ele não vem do
@@ -117,6 +117,44 @@ GUIDES = {
                 ("mTLS and observability", "identity + metrics"),
                 ("High availability", "slo + spof + vrrp"),
                 ("WAF and protection", "modsecurity + rate limit"),
+            ],
+        },
+    },
+    "containers": {
+        "folder": "relatorios/containers",
+        "data": "containers",
+        "keep_platforms": False,
+        "about": "// Conteúdo das aulas 1-6 do módulo de Containers e Docker, em 13 etapas.",
+        "meta": {
+            "pt": [
+                ("Por que containers", "fundamentos"),
+                ("Imagem e ciclo", "imagem + runtime"),
+                ("Dockerfile", "build reproduzível"),
+                ("Camadas e cache", "otimização"),
+                ("Persistência", "volumes + mounts"),
+                ("Redes e DNS", "conectividade"),
+                ("Docker Compose", "multicontainer"),
+                ("Ambientes e CI", "operações"),
+                ("Segurança", "menor privilégio"),
+                ("Contexto e segredos", "supply chain"),
+                ("Troubleshooting", "diagnóstico"),
+                ("Saúde e logs", "observabilidade"),
+                ("Capstone", "stack defensiva"),
+            ],
+            "en": [
+                ("Why containers", "foundations"),
+                ("Image and lifecycle", "image + runtime"),
+                ("Dockerfile", "repeatable build"),
+                ("Layers and cache", "optimization"),
+                ("Persistence", "volumes + mounts"),
+                ("Networks and DNS", "connectivity"),
+                ("Docker Compose", "multi-container"),
+                ("Environments and CI", "operations"),
+                ("Security", "least privilege"),
+                ("Context and secrets", "supply chain"),
+                ("Troubleshooting", "diagnostics"),
+                ("Health and logs", "observability"),
+                ("Capstone", "defensive stack"),
             ],
         },
     },

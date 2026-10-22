@@ -1,12 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { guardDraft } from "@/lib/drafts";
-import { ANALOGY_NOTES, DE_PARA, LESSONS } from "@/data/containers";
+import { CHECKLIST, INTRO, LENS, LESSONS, NOTES } from "@/data/containers";
+import { GuideProgress, GuideRail } from "@/components/guide/GuideKit";
 import {
-  DeParaDetails,
-  GuideProgress,
-  GuideRail,
-  LessonSection,
-} from "@/components/guide/GuideKit";
+  ChecklistSection,
+  LensSection,
+  Md,
+  TechLessonSection,
+  type TechCopy,
+} from "@/components/guide/LensKit";
 import { useGuideProgress, useScrollSpy, useSectionReveal } from "@/components/guide/hooks";
 import { f1Logo } from "@/assets/brand/paths";
 import { reportHead } from "@/lib/seo";
@@ -18,7 +20,7 @@ export const Route = createFileRoute("/relatorios/containers")({
       locale: "pt",
       title: "Containers e Docker: da imagem à produção | pitstop.dev",
       description:
-        "Guia imersivo sobre containers, imagens, Dockerfile, redes, volumes, Docker Compose, segurança e diagnóstico com exemplos práticos.",
+        "Guia de containers e Docker em 13 etapas: imagens, Dockerfile, camadas, volumes, redes, Compose, segurança, segredos, troubleshooting e observabilidade, com uma lente geral de Fórmula 1.",
       ptPath: "/relatorios/containers",
       enPath: "/en/relatorios/containers",
     }),
@@ -27,18 +29,15 @@ export const Route = createFileRoute("/relatorios/containers")({
 
 const NAV = [
   { id: "inicio", num: "00", title: "Início" },
-  ...LESSONS.map((lesson) => ({
-    id: lesson.id,
-    num: lesson.num,
-    title: lesson.navTitle,
-  })),
+  { id: "lente", num: "F1", title: "A lente de F1" },
+  ...LESSONS.map((l) => ({ id: l.id, num: l.num, title: l.navTitle })),
+  { id: "checklist", num: "14", title: "Checklist" },
 ];
 
-const PROGRESS_KEY = "pitstop-progress-containers";
-
-const LESSON_COPY = {
+const LESSON_COPY: TechCopy = {
   stage: "Etapa",
-  howItWorks: "Como funciona",
+  problem: "O problema",
+  howItWorks: "O conceito",
   commandsTitle: "Comandos essenciais desta etapa",
   handsOn: "Mão na massa",
   tip: "Dica:",
@@ -48,11 +47,12 @@ const LESSON_COPY = {
 };
 
 function Index() {
-  const [done, setDone] = useGuideProgress(PROGRESS_KEY);
+  const [done, setDone] = useGuideProgress("pitstop-progress-containers");
   useSectionReveal();
-  const activeId = useScrollSpy(NAV.map((item) => item.id));
+  const activeId = useScrollSpy(NAV.map((n) => n.id));
 
-  const doneCount = LESSONS.filter((lesson) => done[lesson.id]).length;
+  const doneCount = LESSONS.filter((l) => done[l.id]).length;
+  const [opening, ...howTo] = INTRO;
 
   return (
     <div className="shell">
@@ -65,7 +65,7 @@ function Index() {
           <>
             guia interativo · react
             <br />
-            conteúdo das Aulas 01 a 06
+            conteúdo das aulas 1–6
           </>
         }
       />
@@ -79,63 +79,55 @@ function Index() {
             <h1 className="htitle">
               Containers e Docker
               <br />
-              direto do <span className="b">paddock</span>.
+              pela lente da <span className="b">F1</span>.
             </h1>
             <p className="narration">
-              Este guia ensina containers e Docker em treze etapas, da ideia à produção. Você estuda
-              o que um container isola e como ele difere de uma máquina virtual, como imagens são
-              construídas com Dockerfile e reaproveitam camadas em cache, como persistir dados com
-              volumes, conectar serviços por redes e DNS internos, orquestrar tudo com Docker
-              Compose, levar a imagem para o CI, reforçar a segurança, tratar segredos e
-              diagnosticar problemas. Na lente da F1, a imagem é a especificação de montagem do
-              carro e o container é o carro montado a partir dela: o mesmo acerto vale da máquina do
-              desenvolvedor ao grid de produção.
+              <Md text={opening} />
             </p>
-            <p className="lead">
-              Cada conceito é lido como uma equipe prepara o carro para correr em qualquer circuito:{" "}
-              <strong>o problema que cada peça resolve</strong>, uma analogia de F1 tecnicamente
-              honesta, arquivos comentados linha a linha, comandos com a saída esperada e um{" "}
-              <strong>mão na massa</strong> por etapa.
-            </p>
-            <DeParaDetails
-              summaryLabel="O quadro de-para: cole isto no volante"
-              intro={
-                <>
-                  A mesma analogia vale do início ao fim do guia.{" "}
-                  <b>Não tente decorar esta tabela agora.</b> Ela é o mapa do circuito, não a prova:
-                  siga direto para a Etapa 01 e volte aqui sempre que uma analogia aparecer no
-                  texto.
-                </>
-              }
-              headers={["Docker e containers", "Fórmula 1"]}
-              mapping={DE_PARA.map((mapping) => ({
-                left: mapping.docker,
-                right: mapping.f1,
-              }))}
-              breaksLabel="Onde as analogias quebram (piloto que esconde limitação do carro quebra no muro):"
-              notes={ANALOGY_NOTES}
-            />
+            {howTo.map((p, i) => (
+              <p className="lead" key={i}>
+                <Md text={p} />
+              </p>
+            ))}
             <GuideProgress doneCount={doneCount} total={LESSONS.length} label="SEU PROGRESSO" />
           </header>
 
+          <LensSection
+            lens={LENS}
+            copy={{
+              eyebrow: "A lente de F1 deste guia",
+              title: "O carro montado a partir da folha",
+              mappingTitle: "Os termos em palavras simples",
+              headers: ["Termo técnico", "Em palavras simples"],
+              limitsTitle: "Onde a comparação para",
+            }}
+          />
+
           {LESSONS.map((lesson) => (
-            <LessonSection
+            <TechLessonSection
               key={lesson.id}
               lesson={lesson}
               done={!!done[lesson.id]}
-              onToggleDone={() =>
-                setDone((current) => ({ ...current, [lesson.id]: !current[lesson.id] }))
-              }
+              onToggleDone={() => setDone((d) => ({ ...d, [lesson.id]: !d[lesson.id] }))}
               copy={LESSON_COPY}
             />
           ))}
+
+          <ChecklistSection
+            id="checklist"
+            eyebrow="Etapa 14 · revisão"
+            title="Checklist de autoavaliação"
+            groups={CHECKLIST}
+            notesTitle="Notas do professor: precisões técnicas"
+            notes={NOTES}
+          />
 
           <footer>
             <span className="foot-brand">
               <img src={f1Logo} alt="" width={38} height={19} />
               <span>
-                <b>pitstop.dev</b> · guia Containers e Docker, etapa por etapa, baseado nas Aulas 01
-                a 06 do módulo.
+                <b>pitstop.dev</b> · guia Containers e Docker, etapa por etapa, baseado nas aulas
+                1–6 do módulo.
               </span>
             </span>
           </footer>

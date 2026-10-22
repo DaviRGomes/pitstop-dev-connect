@@ -3,7 +3,6 @@ import { notFound } from "@tanstack/react-router";
 // Guias em refatoração: somem da home, da busca e da URL direta em produção,
 // mas continuam abertos no `npm run dev` pra revisar. Tire o slug daqui ao republicar.
 export const DRAFT_GUIDES = new Set<string>([
-  "containers",
   "escalabilidade",
   "cultura-devops",
   "arquitetura-aplicacoes",
