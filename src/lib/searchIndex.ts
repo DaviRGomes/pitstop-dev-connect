@@ -2,6 +2,8 @@
 // Carregado sob demanda (import dinâmico) só quando o usuário interage com a busca no SiteNav,
 // pra não inflar o bundle inicial de páginas que não usam a busca.
 
+import { isGuideVisible } from "@/lib/drafts";
+
 export type Locale = "pt" | "en";
 
 export type SearchDoc = {
@@ -247,7 +249,7 @@ function truncate(s: string, n: number) {
 }
 
 async function buildIndex(locale: Locale): Promise<SearchDoc[]> {
-  const guides = locale === "pt" ? GUIDES_PT : GUIDES_EN;
+  const guides = (locale === "pt" ? GUIDES_PT : GUIDES_EN).filter((g) => isGuideVisible(g.slug));
   const base = locale === "pt" ? "" : "/en";
   const modules = await Promise.all(guides.map((g) => g.loader()));
 

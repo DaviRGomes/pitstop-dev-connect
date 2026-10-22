@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { guardDraft } from "@/lib/drafts";
 import { ANALOGY_NOTES, DE_PARA, LESSONS } from "@/data/awsazure";
 import {
   DeParaDetails,
@@ -11,6 +12,7 @@ import { f1Logo } from "@/assets/brand/paths";
 import { reportHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/relatorios/aws-azure")({
+  beforeLoad: guardDraft("aws-azure"),
   head: () =>
     reportHead({
       locale: "pt",

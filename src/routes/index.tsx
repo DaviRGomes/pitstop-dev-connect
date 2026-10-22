@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, Cloud, Server, Wrench } from "lucide-react";
 import { f1Logo } from "@/assets/brand/paths";
 import { RaceHub } from "@/components/f1/RaceHub";
+import { isGuideVisible } from "@/lib/drafts";
 import { localizedHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/")({
@@ -205,7 +206,7 @@ function Home() {
           conforme o próximo GP.
         </p>
         <div className="report-grid">
-          {REPORTS.map((r) => (
+          {REPORTS.filter((r) => isGuideVisible(r.id)).map((r) => (
             <Link key={r.id} to={r.to} className="report-card">
               <div className="report-head">
                 <span className="report-num">{r.num}</span>

@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { guardDraft } from "@/lib/drafts";
 import { LESSONS, OBSERVABILITY_NODE, SYSTEM_MAP } from "@/data/escalabilidade.en";
 import { GuideProgress, GuideRail } from "@/components/guide/GuideKit";
 import { ScaleLessonSection, SystemMap, type ScaleCopy } from "@/components/guide/ScaleKit";
@@ -7,6 +8,7 @@ import { f1Logo } from "@/assets/brand/paths";
 import { reportHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/en/relatorios/escalabilidade")({
+  beforeLoad: guardDraft("escalabilidade"),
   head: () =>
     reportHead({
       locale: "en",
