@@ -36,6 +36,7 @@ HEAD = {
         "checklist": "Checklist de autoavaliação",
         "notes": "Notas do professor",
         "multiExamples": "Exemplos comentados",
+        "output": "saída esperada",
     },
     "en": {
         "lens": "The F1 lens of this guide",
@@ -52,6 +53,7 @@ HEAD = {
         "checklist": "Self-assessment checklist",
         "notes": "Teacher's notes",
         "multiExamples": "Worked examples",
+        "output": "expected output",
     },
 }
 
@@ -188,8 +190,42 @@ def concept_items(bl, figures):
         elif b[0] == "ol":
             items.append("1. " + b[1])
         elif b[0] == "code":
-            raise SystemExit("código dentro de O conceito não é suportado")
+            # bloco de código no meio da explicação: vira um item cercado por ``` e o
+            # LensKit o renderiza como bloco de código
+            items.append(f"```{b[1]}\n{b[2]}\n```")
     return items
+
+
+FILE_LABEL = re.compile(
+    r"(?:#|//)\s*(?:\S*/)?([\w.-]+\.(?:ya?ml|conf|py|json|toml|ini|sh|cfg|js|mjs|txt)"
+    r"|Dockerfile[\w.-]*|\.dockerignore|\.gitignore|\.env[\w.-]*)\b"
+)
+FENCE_LABEL = {"dockerfile": "Dockerfile", "json": "JSON", "js": "JavaScript", "gitignore": ".dockerignore"}
+OUTPUT_LEAD = re.compile(r"^(sa[ií]da esperada|expected output)[^.]*:$", re.I)
+
+
+def with_prompts(code):
+    """Bloco de shell escrito sem "$": marca as linhas de comando com "$ " para o site
+    diferenciar comando de saída. Pula comentários, continuações ("\\") e heredocs."""
+    if any(line.startswith("$") for line in code.split("\n")):
+        return code
+    out, cont, heredoc = [], False, None
+    for line in code.split("\n"):
+        stripped = line.strip()
+        if heredoc:
+            out.append(line)
+            if stripped == heredoc:
+                heredoc = None
+            continue
+        if stripped and not stripped.startswith("#") and not cont:
+            out.append("$ " + line)
+        else:
+            out.append(line)
+        m = re.search(r"<<-?\s*['\"]?(\w+)['\"]?", line)
+        if m and not stripped.startswith("#"):
+            heredoc = m.group(1)
+        cont = stripped.endswith("\\")
+    return "\n".join(out)
 
 
 def parse_examples(sections, h, warn):
@@ -199,38 +235,65 @@ def parse_examples(sections, h, warn):
         sub = title.split(":", 1)[1].strip() if ":" in title else title
         titles.append(sub)
         bl = blocks(lines)
-        codes = [b for b in bl if b[0] == "code"]
         pending = []
         n = 0
+        start = len(examples)
         for b in bl:
             if b[0] == "code":
+                prev = examples[-1] if len(examples) > start else None
+                # saída esperada em bloco "text" logo depois de comandos: vai para a mesma aba
+                if (
+                    b[1] == "text"
+                    and prev is not None
+                    and prev.get("_fence") == "sh"
+                    and not pending
+                    and not FILE_LABEL.match(b[2].lstrip().split("\n", 1)[0])
+                ):
+                    note = prev.pop("_after", [])
+                    kept = [t for t in note if not OUTPUT_LEAD.match(t)]
+                    prev["code"] += f"\n\n# {h['output']}\n" + b[2]
+                    if kept:
+                        prev["note"] = " ".join(kept)
+                    elif "note" in prev and prev["note"] == " ".join(note):
+                        del prev["note"]
+                    continue
                 n += 1
                 first = b[2].lstrip().split("\n", 1)[0]
-                # rótulo da aba: "# arquivo.yaml", "# /etc/nginx/conf.d/default.conf", "# Dockerfile"...
-                m = re.match(
-                    r"#\s*(?:\S*/)?([\w.-]+\.(?:ya?ml|conf|py|json|toml|ini|sh|cfg)|Dockerfile[\w.-]*)\b",
-                    first,
-                )
-                label = m.group(1) if m else None
+                m = FILE_LABEL.match(first)
                 lang = "yaml" if b[1] in ("yaml", "yml") else "sh"
-                if not m:
-                    label = "terminal" if lang == "sh" else sub
-                ex = {"label": label, "lang": lang, "code": b[2]}
+                code = with_prompts(b[2]) if b[1] == "sh" else b[2]
+                ex = {"label": m.group(1) if m else None, "lang": lang, "code": code, "_fence": b[1]}
                 if pending:
                     ex["intro"] = " ".join(pending)
                     pending = []
                 examples.append(ex)
             elif b[0] in ("p", "li", "ol"):
                 txt = b[1] if b[0] == "p" else "• " + b[1]
-                if examples and not pending and examples[-1]["label"] and n > 0:
+                if len(examples) > start and not pending and n > 0:
                     prev = examples[-1]
                     prev["note"] = (prev.get("note", "") + " " + txt).strip()
+                    prev.setdefault("_after", []).append(txt)
                 else:
                     pending.append(txt)
             else:
                 warn(f"bloco {b[0]} ignorado em exemplo '{title}'")
         if pending:
             warn(f"texto sem código em '{title}': {pending[0][:60]}")
+        # rótulo das abas sem nome de arquivo: o nome da seção quando ela tem uma aba só;
+        # com várias abas, "terminal" para shell e o nome da seção para o resto
+        section = examples[start:]
+        for ex in section:
+            if ex["label"] is None:
+                kind = FENCE_LABEL.get(ex["_fence"])
+                if len(section) == 1:
+                    ex["label"] = sub
+                elif kind:
+                    ex["label"] = kind
+                else:
+                    ex["label"] = "terminal" if ex["_fence"] in ("sh", "bash", "") else sub
+    for ex in examples:
+        ex.pop("_after", None)
+        ex.pop("_fence", None)
     # rótulos únicos (as abas usam o rótulo como chave)
     seen = {}
     for ex in examples:

@@ -298,7 +298,7 @@ export const LESSONS: Lesson[] = [
     examplesTitle: "Montando o laboratório",
     examples: [
       {
-        label: "terminal",
+        label: "montando o laboratório",
         lang: "sh",
         code: '# 1. Instale o Docker Desktop (docker.com). No Linux, use o Docker\n#    Engine (docs.docker.com/engine/install). Confirme:\n$ docker -v\nDocker version 27.x\n\n# 2. Instale o kubectl (kubernetes.io/docs/tasks/tools) e confirme.\n#    Use --client: ainda não existe cluster, então só a versão do\n#    cliente pode ser consultada (sem --client, o kubectl tentaria falar\n#    com um servidor inexistente e imprimiria um erro de conexão)\n$ kubectl version --client\nClient Version: v1.30.x\nKustomize Version: v5.x\n\n# 3. Instale o Minikube (minikube.sigs.k8s.io/docs/start) e suba o cluster:\n$ minikube start\n😄  minikube v1.33 on Windows 11\n✨  Using the docker driver\n🏄  Done! kubectl is now configured to use "minikube"\n\n# 4. Confirme que o cluster está de pé:\n$ kubectl get nodes\nNAME       STATUS   ROLES           AGE   VERSION\nminikube   Ready    control-plane   1m    v1.30.x\n\n# 5. Cluster vazio = sucesso:\n$ kubectl get pods\nNo resources found in default namespace.\n\n# 6. Agora que o cluster existe, a versão completa mostra cliente e servidor:\n$ kubectl version --output=yaml\nclientVersion:\n  (...)\nserverVersion:\n  (...)',
         note: "A primeira execução do `minikube start` baixa a imagem do cluster e demora alguns minutos. É normal.",

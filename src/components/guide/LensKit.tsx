@@ -100,7 +100,8 @@ function RichText({ text }: { text: string }) {
   return <>{out}</>;
 }
 
-/** Parágrafos e listas: itens "- " viram <ul> e itens "1. " viram <ol>. */
+/** Parágrafos e listas: itens "- " viram <ul>, itens "1. " viram <ol> e itens cercados
+ * por ``` viram bloco de código. */
 function Paragraphs({ items }: { items: string[] }) {
   type List = { ordered: boolean; items: string[] };
   const groups: (string | List)[] = [];
@@ -119,6 +120,9 @@ function Paragraphs({ items }: { items: string[] }) {
   return (
     <>
       {groups.map((g, i) => {
+        if (typeof g === "string" && g.startsWith("```")) {
+          return <RichText key={i} text={g} />;
+        }
         if (typeof g === "string") {
           return (
             <p key={i}>
