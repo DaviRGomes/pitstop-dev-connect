@@ -161,6 +161,8 @@ Um servidor web é o ponto por onde toda requisição HTTP entra antes de chegar
 
 O Apache HTTP Server teve seu primeiro lançamento em 1995, então a categoria tem mais de três décadas de uso. Quando o servidor web responde antes de qualquer aplicação existir (por exemplo, um 404 para um arquivo inexistente), ele mostra que é uma camada própria, e o cabeçalho `Server` da resposta identifica qual software atendeu. As etapas seguintes aprofundam cada função: proxy na Etapa 03, MPMs do Apache na Etapa 04, arquitetura do Nginx na Etapa 05 e balanceamento na Etapa 06.
 
+![Três clientes ligados pela rede a um processo de servidor HTTP, que lê os arquivos de um sistema de arquivos.](/guides/servidores-web/etapa01-conteudo-estatico.svg "Servir conteúdo estático: o processo do servidor HTTP lê o arquivo do disco e o devolve ao cliente, sem acionar código de aplicação. | Diagrama: Wikimedia Commons, Giga Bang, CC BY-SA 4.0")
+
 ### Os conceitos-chave
 
 - **Servidor web**: software na borda que recebe as requisições HTTP e decide se responde sozinho ou encaminha à aplicação.
@@ -563,6 +565,8 @@ Antes dos modelos, dois termos. Um **processo** tem memória própria e isolada 
 
 Dois pontos de leitura da comparação: o consumo de memória cresce na ordem Event, Worker, Prefork, e a concorrência suportada cresce na ordem inversa. A escolha, portanto, é sempre uma troca entre isolamento e eficiência.
 
+![Três colunas. Prefork: um processo pai e três processos filhos, cada um com uma conexão. Worker: dois processos com três threads cada, sobre uma faixa de memória do processo, cada thread com uma conexão. Event: dois processos com duas threads de trabalho e uma thread ouvinte, que segura várias conexões keep-alive ociosas.](/guides/servidores-web/etapa04-mpm.svg "No Prefork, cada conexão ocupa um processo inteiro. No Worker, threads de poucos processos dividem a memória do processo. No Event, uma thread ouvinte segura as conexões keep-alive ociosas, e as threads de trabalho ficam livres para quem está enviando dados. | Diagrama: feito para este guia")
+
 ### Os conceitos-chave
 
 - **MPM**: o módulo que define como o Apache atende conexões em paralelo (processos, threads ou ambos).
@@ -775,6 +779,8 @@ No Nginx, os algoritmos do bloco `upstream` são:
 
 Afinidade como a do `ip_hash` dificulta a redistribuição e a escalabilidade. Sempre que possível, prefira aplicações **stateless**: sessão em Redis ou token assinado (como JWT) permitem que qualquer backend responda a qualquer requisição. Duas diretivas completam o quadro: `keepalive` reaproveita conexões entre o Nginx e os backends (exige `proxy_http_version 1.1` e `proxy_set_header Connection ""`), e os timeouts `proxy_connect_timeout`, `proxy_send_timeout` e `proxy_read_timeout` limitam cada fase da conversa com o upstream.
 
+![Dois painéis. L7, Nginx na porta 8080: GET / é respondido pelo próprio Nginx em location = /, e GET /api/ vai por location /api/ a api-1 e api-2 em Round Robin. L4, Nginx stream na porta 9090: a conexão TCP do cliente vai direto a api-1 ou api-2.](/guides/servidores-web/etapa06-l4-l7.svg "As duas portas do laboratório. O balanceador L7 lê o path e decide: `/` não chega aos backends. O L4 só vê IP e porta e repassa cada conexão TCP, então `/` também chega a um backend. | Diagrama: feito para este guia")
+
 ### Os conceitos-chave
 
 - **L4 e L7**: L4 decide por IP e porta (rápido, genérico); L7 entende HTTP (flexível, mais custo).
@@ -934,6 +940,8 @@ Em uma promoção, um dos três backends trava, mas o processo continua de pé. 
 **Métricas.** O módulo `stub_status` expõe conexões ativas, total de conexões e requisições aceitas, e os estados de leitura, escrita e espera. O Apache Bench (`ab`) gera carga controlada. Leia em conjunto requisições por segundo, latência, percentis (o p95 mostra a experiência dos mais lentos, que a média esconde), CPU e logs, para saber se o limite está no proxy, no backend ou em uma dependência.
 
 **Diagnóstico de 502 e 504.** O erro `502 Bad Gateway` indica que o Nginx não obteve uma resposta válida do upstream: conexão recusada, conexão encerrada ou resposta inválida. O erro `504 Gateway Timeout` indica que a conexão foi feita, mas o backend não respondeu dentro do `proxy_read_timeout`. A investigação segue o caminho da requisição: cliente, Nginx, backend, dependências. Aumentar um timeout sem investigar pode apenas esconder lentidão.
+
+![O Nginx com o upstream pitstop_api: a conexão com api-1 falha e o Nginx tenta o próximo; api-2 responde 200; api-backup, tracejado, só entra se api-1 e api-2 caírem. Embaixo, 502 quando a conexão com o backend falha e 504 quando o backend não responde dentro do proxy_read_timeout.](/guides/servidores-web/etapa07-failover.svg "O upstream do laboratório: uma falha de conexão leva o Nginx ao próximo servidor, três falhas em 10 segundos tiram o servidor da rotação, e o `backup` só recebe tráfego sem nenhum primário. Embaixo, onde nasce cada erro: 502 sem resposta válida, 504 sem resposta a tempo. | Diagrama: feito para este guia")
 
 ### Os conceitos-chave
 
@@ -1671,6 +1679,8 @@ Resiliência no mesmo recurso: **retries** ajudam em falhas transitórias, mas m
 
 Peso é o mecanismo de entrega, não o critério de sucesso: a decisão de ampliar o canário vem de taxa de erro, latência e métricas de negócio.
 
+![O Envoy ao lado do serviço A recebe regras de roteamento do Pilot e envia 99% das chamadas para a versão v1.5 do serviço B e 1% para a versão v2.0-alpha.](/guides/servidores-web/etapa11-istio-versoes.svg "Canário por peso: o proxy do cliente divide as chamadas entre os subsets do serviço B, e a versão nova recebe só uma fração do tráfego. O desenho é de uma versão antiga da documentação; o Pilot, que distribui as regras, hoje faz parte do istiod. | Diagrama: istio.io, Istio Authors, Apache 2.0")
+
 ### Os conceitos-chave
 
 - **DestinationRule**: define subsets (grupos por label) e políticas do destino (`networking.istio.io/v1`).
@@ -2027,6 +2037,9 @@ Mude uma política de cada vez e teste os dois lados: uma chamada que deve passa
 - **Chaos Engineering** formula uma hipótese, injeta uma falha controlada e mede a reação, com critérios claros para abortar. Não é falha aleatória em produção.
 - **HA** reduz interrupções locais; **Disaster Recovery** (DR) recupera o serviço depois de eventos amplos, como a perda de uma zona ou região. O **RTO** é o tempo máximo aceito para recuperar e o **RPO** é a perda máxima de dados aceita, medida em tempo.
 
+![O cliente aponta para o VIP 172.28.0.100, que está em lb1, MASTER com prioridade 100; lb2 é BACKUP com prioridade 90 e recebe os anúncios VRRP de lb1.](/guides/servidores-web/etapa13-vip-1.svg "Antes da falha: lb1 tem a maior prioridade e o check_nginx em dia, então responde pelo IP virtual. | Diagrama: feito para este guia")
+![O Nginx de lb1 está parado e o check_nginx falhou duas vezes, então lb1 fica em FAULT; o VIP 172.28.0.100 passou para lb2, agora MASTER.](/guides/servidores-web/etapa13-vip-2.svg "Depois de `nginx -s stop` em lb1: duas falhas seguidas do check_nginx tiram lb1 do posto, lb2 assume o VIP, e o cliente continua usando o mesmo endereço.")
+
 ### Os conceitos-chave
 
 - **SLA, SLO e orçamento de erro**: promessa externa, meta interna e quanto de falha cabe nela.
@@ -2209,6 +2222,8 @@ Firewalls de camadas 3 e 4 bloqueiam redes e portas, mas não inspecionam a cama
 - Logs do Nginx e do ModSecurity precisam chegar a uma plataforma central, com alertas para aumento de bloqueios, de respostas 5xx e de latência. Segurança depende de revisão, atualização do CRS e testes repetíveis.
 
 Um WAF não corrige a vulnerabilidade no código: reduz a exposição e compra tempo para a correção definitiva. A defesa funciona em camadas, cada uma cobrindo o que a anterior não vê.
+
+![Uma requisição passa por firewall de rede, Nginx de borda com TLS, HSTS e limit_req, e WAF com ModSecurity e OWASP CRS antes de chegar à api. O firewall bloqueia porta ou rede, o Nginx de borda devolve 429 e o WAF devolve 403.](/guides/servidores-web/etapa14-camadas.svg "Cada camada vê uma coisa diferente: o firewall vê portas e redes, o Nginx de borda conta requisições por IP, e o WAF lê o conteúdo e soma a pontuação de anomalia. A api só recebe o que passou pelas três. | Diagrama: feito para este guia")
 
 ### Os conceitos-chave
 

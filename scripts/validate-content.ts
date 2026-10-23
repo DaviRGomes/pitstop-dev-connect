@@ -200,10 +200,11 @@ function validateParity(name: string, pt: GuideModule, en: GuideModule, shape: S
     invariant(left.num === right.num, `${name}/${id}: num diverge`);
 
     if (left.figures || right.figures) {
+      // "x.en.svg" é a versão em inglês de "x.svg" (diagramas com texto traduzido)
       const frames = (lesson: Lesson) =>
         JSON.stringify(
           ((lesson.figures as { items: { src: string }[] }[] | undefined) ?? []).map((g) =>
-            g.items.map((item) => item.src),
+            g.items.map((item) => item.src.replace(/\.en(\.\w+)$/, "$1")),
           ),
         );
       invariant(frames(left) === frames(right), `${name}/${id}: figuras divergem entre PT e EN`);

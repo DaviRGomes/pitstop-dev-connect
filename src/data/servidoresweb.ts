@@ -499,6 +499,19 @@ export const LESSONS: Lesson[] = [
     tip: "Use `curl -I` para inspecionar só os cabeçalhos. É o jeito mais rápido de descobrir qual servidor está respondendo antes de aprofundar uma investigação. Lembre que o cabeçalho `Server` também informa a versão do software, o que é útil para você e para quem ataca; a Etapa 14 mostra como ocultar a versão.",
     takeaway:
       "Um servidor web não executa a regra de negócio: ele cuida de tudo ao redor dela (estático, proxy, TLS, cache, segurança) para que a aplicação não precise cuidar disso.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/servidores-web/etapa01-conteudo-estatico.svg",
+            alt: "Três clientes ligados pela rede a um processo de servidor HTTP, que lê os arquivos de um sistema de arquivos.",
+            caption:
+              "Servir conteúdo estático: o processo do servidor HTTP lê o arquivo do disco e o devolve ao cliente, sem acionar código de aplicação.",
+          },
+        ],
+        credit: "Diagrama: Wikimedia Commons, Giga Bang, CC BY-SA 4.0",
+      },
+    ],
   },
   {
     id: "m2",
@@ -893,6 +906,19 @@ export const LESSONS: Lesson[] = [
     tip: "A diferença entre os três MPMs está em processo, thread e isolamento, e é esse critério que orienta a escolha em produção. Antes de trocar de MPM em um servidor real, verifique se todos os módulos carregados são thread-safe, porque essa é a restrição que decide a escolha.",
     takeaway:
       "Prefork isola cada conexão em um processo e é o mais pesado; Worker usa threads dentro de poucos processos e exige código thread-safe; Event é o Worker afinado para não gastar uma thread em conexões keep-alive ociosas.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/servidores-web/etapa04-mpm.svg",
+            alt: "Três colunas. Prefork: um processo pai e três processos filhos, cada um com uma conexão. Worker: dois processos com três threads cada, sobre uma faixa de memória do processo, cada thread com uma conexão. Event: dois processos com duas threads de trabalho e uma thread ouvinte, que segura várias conexões keep-alive ociosas.",
+            caption:
+              "No Prefork, cada conexão ocupa um processo inteiro. No Worker, threads de poucos processos dividem a memória do processo. No Event, uma thread ouvinte segura as conexões keep-alive ociosas, e as threads de trabalho ficam livres para quem está enviando dados.",
+          },
+        ],
+        credit: "Diagrama: feito para este guia",
+      },
+    ],
   },
   {
     id: "m5",
@@ -1131,6 +1157,19 @@ export const LESSONS: Lesson[] = [
     tip: "Escolha o algoritmo pelo comportamento da carga: Round Robin distribui contagem, `least_conn` distribui ocupação e `ip_hash` distribui afinidade. Se você precisa de afinidade para a aplicação funcionar, o problema está no estado guardado dentro do backend, e a solução de longo prazo é tirá-lo de lá.",
     takeaway:
       "Balancear não é só espalhar requisições: é escolher quanta informação o balanceador enxerga (L4 ou L7) e qual sinal ele usa (sequência, peso, conexões ativas ou afinidade) sem criar um novo gargalo.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/servidores-web/etapa06-l4-l7.svg",
+            alt: "Dois painéis. L7, Nginx na porta 8080: GET / é respondido pelo próprio Nginx em location = /, e GET /api/ vai por location /api/ a api-1 e api-2 em Round Robin. L4, Nginx stream na porta 9090: a conexão TCP do cliente vai direto a api-1 ou api-2.",
+            caption:
+              "As duas portas do laboratório. O balanceador L7 lê o path e decide: `/` não chega aos backends. O L4 só vê IP e porta e repassa cada conexão TCP, então `/` também chega a um backend.",
+          },
+        ],
+        credit: "Diagrama: feito para este guia",
+      },
+    ],
   },
   {
     id: "m7",
@@ -1239,6 +1278,19 @@ export const LESSONS: Lesson[] = [
     tip: "Nunca mude três timeouts ao mesmo tempo. Reproduza o problema, altere uma variável, repita a carga e compare a mesma métrica. E lembre que o check passivo só descobre a falha quando um cliente real é afetado por ela: a primeira requisição que cai em um backend doente paga o preço.",
     takeaway:
       "Alta disponibilidade começa quando a borda detecta um backend incapaz, para de enviar trabalho a ele e prova, com logs e métricas, que a experiência do usuário continuou.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/servidores-web/etapa07-failover.svg",
+            alt: "O Nginx com o upstream pitstop_api: a conexão com api-1 falha e o Nginx tenta o próximo; api-2 responde 200; api-backup, tracejado, só entra se api-1 e api-2 caírem. Embaixo, 502 quando a conexão com o backend falha e 504 quando o backend não responde dentro do proxy_read_timeout.",
+            caption:
+              "O upstream do laboratório: uma falha de conexão leva o Nginx ao próximo servidor, três falhas em 10 segundos tiram o servidor da rotação, e o `backup` só recebe tráfego sem nenhum primário. Embaixo, onde nasce cada erro: 502 sem resposta válida, 504 sem resposta a tempo.",
+          },
+        ],
+        credit: "Diagrama: feito para este guia",
+      },
+    ],
   },
   {
     id: "m8",
@@ -1732,6 +1784,19 @@ export const LESSONS: Lesson[] = [
     tip: "Se todo o tráfego cai em uma versão só, confira nesta ordem: labels dos Pods contra os subsets, o `host` do VirtualService contra o Service, e a ordem das regras de `match`. Lembre também que as regras só valem para chamadas feitas por um cliente com sidecar; um cliente fora da malha ignora o VirtualService.",
     takeaway:
       "A DestinationRule define os grupos disponíveis e o VirtualService decide como cada chamada percorre esses grupos: juntos, tornam o deploy gradual observável e reversível.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/servidores-web/etapa11-istio-versoes.svg",
+            alt: "O Envoy ao lado do serviço A recebe regras de roteamento do Pilot e envia 99% das chamadas para a versão v1.5 do serviço B e 1% para a versão v2.0-alpha.",
+            caption:
+              "Canário por peso: o proxy do cliente divide as chamadas entre os subsets do serviço B, e a versão nova recebe só uma fração do tráfego. O desenho é de uma versão antiga da documentação; o Pilot, que distribui as regras, hoje faz parte do istiod.",
+          },
+        ],
+        credit: "Diagrama: istio.io, Istio Authors, Apache 2.0",
+      },
+    ],
   },
   {
     id: "m12",
@@ -1989,6 +2054,25 @@ export const LESSONS: Lesson[] = [
     tip: "Uma redundância que nunca foi testada continua sendo uma suposição. Meça o tempo de failover, a perda de requisições e o tempo de recuperação, e compare com o SLO. Se você não consegue demonstrar o failover em um laboratório, não deveria confiar nele em produção.",
     takeaway:
       "Alta disponibilidade combina uma meta mensurável, a remoção de SPOFs, redundância e testes; o DR complementa quando a falha ultrapassa o servidor ou a zona local.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/servidores-web/etapa13-vip-1.svg",
+            alt: "O cliente aponta para o VIP 172.28.0.100, que está em lb1, MASTER com prioridade 100; lb2 é BACKUP com prioridade 90 e recebe os anúncios VRRP de lb1.",
+            caption:
+              "Antes da falha: lb1 tem a maior prioridade e o check_nginx em dia, então responde pelo IP virtual.",
+          },
+          {
+            src: "/guides/servidores-web/etapa13-vip-2.svg",
+            alt: "O Nginx de lb1 está parado e o check_nginx falhou duas vezes, então lb1 fica em FAULT; o VIP 172.28.0.100 passou para lb2, agora MASTER.",
+            caption:
+              "Depois de `nginx -s stop` em lb1: duas falhas seguidas do check_nginx tiram lb1 do posto, lb2 assume o VIP, e o cliente continua usando o mesmo endereço.",
+          },
+        ],
+        credit: "Diagrama: feito para este guia",
+      },
+    ],
   },
   {
     id: "m14",
@@ -2106,6 +2190,19 @@ export const LESSONS: Lesson[] = [
     tip: "O WAF não corrige vulnerabilidade no código: reduz a exposição e compra tempo, e a correção definitiva continua na aplicação. Nunca ative o bloqueio sem ter lido o log de detecção por um período com tráfego real, porque o falso positivo que derruba um cliente legítimo custa mais que o atraso em bloquear.",
     takeaway:
       "Uma borda segura combina criptografia, inspeção na camada de aplicação, controle de taxa, logs e resposta operacional: cada camada cobre o que a anterior não enxerga, e todas começam por observar antes de bloquear.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/servidores-web/etapa14-camadas.svg",
+            alt: "Uma requisição passa por firewall de rede, Nginx de borda com TLS, HSTS e limit_req, e WAF com ModSecurity e OWASP CRS antes de chegar à api. O firewall bloqueia porta ou rede, o Nginx de borda devolve 429 e o WAF devolve 403.",
+            caption:
+              "Cada camada vê uma coisa diferente: o firewall vê portas e redes, o Nginx de borda conta requisições por IP, e o WAF lê o conteúdo e soma a pontuação de anomalia. A api só recebe o que passou pelas três.",
+          },
+        ],
+        credit: "Diagrama: feito para este guia",
+      },
+    ],
   },
 ];
 

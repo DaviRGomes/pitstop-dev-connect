@@ -161,6 +161,8 @@ A web server is the point through which every HTTP request enters before reachin
 
 Apache HTTP Server had its first release in 1995, so the category has more than three decades of use. When the web server answers before any application exists (for example, a 404 for a nonexistent file), it shows that it is a layer of its own, and the `Server` header of the response identifies which software answered. The following stages go deeper into each function: proxy in Stage 03, Apache's MPMs in Stage 04, Nginx's architecture in Stage 05 and balancing in Stage 06.
 
+![Three clients connected over the network to an HTTP server process, which reads files from a file system.](/guides/servidores-web/etapa01-conteudo-estatico.svg "Serving static content: the HTTP server process reads the file from disk and returns it to the client, without running application code. | Diagram: Wikimedia Commons, Giga Bang, CC BY-SA 4.0")
+
 ### Key concepts
 
 - **Web server**: software at the edge that receives HTTP requests and decides whether to answer on its own or forward to the application.
@@ -563,6 +565,8 @@ Before the models, two terms. A **process** has its own memory, isolated from th
 
 Two reading points for the comparison: memory consumption grows in the order Event, Worker, Prefork, and the supported concurrency grows in the opposite order. The choice, therefore, is always a trade between isolation and efficiency.
 
+![Three columns. Prefork: a parent process and three child processes, each with one connection. Worker: two processes with three threads each, above a band of process memory, each thread with one connection. Event: two processes with two worker threads and a listener thread, which holds several idle keep-alive connections.](/guides/servidores-web/etapa04-mpm.en.svg "In Prefork, each connection takes a whole process. In Worker, threads from a few processes share the process memory. In Event, a listener thread holds the idle keep-alive connections, and the worker threads stay free for whoever is sending data. | Diagram: made for this guide")
+
 ### Key concepts
 
 - **MPM**: the module that defines how Apache serves connections in parallel (processes, threads or both).
@@ -775,6 +779,8 @@ In Nginx, the algorithms of the `upstream` block are:
 
 Affinity like that of `ip_hash` makes redistribution and scalability harder. Whenever possible, prefer **stateless** applications: session in Redis or a signed token (such as JWT) allow any backend to answer any request. Two directives complete the picture: `keepalive` reuses connections between Nginx and the backends (it requires `proxy_http_version 1.1` and `proxy_set_header Connection ""`), and the timeouts `proxy_connect_timeout`, `proxy_send_timeout` and `proxy_read_timeout` limit each phase of the conversation with the upstream.
 
+![Two panels. L7, Nginx on port 8080: GET / is answered by Nginx itself in location = /, and GET /api/ goes through location /api/ to api-1 and api-2 in Round Robin. L4, Nginx stream on port 9090: the client's TCP connection goes straight to api-1 or api-2.](/guides/servidores-web/etapa06-l4-l7.en.svg "The lab's two ports. The L7 balancer reads the path and decides: `/` does not reach the backends. L4 only sees IP and port and relays each TCP connection, so `/` also reaches a backend. | Diagram: made for this guide")
+
 ### Key concepts
 
 - **L4 and L7**: L4 decides by IP and port (fast, generic); L7 understands HTTP (flexible, more cost).
@@ -934,6 +940,8 @@ During a promotion, one of the three backends freezes, but the process stays up.
 **Metrics.** The `stub_status` module exposes active connections, total connections and accepted requests, and the reading, writing and waiting states. Apache Bench (`ab`) generates controlled load. Read together requests per second, latency, percentiles (the p95 shows the experience of the slowest ones, which the average hides), CPU and logs, to know whether the limit is in the proxy, in the backend or in a dependency.
 
 **Diagnosing 502 and 504.** The `502 Bad Gateway` error indicates that Nginx did not obtain a valid response from the upstream: connection refused, connection closed or invalid response. The `504 Gateway Timeout` error indicates that the connection was made, but the backend did not answer within `proxy_read_timeout`. The investigation follows the path of the request: client, Nginx, backend, dependencies. Increasing a timeout without investigating may only hide slowness.
+
+![Nginx with the pitstop_api upstream: the connection to api-1 fails and Nginx tries the next one; api-2 answers 200; api-backup, dashed, only comes in if api-1 and api-2 are down. Below, 502 when the connection to the backend fails and 504 when the backend does not answer within proxy_read_timeout.](/guides/servidores-web/etapa07-failover.en.svg "The lab's upstream: a connection failure sends Nginx to the next server, three failures in 10 seconds take the server out of rotation, and the `backup` only receives traffic when no primary is left. Below, where each error comes from: 502 with no valid response, 504 with no response in time. | Diagram: made for this guide")
 
 ### Key concepts
 
@@ -1671,6 +1679,8 @@ Resilience in the same resource: **retries** help with transient failures, but m
 
 Weight is the delivery mechanism, not the success criterion: the decision to widen the canary comes from error rate, latency and business metrics.
 
+![The Envoy next to service A receives routing rules from Pilot and sends 99% of calls to version v1.5 of service B and 1% to version v2.0-alpha.](/guides/servidores-web/etapa11-istio-versoes.svg "Weighted canary: the client's proxy splits calls between service B's subsets, and the new version receives only a fraction of the traffic. The drawing comes from an old version of the documentation; Pilot, which distributes the rules, is now part of istiod. | Diagram: istio.io, Istio Authors, Apache 2.0")
+
 ### Key concepts
 
 - **DestinationRule**: defines subsets (groups by label) and destination policies (`networking.istio.io/v1`).
@@ -2027,6 +2037,9 @@ At 2 a.m., the machine hosting the store's only balancer loses its power supply.
 - **Chaos Engineering** formulates a hypothesis, injects a controlled failure and measures the reaction, with clear criteria for aborting. It is not random failure in production.
 - **HA** reduces local interruptions; **Disaster Recovery** (DR) recovers the service after broad events, such as the loss of a zone or region. The **RTO** is the maximum time accepted to recover and the **RPO** is the maximum data loss accepted, measured in time.
 
+![The client points to VIP 172.28.0.100, which is on lb1, MASTER with priority 100; lb2 is BACKUP with priority 90 and receives VRRP adverts from lb1.](/guides/servidores-web/etapa13-vip-1.en.svg "Before the failure: lb1 has the highest priority and a passing check_nginx, so it answers for the virtual IP. | Diagram: made for this guide")
+![lb1's Nginx is stopped and check_nginx failed twice, so lb1 goes to FAULT; VIP 172.28.0.100 has moved to lb2, now MASTER.](/guides/servidores-web/etapa13-vip-2.en.svg "After `nginx -s stop` on lb1: two consecutive check_nginx failures take lb1 out of the role, lb2 takes the VIP, and the client keeps using the same address.")
+
 ### Key concepts
 
 - **SLA, SLO and error budget**: external promise, internal target and how much failure fits in it.
@@ -2209,6 +2222,8 @@ Layer 3 and 4 firewalls block networks and ports, but do not inspect the applica
 - Nginx and ModSecurity logs need to reach a central platform, with alerts for increases in blocks, 5xx responses and latency. Security depends on review, CRS updates and repeatable tests.
 
 A WAF does not fix the vulnerability in the code: it reduces exposure and buys time for the definitive fix. Defense works in layers, each covering what the previous one does not see.
+
+![A request goes through a network firewall, an edge Nginx with TLS, HSTS and limit_req, and a WAF with ModSecurity and OWASP CRS before reaching the api. The firewall blocks a port or network, the edge Nginx returns 429 and the WAF returns 403.](/guides/servidores-web/etapa14-camadas.en.svg "Each layer sees something different: the firewall sees ports and networks, the edge Nginx counts requests per IP, and the WAF reads the content and adds up the anomaly score. The api only receives what got through all three. | Diagram: made for this guide")
 
 ### Key concepts
 
