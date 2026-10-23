@@ -251,6 +251,11 @@ Before the versions, a structural fact: HTTP is a **stateless** protocol. Each r
 
 In practice, the client discovers that the server offers HTTP/3 through the `Alt-Svc` response header. Networks that block UDP on port 443 make the client fall back to HTTP/2 or HTTP/1.1.
 
+![Two computers connected by a single chain whose links alternate between red and green.](/guides/servidores-web/etapa02-tcp-streams.png "HTTP/2: the red and green streams share the same TCP connection. If one link is lost, everything after it waits for the retransmission, whichever stream it belongs to. | Illustration: HTTP/3 explained, Daniel Stenberg and contributors, CC BY 4.0")
+![Two computers connected by two separate chains, one yellow and one blue.](/guides/servidores-web/etapa02-quic-streams.png "HTTP/3: in QUIC, each stream is an independent chain, and losing a link only delays the chain it was in.")
+
+![Three stacks side by side over IPv4/IPv6 and under the HTTP Semantics layer: HTTP 1.1 over optional TLS and TCP; HTTP/2 over TLS 1.2+ and TCP; HTTP/3 over QUIC, which includes TLS 1.3, and UDP.](/guides/servidores-web/etapa02-pilha-http.svg "The meaning of methods, headers and status codes is the same in all three versions; what changes is the transport. HTTP/3 replaces TCP with QUIC over UDP, and TLS 1.3 becomes part of QUIC. | Diagram: Wikimedia Commons, Sedrubal, CC BY-SA 4.0")
+
 ### Key concepts
 
 - **Stateless**: each request is independent; cookies and sessions simulate context on top.
@@ -364,6 +369,9 @@ These are two different needs with one piece in common: an intermediary between 
 The practical rule to tell the two apart: ask who configured the pointing to the intermediary. If it was the client, it is a forward proxy. If it was the server's infrastructure and the client does not know, it is a reverse proxy.
 
 There is a consequence for the backend: it only sees the proxy opening the connection. To know who really made the request, the proxy passes on the client's IP in headers such as `X-Real-IP` and `X-Forwarded-For` (not standardized, but widely used; the standardized header is `Forwarded`). The backend should only trust these headers when they come from a known proxy, because a client can send them forged.
+
+![A user and a proxy inside the internal network; the user talks to the proxy, and the proxy talks to example.com on the internet.](/guides/servidores-web/etapa03-forward-proxy.svg "Forward proxy: the proxy sits on the client's network, and the client uses it to reach the outside. The external site only sees the proxy. | Diagrams: Wikimedia Commons, H2g2bob, CC0 (public domain)")
+![The internet talks to a proxy inside the internal network of example.com, and the proxy talks to the web server.](/guides/servidores-web/etapa03-reverse-proxy.svg "Reverse proxy: the proxy sits on the server's network, and whoever comes from the internet talks only to it, without knowing which server answered.")
 
 ### Key concepts
 
@@ -675,6 +683,8 @@ A **master** process reads the configuration and manages the **worker** processe
 On Linux, the notification of which connections have new data comes from a kernel mechanism, `epoll`, which avoids scanning all connections on every cycle. Nginx picks the most efficient method available on its own, so the `use epoll;` directive is usually optional on Linux.
 
 The practical result is that the number of processes stays stable and small (usually one worker per CPU core), while the number of connections grows. The limit stops being "one thread per connection" and becomes CPU, memory and file descriptors. Benefits: lower memory consumption, higher throughput, good latency and excellent performance as a reverse proxy and balancer, including in front of Apache itself. Be careful with the capacity calculation: `worker_processes` times `worker_connections` is the ceiling of simultaneous connections, but, when Nginx acts as a proxy, each client request uses two connections (one with the client and one with the backend), so the number of simultaneous clients is about half of that ceiling. In addition, `worker_connections` must not exceed the process's open file limit (adjustable with `worker_rlimit_nofile`).
+
+![A master process above three workers; clients talk HTTP and HTTPS to the workers, which multiplex connections via kevent, epoll or select, talk to web, application and Memcached servers in the backend, and share a proxy cache maintained by the cache loader and cache manager processes.](/guides/servidores-web/etapa05-nginx-arquitetura.png "The master loads the configuration and starts the workers; each worker handles many client and backend connections in the same event loop. The module names inside the workers date from 2012; the split between master and workers is still the same. | Diagram: The Architecture of Open Source Applications, vol. II, Andrew Alexeev, CC BY 3.0")
 
 ### Key concepts
 

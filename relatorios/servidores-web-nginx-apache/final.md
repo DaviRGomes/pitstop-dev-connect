@@ -251,6 +251,11 @@ Antes das versões, um fato estrutural: o HTTP é um protocolo **sem estado** (s
 
 Na prática, o cliente descobre que o servidor oferece HTTP/3 pelo cabeçalho de resposta `Alt-Svc`. Redes que bloqueiam UDP na porta 443 fazem o cliente voltar para HTTP/2 ou HTTP/1.1.
 
+![Dois computadores ligados por uma única corrente cujos elos alternam entre vermelho e verde.](/guides/servidores-web/etapa02-tcp-streams.png "HTTP/2: os streams vermelho e verde dividem a mesma conexão TCP. Se um elo se perde, tudo o que vem depois dele espera a retransmissão, seja de qual stream for. | Ilustração: HTTP/3 explained, Daniel Stenberg e colaboradores, CC BY 4.0")
+![Dois computadores ligados por duas correntes separadas, uma amarela e uma azul.](/guides/servidores-web/etapa02-quic-streams.png "HTTP/3: no QUIC, cada stream é uma corrente independente, e a perda de um elo só atrasa a corrente em que ele estava.")
+
+![Três pilhas lado a lado sobre IPv4/IPv6 e sob a camada HTTP Semantics: HTTP 1.1 sobre TLS opcional e TCP; HTTP/2 sobre TLS 1.2+ e TCP; HTTP/3 sobre QUIC, que inclui o TLS 1.3, e UDP.](/guides/servidores-web/etapa02-pilha-http.svg "O significado de métodos, cabeçalhos e códigos de status é o mesmo nas três versões; o que muda é o transporte. O HTTP/3 troca o TCP pelo QUIC sobre UDP, e o TLS 1.3 passa a fazer parte do QUIC. | Diagrama: Wikimedia Commons, Sedrubal, CC BY-SA 4.0")
+
 ### Os conceitos-chave
 
 - **Stateless**: cada requisição é independente; cookies e sessões simulam contexto por cima.
@@ -364,6 +369,9 @@ São duas necessidades diferentes com uma peça em comum: um intermediário entr
 A regra prática para distinguir os dois: pergunte quem configurou o apontamento para o intermediário. Se foi o cliente, é forward proxy. Se foi a infraestrutura do servidor e o cliente não sabe, é reverse proxy.
 
 Há uma consequência para o backend: ele só enxerga o proxy abrindo a conexão. Para saber quem fez o pedido de verdade, o proxy repassa o IP do cliente em cabeçalhos como `X-Real-IP` e `X-Forwarded-For` (não padronizados, mas amplamente usados; o cabeçalho padronizado é o `Forwarded`). O backend só deve confiar nesses cabeçalhos quando vierem de um proxy conhecido, porque um cliente pode enviá-los forjados.
+
+![Um usuário e um proxy dentro da rede interna; o usuário fala com o proxy, e o proxy fala com example.com na internet.](/guides/servidores-web/etapa03-forward-proxy.svg "Forward proxy: o proxy fica na rede do cliente, e é o cliente que o usa para sair. O site externo só enxerga o proxy. | Diagramas: Wikimedia Commons, H2g2bob, CC0 (domínio público)")
+![A internet fala com um proxy dentro da rede interna de example.com, e o proxy fala com o servidor web.](/guides/servidores-web/etapa03-reverse-proxy.svg "Reverse proxy: o proxy fica na rede do servidor, e quem vem da internet fala só com ele, sem saber qual servidor respondeu.")
 
 ### Os conceitos-chave
 
@@ -675,6 +683,8 @@ Um processo **master** lê a configuração e gerencia os processos **worker**, 
 No Linux, a notificação de quais conexões têm dado novo vem de um mecanismo do kernel, o `epoll`, que evita varrer todas as conexões a cada ciclo. O Nginx escolhe o método mais eficiente disponível sozinho, então a diretiva `use epoll;` costuma ser opcional no Linux.
 
 O resultado prático é que o número de processos fica estável e pequeno (em geral um worker por núcleo de CPU), enquanto o número de conexões cresce. O limite deixa de ser "uma thread por conexão" e passa a ser CPU, memória e descritores de arquivo. Benefícios: menor consumo de memória, maior vazão, boa latência e desempenho excelente como proxy reverso e balanceador, inclusive na frente do próprio Apache. Cuidado com a conta de capacidade: `worker_processes` vezes `worker_connections` é o teto de conexões simultâneas, mas, quando o Nginx atua como proxy, cada requisição de cliente usa duas conexões (uma com o cliente e uma com o backend), então o número de clientes simultâneos é cerca de metade desse teto. Além disso, `worker_connections` não deve passar do limite de arquivos abertos do processo (ajustável com `worker_rlimit_nofile`).
+
+![Um processo master acima de três workers; os clientes conversam por HTTP e HTTPS com os workers, que multiplexam conexões via kevent, epoll ou select, falam com servidores web, de aplicação e Memcached no backend e compartilham um proxy cache mantido pelos processos cache loader e cache manager.](/guides/servidores-web/etapa05-nginx-arquitetura.png "O master carrega a configuração e inicia os workers; cada worker atende muitas conexões de clientes e de backends no mesmo event loop. Os nomes dos módulos dentro dos workers são de 2012; a divisão entre master e workers continua a mesma. | Diagrama: The Architecture of Open Source Applications, vol. II, Andrew Alexeev, CC BY 3.0")
 
 ### Os conceitos-chave
 

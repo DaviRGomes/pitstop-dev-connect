@@ -612,6 +612,36 @@ export const LESSONS: Lesson[] = [
     tip: "O HTTP/2 eliminou a fila na camada de aplicação, e o HTTP/3 resolveu o mesmo problema na camada de transporte. Ao diagnosticar lentidão, pergunte primeiro em qual camada a espera acontece.",
     takeaway:
       "Cada versão do HTTP resolveu o head-of-line blocking em uma camada diferente: o HTTP/2 na aplicação, com multiplexação, e o HTTP/3 no transporte, trocando TCP por QUIC sobre UDP.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/servidores-web/etapa02-tcp-streams.png",
+            alt: "Dois computadores ligados por uma única corrente cujos elos alternam entre vermelho e verde.",
+            caption:
+              "HTTP/2: os streams vermelho e verde dividem a mesma conexão TCP. Se um elo se perde, tudo o que vem depois dele espera a retransmissão, seja de qual stream for.",
+          },
+          {
+            src: "/guides/servidores-web/etapa02-quic-streams.png",
+            alt: "Dois computadores ligados por duas correntes separadas, uma amarela e uma azul.",
+            caption:
+              "HTTP/3: no QUIC, cada stream é uma corrente independente, e a perda de um elo só atrasa a corrente em que ele estava.",
+          },
+        ],
+        credit: "Ilustração: HTTP/3 explained, Daniel Stenberg e colaboradores, CC BY 4.0",
+      },
+      {
+        items: [
+          {
+            src: "/guides/servidores-web/etapa02-pilha-http.svg",
+            alt: "Três pilhas lado a lado sobre IPv4/IPv6 e sob a camada HTTP Semantics: HTTP 1.1 sobre TLS opcional e TCP; HTTP/2 sobre TLS 1.2+ e TCP; HTTP/3 sobre QUIC, que inclui o TLS 1.3, e UDP.",
+            caption:
+              "O significado de métodos, cabeçalhos e códigos de status é o mesmo nas três versões; o que muda é o transporte. O HTTP/3 troca o TCP pelo QUIC sobre UDP, e o TLS 1.3 passa a fazer parte do QUIC.",
+          },
+        ],
+        credit: "Diagrama: Wikimedia Commons, Sedrubal, CC BY-SA 4.0",
+      },
+    ],
   },
   {
     id: "m3",
@@ -728,6 +758,25 @@ export const LESSONS: Lesson[] = [
     tip: "Para saber de que lado você está, pergunte quem configurou o apontamento: se foi o cliente, é forward proxy; se o cliente não sabe que o intermediário existe, é reverse proxy. Em produção, configure o backend para confiar em `X-Forwarded-For` apenas quando a conexão vier do seu proxy, porque o cabeçalho pode ser forjado por qualquer cliente.",
     takeaway:
       "O forward proxy fica do lado do cliente e é configurado por ele; o reverse proxy fica do lado do servidor e é invisível ao cliente, e o IP original só chega ao backend se o proxy o repassar em cabeçalhos.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/servidores-web/etapa03-forward-proxy.svg",
+            alt: "Um usuário e um proxy dentro da rede interna; o usuário fala com o proxy, e o proxy fala com example.com na internet.",
+            caption:
+              "Forward proxy: o proxy fica na rede do cliente, e é o cliente que o usa para sair. O site externo só enxerga o proxy.",
+          },
+          {
+            src: "/guides/servidores-web/etapa03-reverse-proxy.svg",
+            alt: "A internet fala com um proxy dentro da rede interna de example.com, e o proxy fala com o servidor web.",
+            caption:
+              "Reverse proxy: o proxy fica na rede do servidor, e quem vem da internet fala só com ele, sem saber qual servidor respondeu.",
+          },
+        ],
+        credit: "Diagramas: Wikimedia Commons, H2g2bob, CC0 (domínio público)",
+      },
+    ],
   },
   {
     id: "m4",
@@ -948,6 +997,20 @@ export const LESSONS: Lesson[] = [
     tip: "O ponto central é que um worker nunca espera parado: ele registra o evento e segue, e é isso que permite ao Nginx atender muitas conexões sem multiplicar processos. Ao diagnosticar um Nginx saturado, olhe CPU, memória e o limite de arquivos abertos, e não o número de processos, que quase não muda.",
     takeaway:
       "O Apache dedica um processo ou thread a cada requisição em andamento (mesmo otimizado pelo Event MPM); o Nginx usa poucos workers com um event loop não bloqueante, e por isso é muito usado como proxy reverso e balanceador na frente de qualquer backend.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/servidores-web/etapa05-nginx-arquitetura.png",
+            alt: "Um processo master acima de três workers; os clientes conversam por HTTP e HTTPS com os workers, que multiplexam conexões via kevent, epoll ou select, falam com servidores web, de aplicação e Memcached no backend e compartilham um proxy cache mantido pelos processos cache loader e cache manager.",
+            caption:
+              "O master carrega a configuração e inicia os workers; cada worker atende muitas conexões de clientes e de backends no mesmo event loop. Os nomes dos módulos dentro dos workers são de 2012; a divisão entre master e workers continua a mesma.",
+          },
+        ],
+        credit:
+          "Diagrama: The Architecture of Open Source Applications, vol. II, Andrew Alexeev, CC BY 3.0",
+      },
+    ],
   },
   {
     id: "m6",
