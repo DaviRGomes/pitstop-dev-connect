@@ -422,6 +422,19 @@ export const LESSONS: Lesson[] = [
     tip: 'When a container "disappears" right after `docker run`, do not assume a defect: run `docker ps --all` and read the `STATUS`. An `Exited (0)` means the main process ended normally, and a container only stays alive while that process continues.',
     takeaway:
       "A container is a process isolated and limited by the kernel; it is not a small virtual machine.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/containers/etapa01-evolucao-deploy.svg",
+            alt: "Three columns: traditional deployment, with applications directly on the operating system and hardware; virtualized deployment, with several VMs, each with its own operating system, on a hypervisor; container deployment, with applications on a container runtime that shares the host operating system.",
+            caption:
+              "The stage's evolution: one application per server, then several VMs with their own operating system, then containers that isolate only the processes and share the host kernel.",
+          },
+        ],
+        credit: "Diagram: kubernetes.io, The Kubernetes Authors, CC BY 4.0",
+      },
+    ],
   },
   {
     id: "m2",
@@ -581,6 +594,25 @@ export const LESSONS: Lesson[] = [
     tip: "When you need to reproduce an image exactly, note the digest with `docker images --digests` and reference `image@sha256:...`. Tags such as `latest` and even `stable` change content over time; digests do not.",
     takeaway:
       "An image is the reproducible artifact; a container is a disposable run of that image.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/containers/etapa02-camada-container.webp",
+            alt: "A container based on the ubuntu:15.04 image: four read-only image layers, with a padlock, and on top a thin read-write layer, the container layer.",
+            caption:
+              "A container is the image, in read-only layers, plus a thin writable layer on top. Everything the container writes goes to that layer.",
+          },
+          {
+            src: "/guides/containers/etapa02-camadas-compartilhadas.webp",
+            alt: "Four thin read-write layers, one per container, all pointing to the same four read-only layers of the ubuntu:15.04 image.",
+            caption:
+              "Several containers from the same image share the read-only layers, and each one has its own writable layer. Removing a container deletes only its layer.",
+          },
+        ],
+        credit: "Diagrams: docs.docker.com, Docker, Inc., Apache 2.0",
+      },
+    ],
   },
   {
     id: "m3",
@@ -735,6 +767,19 @@ export const LESSONS: Lesson[] = [
     ],
     tip: "Keep the Dockerfile in the same repository as the code. That way, the image recipe is versioned along with the application, and a new colleague can reproduce the environment with a single `docker build`.",
     takeaway: "A Dockerfile turns manual decisions into a repeatable, versionable build.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/containers/etapa03-build-run.en.svg",
+            alt: "On the left, the Dockerfile with FROM, WORKDIR, COPY, RUN npm install and CMD, and the build context; in the middle, the image in layers, with the RUN npm install layer highlighted; on the right, after docker run, the container running node index.js.",
+            caption:
+              "`docker build` executes `RUN` once and writes the result into a layer. `CMD` is stored as metadata and only runs when a container starts, as PID 1.",
+          },
+        ],
+        credit: "Diagram: made for this guide",
+      },
+    ],
   },
   {
     id: "m4",
@@ -881,6 +926,25 @@ export const LESSONS: Lesson[] = [
     ],
     tip: "If a small image breaks in production because of a native library, the problem is usually the difference between `musl` (Alpine) and `glibc` (Debian). Before blaming the code, test the same application on `slim`. And remember that a `distroless` image has no shell: to diagnose, you will have to use other means (logs, a separate debug image).",
     takeaway: "Order layers by frequency of change and keep build tools out of the runtime image.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/containers/etapa04-cache.png",
+            alt: "The layers of a Dockerfile: FROM ubuntu:latest, RUN apt-get, COPY main.c Makefile, WORKDIR and RUN make build, all marked as cached.",
+            caption:
+              "With no change to the files, each instruction reuses the layer already built.",
+          },
+          {
+            src: "/guides/containers/etapa04-cache-invalidado.png",
+            alt: "The same Dockerfile: FROM and RUN apt-get stay cached, and COPY, WORKDIR and RUN make build appear in red, without cache.",
+            caption:
+              "The copied files changed: `COPY` loses the cache, and so does every instruction after it. That is why what changes least comes first.",
+          },
+        ],
+        credit: "Diagrams: docs.docker.com, Docker, Inc., Apache 2.0",
+      },
+    ],
   },
   {
     id: "m5",
@@ -1009,6 +1073,19 @@ export const LESSONS: Lesson[] = [
     tip: "For any data that cannot be lost (database, uploads), use a named volume. Reserve the bind mount for the code you edit during development, and remember that a bind mount in production ties the application to the folder structure of that server.",
     takeaway:
       "If data needs to survive the container, it cannot depend on that container's writable layer.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/containers/etapa05-montagens.en.svg",
+            alt: "A container with three mounts: the named volume dados-demo at /dados, stored by Docker in /var/lib/docker/volumes/dados-demo/_data, which persists; the bind mount ./site at /usr/share/nginx/html, a host folder, which persists; and the tmpfs at /dados, in host memory, which is gone on restart.",
+            caption:
+              "Each mechanism keeps the data in a different place on the host. The volume is managed by Docker, the bind mount is your own folder with no isolation, and tmpfs lives in memory and is gone when the container restarts.",
+          },
+        ],
+        credit: "Diagram: made for this guide",
+      },
+    ],
   },
   {
     id: "m6",
@@ -1155,6 +1232,19 @@ export const LESSONS: Lesson[] = [
     tip: "To expose a service only to your own computer (for example, while developing), publish on the loopback address: `--publish 127.0.0.1:8080:80`. That way the port is not reachable from other machines on the network.",
     takeaway:
       "Containers on the same custom network find each other by name; publish only the ports that need to be reached from the host.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/containers/etapa06-redes.en.svg",
+            alt: "On the host, the custom network minha-rede with frontend and banco: frontend reaches banco by name, through internal DNS, and only frontend receives browser traffic through the published port 8080:80. Below, on the default bridge, cliente-padrao cannot resolve the name alvo.",
+            caption:
+              "On the custom network, internal DNS resolves the container name, and only what has `--publish` receives traffic from outside. The default bridge has no name resolution.",
+          },
+        ],
+        credit: "Diagram: made for this guide",
+      },
+    ],
   },
   {
     id: "m7",
@@ -1296,6 +1386,19 @@ export const LESSONS: Lesson[] = [
     tip: "Run `docker compose config` whenever you edit the YAML, before `up`. It catches indentation errors and shows the final values (expanded variables, combined files), which saves a lot of trial and error.",
     takeaway:
       "Compose turns a fragile sequence of commands into a versionable definition of the application.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/containers/etapa07-compose-aplicacao.webp",
+            alt: "An external user reaches the frontend service on port 443, which talks to the backend service over a network; the backend writes to a persistent volume, and the HTTP configuration and server certificate are mounted read-only in the frontend.",
+            caption:
+              "A Compose application brings together services, the network between them, the volume that persists data and the mounted files, all described in one file.",
+          },
+        ],
+        credit: "Diagram: docs.docker.com, Docker, Inc., Apache 2.0",
+      },
+    ],
   },
   {
     id: "m8",
@@ -1453,6 +1556,19 @@ export const LESSONS: Lesson[] = [
     tip: "Always start with `docker compose config` when combining files. Seeing the consolidated result before starting avoids the surprise of an override that did not overwrite what you expected (or of a `-f` that switched off the automatic override).",
     takeaway:
       "Additional Compose files change only what varies between environments; restart recovers processes, but does not replace a readiness check.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/containers/etapa08-override.en.svg",
+            alt: "compose.yaml with web using nginx:alpine, restart on-failure:3 and healthcheck, plus compose.prod.yaml with web using nginx:stable-alpine, result in a config where web uses nginx:stable-alpine and keeps the restart and healthcheck.",
+            caption:
+              "With `-f`, the next file overrides the previous one for a service with the same name: only the image changes, and the rest comes from the base file. Always check with `config`.",
+          },
+        ],
+        credit: "Diagram: made for this guide",
+      },
+    ],
   },
   {
     id: "m9",
@@ -1612,6 +1728,19 @@ export const LESSONS: Lesson[] = [
     tip: "When an application fails after `--cap-drop ALL`, do not go back out of reflex. Read the error, identify which operation was denied and give back only the corresponding capability with `--cap-add`. That is how the minimum set is discovered.",
     takeaway:
       "Container security is defense in depth: user, permissions, capabilities, system calls, image and mounts must cooperate.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/containers/etapa09-camadas.en.svg",
+            alt: "Nested layers around the application process, which runs as USER node: shared host kernel, namespaces and cgroups, AppArmor or SELinux, seccomp, --cap-drop ALL and --read-only with --tmpfs /tmp. On the side, the mounted docker.sock crosses every layer.",
+            caption:
+              "Each layer reduces what an exploit can do, and none is enough on its own. Mounting `docker.sock` cancels all of them, because it gives control of the daemon, which runs as root on the host.",
+          },
+        ],
+        credit: "Diagram: made for this guide",
+      },
+    ],
   },
   {
     id: "m10",
@@ -1791,6 +1920,19 @@ export const LESSONS: Lesson[] = [
     tip: "BuildKit also lets you deliver secrets to the build without writing them to any layer. If a build step really needs a credential (for example, downloading a private package), consult Docker's documentation on build secrets instead of resorting to `ARG` or `COPY`.",
     takeaway:
       "A secret that does not enter the context cannot leak through a layer created during the build.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/containers/etapa10-contexto.en.svg",
+            alt: "The meu-app folder: node_modules, .env, .git and build are struck through, because .dockerignore leaves them out; src, Dockerfile, compose.yaml and .dockerignore go in the context sent to the builder, which produces the image. Below, the warning that a secret copied during the build stays in the image history.",
+            caption:
+              "`.dockerignore` decides what never reaches the builder: the build gets faster and `.env` gets into no layer. A secret copied during the build stays in the history, even if deleted in a later instruction.",
+          },
+        ],
+        credit: "Diagram: made for this guide",
+      },
+    ],
   },
   {
     id: "m11",
@@ -1942,6 +2084,19 @@ export const LESSONS: Lesson[] = [
     tip: "Write your hypothesis before looking at each piece of evidence, even if in one line. This trains you to read the state and the exit code carefully, instead of running commands until something looks right.",
     takeaway:
       "Diagnosis starts from the observable state and moves on to evidence; restarting is not investigating.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/containers/etapa11-investigacao.en.svg",
+            alt: "Six steps in sequence: state with docker ps --all, logs with docker logs, configuration with docker inspect, events with docker events, process and resources with docker top and docker stats, and inside test with docker exec, from the cheapest evidence to the most specific.",
+            caption:
+              "The order goes from what costs least to look at to what requires getting inside the container. Each step confirms or rules out a hypothesis before the next one.",
+          },
+        ],
+        credit: "Diagram: made for this guide",
+      },
+    ],
   },
   {
     id: "m12",
@@ -2069,6 +2224,19 @@ export const LESSONS: Lesson[] = [
     tip: "Choose what the healthcheck tests according to what really breaks. A test that only checks whether the port opens can pass with the database down; one that queries the database every second can become the biggest source of load. Prefer a light check that still depends on what is essential.",
     takeaway:
       'An active process answers the question "is it running?"; the healthcheck answers "can it do its job?".',
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/containers/etapa12-healthcheck.en.svg",
+            alt: "Three states: starting, during the 20s start_period, when failures do not count; healthy when the test passes; unhealthy after 3 failures in a row, and back to healthy when the test passes again. Below, what reacts to the state: restart, depends_on with service_healthy and docker compose up --wait.",
+            caption:
+              "The values from the stage's example. The healthcheck only classifies the container; whatever acts on the result is the runtime, Compose or the orchestrator.",
+          },
+        ],
+        credit: "Diagram: made for this guide",
+      },
+    ],
   },
   {
     id: "m13",
@@ -2255,6 +2423,19 @@ export const LESSONS: Lesson[] = [
     tip: "After finishing the capstone, repeat it causing a failure on purpose: stop the database, remove the volume, change the password. If you can predict and explain each response of the system (state, healthcheck, logs), you have understood how the pieces work together.",
     takeaway:
       "A mature stack does not depend on a single resource: it combines reproducible building, isolation, least privilege, persistence, health and operational evidence.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/containers/etapa13-stack.en.svg",
+            alt: "On the interna network, the api, with init, USER node, read_only, tmpfs, cap_drop ALL, limits and healthcheck, receives the client on port 3000 and talks to db over TCP 5432 by name; it depends on db with service_healthy. The db, postgres:16-alpine with no published port, uses the dados_db volume and the db_password secret.",
+            caption:
+              "The capstone stack in one picture: only the api publishes a port, the database is reachable only through the `interna` network, the data lives in the volume and the password arrives as a file in `/run/secrets/`.",
+          },
+        ],
+        credit: "Diagram: made for this guide",
+      },
+    ],
   },
 ];
 

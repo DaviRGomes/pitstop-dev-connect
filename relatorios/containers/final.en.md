@@ -137,6 +137,8 @@ The container shares the host kernel. That is why it usually starts faster and u
 
 **Docker** is the tool that made containers accessible: it standardizes how to package, distribute and run. A packaged application runs the same way on your laptop, on the test server, in production or in the cloud, which eliminates the "it works on my machine" problem.
 
+![Three columns: traditional deployment, with applications directly on the operating system and hardware; virtualized deployment, with several VMs, each with its own operating system, on a hypervisor; container deployment, with applications on a container runtime that shares the host operating system.](/guides/containers/etapa01-evolucao-deploy.svg "The stage's evolution: one application per server, then several VMs with their own operating system, then containers that isolate only the processes and share the host kernel. | Diagram: kubernetes.io, The Kubernetes Authors, CC BY 4.0")
+
 ### Key concepts
 
 - **Container**: processes isolated and limited by the kernel; it lives only as long as its main process is active.
@@ -258,6 +260,9 @@ A **public registry** lets you discover and download public images, often withou
 Use public images only when they are trusted and verified, and keep in private repositories everything that is sensitive or internal.
 
 Before pushing an image, the local name must receive a tag that includes the registry address, the namespace and the version.
+
+![A container based on the ubuntu:15.04 image: four read-only image layers, with a padlock, and on top a thin read-write layer, the container layer.](/guides/containers/etapa02-camada-container.webp "A container is the image, in read-only layers, plus a thin writable layer on top. Everything the container writes goes to that layer. | Diagrams: docs.docker.com, Docker, Inc., Apache 2.0")
+![Four thin read-write layers, one per container, all pointing to the same four read-only layers of the ubuntu:15.04 image.](/guides/containers/etapa02-camadas-compartilhadas.webp "Several containers from the same image share the read-only layers, and each one has its own writable layer. Removing a container deletes only its layer.")
 
 ### Key concepts
 
@@ -451,6 +456,8 @@ The order of the instructions matters because Docker caches the result of each o
 
 **The main process and signals.** The process defined by `CMD` is PID 1 of the container. On Linux, PID 1 does not get the default signal handling: a signal such as SIGTERM or SIGINT, which normally ends a program, is ignored if the program has not installed a handler for it, and Node.js without an explicit handler falls into this case. The result is that Ctrl+C in the terminal may not end the container, and `docker stop` waits for the deadline (10 seconds by default) and then sends SIGKILL. The `--init` option of `docker run` (and `init: true` in Compose) puts a small init process as PID 1, which passes the signals on to your program. That is why the API examples in this guide use `--init`. To end a container in the foreground, use Ctrl+C in its terminal or, in another terminal, `docker stop name`. The exit code 137 that results from a forced shutdown by SIGKILL does not, by itself, indicate lack of memory; Stage 11 shows how to tell the two cases apart.
 
+![On the left, the Dockerfile with FROM, WORKDIR, COPY, RUN npm install and CMD, and the build context; in the middle, the image in layers, with the RUN npm install layer highlighted; on the right, after docker run, the container running node index.js.](/guides/containers/etapa03-build-run.en.svg "`docker build` executes `RUN` once and writes the result into a layer. `CMD` is stored as metadata and only runs when a container starts, as PID 1. | Diagram: made for this guide")
+
 ### Key concepts
 
 - **Dockerfile**: versionable recipe that turns manual decisions into a repeatable build.
@@ -629,6 +636,9 @@ Common base image variants:
 Smaller is not always better. For development, or while you do not yet know what you will need, start with a more complete image and "trim it down" after everything works. For production, when you already know exactly what runs, `alpine` or `slim` reduce the final size, the transfer time and the attack surface. The base must be compatible, up to date and sufficient to diagnose and run the application.
 
 The multistage example below copies only `/app/dist` to the runtime. This only works when `dist` is self-sufficient or when the application uses only native Node modules. If the artifact imports packages from `node_modules`, the final stage also needs to receive the production dependencies, for example with its own `npm ci --omit=dev` installation. Multistage is no license to leave needed dependencies behind.
+
+![The layers of a Dockerfile: FROM ubuntu:latest, RUN apt-get, COPY main.c Makefile, WORKDIR and RUN make build, all marked as cached.](/guides/containers/etapa04-cache.png "With no change to the files, each instruction reuses the layer already built. | Diagrams: docs.docker.com, Docker, Inc., Apache 2.0")
+![The same Dockerfile: FROM and RUN apt-get stay cached, and COPY, WORKDIR and RUN make build appear in red, without cache.](/guides/containers/etapa04-cache-invalidado.png "The copied files changed: `COPY` loses the cache, and so does every instruction after it. That is why what changes least comes first.")
 
 ### Key concepts
 
@@ -864,6 +874,8 @@ The container's writable layer is disposable by definition. Data that needs to s
 
 **Volume drivers.** The `local` driver is the default and uses the host's filesystem; it serves most cases well and is the recommended starting point. When several hosts need to access the same storage, the volume can use NFS through the `local` driver itself or a third-party plugin compatible with the provider (for example, integrations with EBS, Azure Disk or Ceph). In cloud environments with an orchestrator, specialized drivers or CSI plugins in Kubernetes are the common options. That choice depends on network, availability, permissions, backup and the consistency the application requires; only go down that road if there is a real need for sharing, remote persistence or specific performance requirements.
 
+![A container with three mounts: the named volume dados-demo at /dados, stored by Docker in /var/lib/docker/volumes/dados-demo/_data, which persists; the bind mount ./site at /usr/share/nginx/html, a host folder, which persists; and the tmpfs at /dados, in host memory, which is gone on restart.](/guides/containers/etapa05-montagens.en.svg "Each mechanism keeps the data in a different place on the host. The volume is managed by Docker, the bind mount is your own folder with no isolation, and tmpfs lives in memory and is gone when the container restarts. | Diagram: made for this guide")
+
 ### Key concepts
 
 - **Writable layer**: ephemeral; vanishes with the container.
@@ -1037,6 +1049,8 @@ Discovery by name is different from external access. `EXPOSE 3000` documents a p
 
 DNS does not transmit data or authenticate participants: it only resolves names to addresses. Isolation, encryption and authorization require their own mechanisms.
 
+![On the host, the custom network minha-rede with frontend and banco: frontend reaches banco by name, through internal DNS, and only frontend receives browser traffic through the published port 8080:80. Below, on the default bridge, cliente-padrao cannot resolve the name alvo.](/guides/containers/etapa06-redes.en.svg "On the custom network, internal DNS resolves the container name, and only what has `--publish` receives traffic from outside. The default bridge has no name resolution. | Diagram: made for this guide")
+
 ### Key concepts
 
 - **Custom bridge network**: isolates a group of containers and offers DNS by name.
@@ -1207,6 +1221,8 @@ Instead of `image:`, a service can use a `build:` block to be built locally befo
 
 Compose does not solve everything on its own. It interprets the definition and coordinates Docker resources, but the application still needs to handle startup, transient failures and dependencies correctly. `depends_on` guarantees creation order, not that the database is ready; readiness is handled with healthchecks in Stages 08 and 12.
 
+![An external user reaches the frontend service on port 443, which talks to the backend service over a network; the backend writes to a persistent volume, and the HTTP configuration and server certificate are mounted read-only in the frontend.](/guides/containers/etapa07-compose-aplicacao.webp "A Compose application brings together services, the network between them, the volume that persists data and the mounted files, all described in one file. | Diagram: docs.docker.com, Docker, Inc., Apache 2.0")
+
 ### Key concepts
 
 - **Compose file**: versionable description of services, networks and volumes.
@@ -1367,6 +1383,8 @@ Do not put `always` on everything: understand the role of each service. A databa
 **Scaling.** `docker compose up --scale worker=3` creates replicas of a service. Each replica is an independent instance, and a fixed port mapping such as `8080:3000` prevents several replicas on the same host, because port 8080 can only be occupied once. Replicas behind a single port require a load balancer in front of them.
 
 **CI (continuous integration).** The same definition that runs on the developer's machine can be used in a pipeline: start the dependencies (for example, a Node.js application and a Postgres database), run the integration tests and remove everything. This brings consistency between the local environment and the build pipeline, avoids depending on external services or mocks for everything and brings the test environment closer to production. Compose works on practically any CI provider (GitHub Actions, GitLab CI, Bitbucket, Jenkins).
+
+![compose.yaml with web using nginx:alpine, restart on-failure:3 and healthcheck, plus compose.prod.yaml with web using nginx:stable-alpine, result in a config where web uses nginx:stable-alpine and keeps the restart and healthcheck.](/guides/containers/etapa08-override.en.svg "With `-f`, the next file overrides the previous one for a service with the same name: only the image changes, and the rest comes from the base file. Always check with `config`. | Diagram: made for this guide")
 
 ### Key concepts
 
@@ -1603,6 +1621,8 @@ The root user inside a container is not automatically identical to the host's ro
 When creating the user in the image, use `adduser` (or `useradd`, depending on the base distribution) and set the owner of the copied files with `--chown`. When using volumes or bind mounts, the host user may differ from the container user, which causes permission problems; the common solution is to run the container with the same UID and GID as the host (`--user "$(id -u):$(id -g)"`).
 
 Namespaces are not unbreakable walls and `USER node` does not solve security on its own. The defense comes from the combination of controls, and the real implementation belongs to the kernel, the runtime, the image and the run options. Do not mount `/var/run/docker.sock` in ordinary applications: whoever controls that socket can control the Docker Engine and, in practice, compromise the host.
+
+![Nested layers around the application process, which runs as USER node: shared host kernel, namespaces and cgroups, AppArmor or SELinux, seccomp, --cap-drop ALL and --read-only with --tmpfs /tmp. On the side, the mounted docker.sock crosses every layer.](/guides/containers/etapa09-camadas.en.svg "Each layer reduces what an exploit can do, and none is enough on its own. Mounting `docker.sock` cancels all of them, because it gives control of the daemon, which runs as root on the host. | Diagram: made for this guide")
 
 ### Key concepts
 
@@ -1863,6 +1883,8 @@ This avoids sending thousands of `node_modules` files, prevents the `.env` from 
 - **Snyk** checks for known vulnerabilities in the image and in dependencies, using a continuously maintained vulnerability database. It works from the command line and integrates with CI pipelines.
 
 One complements the other: Dive helps understand the size, and Snyk takes care of security.
+
+![The meu-app folder: node_modules, .env, .git and build are struck through, because .dockerignore leaves them out; src, Dockerfile, compose.yaml and .dockerignore go in the context sent to the builder, which produces the image. Below, the warning that a secret copied during the build stays in the image history.](/guides/containers/etapa10-contexto.en.svg "`.dockerignore` decides what never reaches the builder: the build gets faster and `.env` gets into no layer. A secret copied during the build stays in the history, even if deleted in a later instruction. | Diagram: made for this guide")
 
 ### Key concepts
 
@@ -2132,6 +2154,8 @@ The **exit code** tells part of the story: `0` indicates normal termination; any
 
 `docker restart` without evidence switches the system off and on without reading what it said: it may bring the service back for a few minutes, but it also wipes the operational context and does not identify the cause. The order above protects the diagnosis from guesswork: inspection comes before any restart.
 
+![Six steps in sequence: state with docker ps --all, logs with docker logs, configuration with docker inspect, events with docker events, process and resources with docker top and docker stats, and inside test with docker exec, from the cheapest evidence to the most specific.](/guides/containers/etapa11-investigacao.en.svg "The order goes from what costs least to look at to what requires getting inside the container. Each step confirms or rules out a hypothesis before the next one. | Diagram: made for this guide")
+
 ### Key concepts
 
 - **State and exit code**: the first data to look at, before logs.
@@ -2298,6 +2322,8 @@ The main parameters are `test` (the command), `interval` (how often), `timeout` 
 - Grafana queries and visualizes the data, builds dashboards and correlates logs with metrics.
 
 To get started, it is worth putting together a simple Compose setup that includes the collector, Loki and Grafana. Combining structured logs with alerts on critical events raises the application's observability.
+
+![Three states: starting, during the 20s start_period, when failures do not count; healthy when the test passes; unhealthy after 3 failures in a row, and back to healthy when the test passes again. Below, what reacts to the state: restart, depends_on with service_healthy and docker compose up --wait.](/guides/containers/etapa12-healthcheck.en.svg "The values from the stage's example. The healthcheck only classifies the container; whatever acts on the result is the runtime, Compose or the orchestrator. | Diagram: made for this guide")
 
 ### Key concepts
 
@@ -2508,6 +2534,8 @@ services:
 ```
 
 Both formats are accepted by Compose v2; this guide uses `cpus` and `mem_limit`. Check the result with `docker compose config`.
+
+![On the interna network, the api, with init, USER node, read_only, tmpfs, cap_drop ALL, limits and healthcheck, receives the client on port 3000 and talks to db over TCP 5432 by name; it depends on db with service_healthy. The db, postgres:16-alpine with no published port, uses the dados_db volume and the db_password secret.](/guides/containers/etapa13-stack.en.svg "The capstone stack in one picture: only the api publishes a port, the database is reachable only through the `interna` network, the data lives in the volume and the password arrives as a file in `/run/secrets/`. | Diagram: made for this guide")
 
 ### Key concepts
 

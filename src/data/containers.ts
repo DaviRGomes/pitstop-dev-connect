@@ -423,6 +423,19 @@ export const LESSONS: Lesson[] = [
     tip: 'Quando um container "some" logo depois de `docker run`, não suponha defeito: rode `docker ps --all` e leia o `STATUS`. Um `Exited (0)` significa que o processo principal terminou normalmente, e um container só continua vivo enquanto esse processo continuar.',
     takeaway:
       "Container é um processo isolado e limitado pelo kernel; ele não é uma máquina virtual pequena.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/containers/etapa01-evolucao-deploy.svg",
+            alt: "Três colunas: implantação tradicional, com aplicações direto sobre o sistema operacional e o hardware; implantação virtualizada, com várias VMs, cada uma com sistema operacional próprio, sobre um hypervisor; implantação com containers, com aplicações sobre um runtime de containers que compartilha o sistema operacional do host.",
+            caption:
+              "A evolução da etapa: uma aplicação por servidor, depois várias VMs com sistema operacional próprio, depois containers que isolam apenas os processos e compartilham o kernel do host.",
+          },
+        ],
+        credit: "Diagrama: kubernetes.io, The Kubernetes Authors, CC BY 4.0",
+      },
+    ],
   },
   {
     id: "m2",
@@ -582,6 +595,25 @@ export const LESSONS: Lesson[] = [
     tip: "Quando precisar reproduzir exatamente uma imagem, anote o digest com `docker images --digests` e referencie `imagem@sha256:...`. Tags como `latest` e até `stable` mudam de conteúdo com o tempo; digests não.",
     takeaway:
       "Imagem é o artefato reproduzível; container é uma execução descartável dessa imagem.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/containers/etapa02-camada-container.webp",
+            alt: "Um container baseado na imagem ubuntu:15.04: quatro camadas de imagem somente leitura, com um cadeado, e por cima uma camada fina de leitura e escrita, a camada do container.",
+            caption:
+              "Um container é a imagem, em camadas somente leitura, mais uma camada gravável fina por cima. Tudo o que o container escreve vai para essa camada.",
+          },
+          {
+            src: "/guides/containers/etapa02-camadas-compartilhadas.webp",
+            alt: "Quatro camadas finas de leitura e escrita, uma por container, todas apontando para as mesmas quatro camadas somente leitura da imagem ubuntu:15.04.",
+            caption:
+              "Vários containers da mesma imagem compartilham as camadas somente leitura, e cada um tem a sua camada gravável. Remover um container apaga só a camada dele.",
+          },
+        ],
+        credit: "Diagramas: docs.docker.com, Docker, Inc., Apache 2.0",
+      },
+    ],
   },
   {
     id: "m3",
@@ -737,6 +769,19 @@ export const LESSONS: Lesson[] = [
     tip: "Guarde o Dockerfile no mesmo repositório do código. Assim, a receita da imagem é versionada junto com a aplicação, e um novo colega consegue reproduzir o ambiente com um único `docker build`.",
     takeaway:
       "Um Dockerfile transforma decisões manuais em uma construção repetível e versionável.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/containers/etapa03-build-run.svg",
+            alt: "À esquerda, o Dockerfile com FROM, WORKDIR, COPY, RUN npm install e CMD, e o contexto de build; no centro, a imagem em camadas, com a camada de RUN npm install em destaque; à direita, depois de docker run, o container executando node index.js.",
+            caption:
+              "O `docker build` executa o `RUN` uma vez e grava o resultado numa camada. O `CMD` fica guardado como metadado e só roda quando um container inicia, como PID 1.",
+          },
+        ],
+        credit: "Diagrama: feito para este guia",
+      },
+    ],
   },
   {
     id: "m4",
@@ -884,6 +929,24 @@ export const LESSONS: Lesson[] = [
     tip: "Se uma imagem pequena quebrar em produção por causa de uma biblioteca nativa, o problema costuma ser a diferença de `musl` (Alpine) para `glibc` (Debian). Antes de culpar o código, teste a mesma aplicação sobre `slim`. E lembre que uma imagem `distroless` não tem shell: para diagnosticar, será preciso usar outros meios (logs, uma imagem de depuração separada).",
     takeaway:
       "Ordene camadas pela frequência de mudança e deixe ferramentas de construção fora da imagem de runtime.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/containers/etapa04-cache.png",
+            alt: "As camadas de um Dockerfile: FROM ubuntu:latest, RUN apt-get, COPY main.c Makefile, WORKDIR e RUN make build, todas marcadas como em cache.",
+            caption: "Sem mudança nos arquivos, cada instrução reaproveita a camada já construída.",
+          },
+          {
+            src: "/guides/containers/etapa04-cache-invalidado.png",
+            alt: "O mesmo Dockerfile: FROM e RUN apt-get continuam em cache, e COPY, WORKDIR e RUN make build aparecem em vermelho, sem cache.",
+            caption:
+              "Os arquivos copiados mudaram: o `COPY` perde o cache, e todas as instruções depois dele também. Por isso o que muda menos vem primeiro.",
+          },
+        ],
+        credit: "Diagramas: docs.docker.com, Docker, Inc., Apache 2.0",
+      },
+    ],
   },
   {
     id: "m5",
@@ -1012,6 +1075,19 @@ export const LESSONS: Lesson[] = [
     tip: "Para qualquer dado que não possa ser perdido (banco de dados, uploads), use volume nomeado. Reserve o bind mount para o código que você edita durante o desenvolvimento, e lembre que um bind mount em produção amarra a aplicação à estrutura de pastas daquele servidor.",
     takeaway:
       "Se um dado precisa sobreviver ao container, ele não pode depender da camada gravável desse container.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/containers/etapa05-montagens.svg",
+            alt: "Um container com três montagens: o volume nomeado dados-demo em /dados, guardado pelo Docker em /var/lib/docker/volumes/dados-demo/_data, que persiste; o bind mount ./site em /usr/share/nginx/html, uma pasta do host, que persiste; e o tmpfs em /dados, na memória do host, que some no restart.",
+            caption:
+              "Cada mecanismo guarda o dado num lugar diferente do host. O volume é gerenciado pelo Docker, o bind mount é uma pasta sua sem isolamento, e o tmpfs fica na memória e some quando o container reinicia.",
+          },
+        ],
+        credit: "Diagrama: feito para este guia",
+      },
+    ],
   },
   {
     id: "m6",
@@ -1158,6 +1234,19 @@ export const LESSONS: Lesson[] = [
     tip: "Para expor um serviço só ao seu computador (por exemplo, enquanto desenvolve), publique no endereço de loopback: `--publish 127.0.0.1:8080:80`. Assim a porta não fica acessível para outras máquinas da rede.",
     takeaway:
       "Containers na mesma rede personalizada se encontram pelo nome; publique somente as portas que precisam ser acessadas pelo host.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/containers/etapa06-redes.svg",
+            alt: "No host, a rede personalizada minha-rede com frontend e banco: o frontend chega ao banco pelo nome, via DNS interno, e só o frontend recebe tráfego do navegador pela porta publicada 8080:80. Embaixo, na bridge padrão, cliente-padrao não resolve o nome alvo.",
+            caption:
+              "Na rede personalizada, o DNS interno resolve o nome do container, e só o que tem `--publish` recebe tráfego de fora. Na bridge padrão não há resolução por nome.",
+          },
+        ],
+        credit: "Diagrama: feito para este guia",
+      },
+    ],
   },
   {
     id: "m7",
@@ -1299,6 +1388,19 @@ export const LESSONS: Lesson[] = [
     tip: "Rode `docker compose config` sempre que editar o YAML, antes de `up`. Ele pega erros de indentação e mostra os valores finais (variáveis expandidas, arquivos combinados), o que poupa muita tentativa e erro.",
     takeaway:
       "Compose transforma uma sequência frágil de comandos em uma definição versionável da aplicação.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/containers/etapa07-compose-aplicacao.webp",
+            alt: "Um usuário externo chega pela porta 443 ao serviço de frontend, que fala com o serviço de backend por uma rede; o backend grava num volume persistente, e a configuração HTTP e o certificado do servidor são montados só leitura no frontend.",
+            caption:
+              "Uma aplicação Compose reúne serviços, a rede entre eles, o volume que persiste os dados e os arquivos montados, tudo descrito num só arquivo.",
+          },
+        ],
+        credit: "Diagrama: docs.docker.com, Docker, Inc., Apache 2.0",
+      },
+    ],
   },
   {
     id: "m8",
@@ -1456,6 +1558,19 @@ export const LESSONS: Lesson[] = [
     tip: "Comece sempre por `docker compose config` ao combinar arquivos. Ver o resultado consolidado antes de subir evita a surpresa de um override que não sobrescreveu o que você esperava (ou de um `-f` que desligou o override automático).",
     takeaway:
       "Arquivos Compose adicionais mudam apenas o que varia entre ambientes; reinício recupera processos, mas não substitui verificação de prontidão.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/containers/etapa08-override.svg",
+            alt: "O compose.yaml com web usando nginx:alpine, restart on-failure:3 e healthcheck, mais o compose.prod.yaml com web usando nginx:stable-alpine, resultam num config em que web usa nginx:stable-alpine e mantém o restart e o healthcheck.",
+            caption:
+              "Com `-f`, o arquivo seguinte sobrepõe o anterior no serviço de mesmo nome: só a imagem muda, e o resto vem do arquivo base. Confira sempre com `config`.",
+          },
+        ],
+        credit: "Diagrama: feito para este guia",
+      },
+    ],
   },
   {
     id: "m9",
@@ -1615,6 +1730,19 @@ export const LESSONS: Lesson[] = [
     tip: "Quando uma aplicação falhar depois de `--cap-drop ALL`, não volte atrás por reflexo. Leia o erro, identifique qual operação foi negada e devolva apenas a capability correspondente com `--cap-add`. É assim que o conjunto mínimo se descobre.",
     takeaway:
       "Segurança de container é defesa em profundidade: usuário, permissões, capabilities, chamadas de sistema, imagem e mounts precisam cooperar.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/containers/etapa09-camadas.svg",
+            alt: "Camadas aninhadas em volta do processo da aplicação, que roda como USER node: kernel do host compartilhado, namespaces e cgroups, AppArmor ou SELinux, seccomp, --cap-drop ALL e --read-only com --tmpfs /tmp. Ao lado, o docker.sock montado atravessa todas as camadas.",
+            caption:
+              "Cada camada reduz o que uma exploração consegue fazer, e nenhuma basta sozinha. Montar o `docker.sock` anula todas, porque dá controle do daemon, que roda como root no host.",
+          },
+        ],
+        credit: "Diagrama: feito para este guia",
+      },
+    ],
   },
   {
     id: "m10",
@@ -1794,6 +1922,19 @@ export const LESSONS: Lesson[] = [
     tip: "O BuildKit também permite entregar segredos ao build sem gravá-los em nenhuma camada. Se um passo do build realmente precisa de uma credencial (por exemplo, baixar um pacote privado), consulte a documentação do Docker sobre segredos de build em vez de recorrer a `ARG` ou `COPY`.",
     takeaway:
       "Um segredo que não entra no contexto não pode vazar por uma camada criada durante o build.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/containers/etapa10-contexto.svg",
+            alt: "A pasta meu-app: node_modules, .env, .git e build estão riscados, porque o .dockerignore os deixa fora; src, Dockerfile, compose.yaml e .dockerignore vão no contexto enviado ao builder, que gera a imagem. Embaixo, o aviso de que um segredo copiado no build fica no histórico da imagem.",
+            caption:
+              "O `.dockerignore` decide o que nem chega ao builder: o build fica mais rápido e o `.env` não entra em nenhuma camada. Um segredo copiado no build continua no histórico, mesmo apagado numa instrução seguinte.",
+          },
+        ],
+        credit: "Diagrama: feito para este guia",
+      },
+    ],
   },
   {
     id: "m11",
@@ -1945,6 +2086,19 @@ export const LESSONS: Lesson[] = [
     tip: "Escreva sua hipótese antes de olhar cada evidência, mesmo que em uma linha. Isso treina a ler o estado e o código de saída com atenção, em vez de sair rodando comandos até algo parecer certo.",
     takeaway:
       "Diagnóstico começa pelo estado observável e avança para evidências; reiniciar não é investigar.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/containers/etapa11-investigacao.svg",
+            alt: "Seis passos em sequência: estado com docker ps --all, logs com docker logs, configuração com docker inspect, eventos com docker events, processo e recursos com docker top e docker stats, e teste interno com docker exec, da evidência mais barata à mais específica.",
+            caption:
+              "A ordem vai do que custa menos para olhar ao que exige entrar no container. Cada passo confirma ou descarta uma hipótese antes do próximo.",
+          },
+        ],
+        credit: "Diagrama: feito para este guia",
+      },
+    ],
   },
   {
     id: "m12",
@@ -2072,6 +2226,19 @@ export const LESSONS: Lesson[] = [
     tip: "Escolha o que o healthcheck testa conforme o que quebra de verdade. Um teste que só confere se a porta abre pode passar com o banco fora do ar; um que consulta o banco a cada segundo pode se tornar a maior fonte de carga. Prefira uma verificação leve que ainda dependa do que é essencial.",
     takeaway:
       'Processo ativo responde à pergunta "está rodando?"; healthcheck responde "consegue cumprir sua função?".',
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/containers/etapa12-healthcheck.svg",
+            alt: "Três estados: starting, durante o start_period de 20s, em que falhas não contam; healthy quando o teste passa; unhealthy depois de 3 falhas seguidas, e de volta a healthy quando o teste volta a passar. Embaixo, quem reage ao estado: restart, depends_on com service_healthy e docker compose up --wait.",
+            caption:
+              "Os valores do exemplo da etapa. O healthcheck só classifica o container; quem age sobre o resultado é o runtime, o Compose ou o orquestrador.",
+          },
+        ],
+        credit: "Diagrama: feito para este guia",
+      },
+    ],
   },
   {
     id: "m13",
@@ -2258,6 +2425,19 @@ export const LESSONS: Lesson[] = [
     tip: "Depois de concluir o capstone, repita-o provocando uma falha de propósito: pare o banco, remova o volume, troque a senha. Se você consegue prever e explicar cada resposta do sistema (estado, healthcheck, logs), você entendeu como as peças funcionam juntas.",
     takeaway:
       "Uma stack madura não depende de um único recurso: ela combina construção reproduzível, isolamento, menor privilégio, persistência, saúde e evidências operacionais.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/containers/etapa13-stack.svg",
+            alt: "Na rede interna, a api, com init, USER node, read_only, tmpfs, cap_drop ALL, limites e healthcheck, recebe o cliente pela porta 3000 e fala com o db por TCP 5432 pelo nome; ela depende do db com service_healthy. O db, postgres:16-alpine sem porta publicada, usa o volume dados_db e o segredo db_password.",
+            caption:
+              "A stack do capstone num só quadro: só a api publica porta, o banco fica alcançável apenas pela rede `interna`, os dados ficam no volume e a senha chega como arquivo em `/run/secrets/`.",
+          },
+        ],
+        credit: "Diagrama: feito para este guia",
+      },
+    ],
   },
 ];
 

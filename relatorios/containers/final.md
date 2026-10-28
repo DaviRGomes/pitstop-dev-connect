@@ -137,6 +137,8 @@ O container compartilha o kernel do host. Por isso ele costuma iniciar mais ráp
 
 O **Docker** é a ferramenta que tornou containers acessíveis: ele padroniza como empacotar, distribuir e executar. Uma aplicação empacotada roda do mesmo jeito no seu notebook, no servidor de teste, em produção ou na nuvem, o que elimina o problema do "na minha máquina funciona".
 
+![Três colunas: implantação tradicional, com aplicações direto sobre o sistema operacional e o hardware; implantação virtualizada, com várias VMs, cada uma com sistema operacional próprio, sobre um hypervisor; implantação com containers, com aplicações sobre um runtime de containers que compartilha o sistema operacional do host.](/guides/containers/etapa01-evolucao-deploy.svg "A evolução da etapa: uma aplicação por servidor, depois várias VMs com sistema operacional próprio, depois containers que isolam apenas os processos e compartilham o kernel do host. | Diagrama: kubernetes.io, The Kubernetes Authors, CC BY 4.0")
+
 ### Os conceitos-chave
 
 - **Container**: processos isolados e limitados pelo kernel; ele vive somente enquanto o seu processo principal estiver ativo.
@@ -258,6 +260,9 @@ Um **registry público** permite descobrir e baixar imagens públicas, muitas ve
 Use imagens públicas apenas quando forem confiáveis e verificadas, e guarde em repositórios privados tudo o que for sensível ou interno.
 
 Antes de enviar uma imagem, o nome local precisa receber uma tag que inclua o endereço do registry, o namespace e a versão.
+
+![Um container baseado na imagem ubuntu:15.04: quatro camadas de imagem somente leitura, com um cadeado, e por cima uma camada fina de leitura e escrita, a camada do container.](/guides/containers/etapa02-camada-container.webp "Um container é a imagem, em camadas somente leitura, mais uma camada gravável fina por cima. Tudo o que o container escreve vai para essa camada. | Diagramas: docs.docker.com, Docker, Inc., Apache 2.0")
+![Quatro camadas finas de leitura e escrita, uma por container, todas apontando para as mesmas quatro camadas somente leitura da imagem ubuntu:15.04.](/guides/containers/etapa02-camadas-compartilhadas.webp "Vários containers da mesma imagem compartilham as camadas somente leitura, e cada um tem a sua camada gravável. Remover um container apaga só a camada dele.")
 
 ### Os conceitos-chave
 
@@ -451,6 +456,8 @@ A ordem das instruções importa porque o Docker guarda em cache o resultado de 
 
 **O processo principal e os sinais.** O processo definido pelo `CMD` é o PID 1 do container. No Linux, o PID 1 não recebe o tratamento padrão de sinais: um sinal como SIGTERM ou SIGINT, que normalmente encerra um programa, é ignorado se o programa não instalou um tratador para ele, e o Node.js sem tratador explícito se enquadra nesse caso. O resultado é que o Ctrl+C no terminal pode não encerrar o container, e o `docker stop` espera o prazo (10 segundos por padrão) e então envia SIGKILL. A opção `--init` do `docker run` (e `init: true` no Compose) coloca um pequeno processo init como PID 1, que repassa os sinais ao seu programa. Por isso os exemplos de API deste guia usam `--init`. Para encerrar um container em primeiro plano, use o Ctrl+C no terminal dele ou, em outro terminal, `docker stop nome`. O código de saída 137 que resulta de um encerramento forçado por SIGKILL não indica, por si só, falta de memória; a Etapa 11 mostra como distinguir os dois casos.
 
+![À esquerda, o Dockerfile com FROM, WORKDIR, COPY, RUN npm install e CMD, e o contexto de build; no centro, a imagem em camadas, com a camada de RUN npm install em destaque; à direita, depois de docker run, o container executando node index.js.](/guides/containers/etapa03-build-run.svg "O `docker build` executa o `RUN` uma vez e grava o resultado numa camada. O `CMD` fica guardado como metadado e só roda quando um container inicia, como PID 1. | Diagrama: feito para este guia")
+
 ### Os conceitos-chave
 
 - **Dockerfile**: receita versionável que transforma decisões manuais em uma construção repetível.
@@ -629,6 +636,9 @@ Variantes comuns de imagem base:
 Menor nem sempre significa melhor. Para desenvolvimento, ou enquanto você ainda não sabe o que vai precisar, comece com uma imagem mais completa e "seque" depois que tudo funcionar. Para produção, quando você já sabe exatamente o que roda, `alpine` ou `slim` reduzem o tamanho final, o tempo de transferência e a superfície de ataque. A base deve ser compatível, atualizada e suficiente para diagnosticar e executar a aplicação.
 
 O exemplo multistage a seguir copia apenas `/app/dist` para o runtime. Isso só funciona quando `dist` é autossuficiente ou quando a aplicação usa apenas módulos nativos do Node. Se o artefato importa pacotes de `node_modules`, a etapa final também precisa receber as dependências de produção, por exemplo com uma instalação `npm ci --omit=dev` própria. Multistage não autoriza deixar dependências necessárias para trás.
+
+![As camadas de um Dockerfile: FROM ubuntu:latest, RUN apt-get, COPY main.c Makefile, WORKDIR e RUN make build, todas marcadas como em cache.](/guides/containers/etapa04-cache.png "Sem mudança nos arquivos, cada instrução reaproveita a camada já construída. | Diagramas: docs.docker.com, Docker, Inc., Apache 2.0")
+![O mesmo Dockerfile: FROM e RUN apt-get continuam em cache, e COPY, WORKDIR e RUN make build aparecem em vermelho, sem cache.](/guides/containers/etapa04-cache-invalidado.png "Os arquivos copiados mudaram: o `COPY` perde o cache, e todas as instruções depois dele também. Por isso o que muda menos vem primeiro.")
 
 ### Os conceitos-chave
 
@@ -864,6 +874,8 @@ A camada gravável do container é descartável por definição. Dados que preci
 
 **Drivers de volume.** O driver `local` é o padrão e usa o sistema de arquivos do host; atende bem à maioria dos casos e é o ponto de partida recomendado. Quando vários hosts precisam acessar o mesmo armazenamento, o volume pode usar NFS por meio do próprio driver `local` ou um plugin de terceiros compatível com o provedor (por exemplo, integrações com EBS, Azure Disk ou Ceph). Em ambientes com orquestrador na nuvem, drivers especializados ou plugins CSI no Kubernetes são as opções comuns. Essa escolha depende de rede, disponibilidade, permissões, backup e consistência exigida pela aplicação; só parta para ela se houver necessidade real de compartilhamento, persistência remota ou requisitos específicos de desempenho.
 
+![Um container com três montagens: o volume nomeado dados-demo em /dados, guardado pelo Docker em /var/lib/docker/volumes/dados-demo/_data, que persiste; o bind mount ./site em /usr/share/nginx/html, uma pasta do host, que persiste; e o tmpfs em /dados, na memória do host, que some no restart.](/guides/containers/etapa05-montagens.svg "Cada mecanismo guarda o dado num lugar diferente do host. O volume é gerenciado pelo Docker, o bind mount é uma pasta sua sem isolamento, e o tmpfs fica na memória e some quando o container reinicia. | Diagrama: feito para este guia")
+
 ### Os conceitos-chave
 
 - **Camada gravável**: efêmera; some com o container.
@@ -1037,6 +1049,8 @@ Descoberta por nome é diferente de acesso externo. `EXPOSE 3000` documenta uma 
 
 DNS não transmite dados nem autentica participantes: ele só resolve nomes para endereços. Isolamento, criptografia e autorização exigem mecanismos próprios.
 
+![No host, a rede personalizada minha-rede com frontend e banco: o frontend chega ao banco pelo nome, via DNS interno, e só o frontend recebe tráfego do navegador pela porta publicada 8080:80. Embaixo, na bridge padrão, cliente-padrao não resolve o nome alvo.](/guides/containers/etapa06-redes.svg "Na rede personalizada, o DNS interno resolve o nome do container, e só o que tem `--publish` recebe tráfego de fora. Na bridge padrão não há resolução por nome. | Diagrama: feito para este guia")
+
 ### Os conceitos-chave
 
 - **Rede bridge personalizada**: isola um grupo de containers e oferece DNS por nome.
@@ -1207,6 +1221,8 @@ Em vez de `image:`, um serviço pode usar um bloco `build:` para ser construído
 
 O Compose não resolve tudo sozinho. Ele interpreta a definição e coordena recursos Docker, mas a aplicação ainda precisa lidar corretamente com inicialização, falhas transitórias e dependências. `depends_on` garante a ordem de criação, e não que o banco esteja pronto; a prontidão é tratada com healthchecks nas Etapas 08 e 12.
 
+![Um usuário externo chega pela porta 443 ao serviço de frontend, que fala com o serviço de backend por uma rede; o backend grava num volume persistente, e a configuração HTTP e o certificado do servidor são montados só leitura no frontend.](/guides/containers/etapa07-compose-aplicacao.webp "Uma aplicação Compose reúne serviços, a rede entre eles, o volume que persiste os dados e os arquivos montados, tudo descrito num só arquivo. | Diagrama: docs.docker.com, Docker, Inc., Apache 2.0")
+
 ### Os conceitos-chave
 
 - **Arquivo Compose**: descrição versionável de serviços, redes e volumes.
@@ -1367,6 +1383,8 @@ Não coloque `always` em tudo: entenda o papel de cada serviço. Um banco costum
 **Escala.** `docker compose up --scale worker=3` cria réplicas de um serviço. Cada réplica é uma instância independente, e um mapeamento fixo de porta como `8080:3000` impede várias réplicas no mesmo host, porque a porta 8080 só pode ser ocupada uma vez. Réplicas atrás de uma porta única exigem um balanceador na frente delas.
 
 **CI (integração contínua).** A mesma definição que roda na máquina de quem desenvolve pode ser usada numa pipeline: subir as dependências (por exemplo, aplicação Node.js e um banco Postgres), rodar os testes de integração e remover tudo. Isso traz consistência entre o ambiente local e a esteira de build, evita depender de serviços externos ou de mocks para tudo e aproxima o ambiente de testes do de produção. O Compose funciona em praticamente qualquer provedor de CI (GitHub Actions, GitLab CI, Bitbucket, Jenkins).
+
+![O compose.yaml com web usando nginx:alpine, restart on-failure:3 e healthcheck, mais o compose.prod.yaml com web usando nginx:stable-alpine, resultam num config em que web usa nginx:stable-alpine e mantém o restart e o healthcheck.](/guides/containers/etapa08-override.svg "Com `-f`, o arquivo seguinte sobrepõe o anterior no serviço de mesmo nome: só a imagem muda, e o resto vem do arquivo base. Confira sempre com `config`. | Diagrama: feito para este guia")
 
 ### Os conceitos-chave
 
@@ -1603,6 +1621,8 @@ O usuário root dentro de um container não é automaticamente idêntico ao root
 Ao criar o usuário na imagem, use `adduser` (ou `useradd`, conforme a distribuição base) e defina o dono dos arquivos copiados com `--chown`. Ao usar volumes ou bind mounts, o usuário do host pode ser diferente do usuário do container, o que causa problemas de permissão; a solução comum é executar o container com os mesmos UID e GID do host (`--user "$(id -u):$(id -g)"`).
 
 Namespaces não são paredes invioláveis e `USER node` não resolve segurança sozinho. A defesa vem da combinação de controles, e a implementação real pertence ao kernel, ao runtime, à imagem e às opções de execução. Não monte `/var/run/docker.sock` em aplicações comuns: quem controla esse socket pode controlar a Docker Engine e, na prática, comprometer o host.
+
+![Camadas aninhadas em volta do processo da aplicação, que roda como USER node: kernel do host compartilhado, namespaces e cgroups, AppArmor ou SELinux, seccomp, --cap-drop ALL e --read-only com --tmpfs /tmp. Ao lado, o docker.sock montado atravessa todas as camadas.](/guides/containers/etapa09-camadas.svg "Cada camada reduz o que uma exploração consegue fazer, e nenhuma basta sozinha. Montar o `docker.sock` anula todas, porque dá controle do daemon, que roda como root no host. | Diagrama: feito para este guia")
 
 ### Os conceitos-chave
 
@@ -1863,6 +1883,8 @@ Isso evita enviar milhares de arquivos de `node_modules`, impede que o `.env` v�
 - **Snyk** verifica vulnerabilidades conhecidas na imagem e em dependências, usando uma base de dados de vulnerabilidades mantida continuamente. Funciona por linha de comando e se integra a pipelines de CI.
 
 Um complementa o outro: o Dive ajuda a entender o tamanho, e o Snyk cuida da segurança.
+
+![A pasta meu-app: node_modules, .env, .git e build estão riscados, porque o .dockerignore os deixa fora; src, Dockerfile, compose.yaml e .dockerignore vão no contexto enviado ao builder, que gera a imagem. Embaixo, o aviso de que um segredo copiado no build fica no histórico da imagem.](/guides/containers/etapa10-contexto.svg "O `.dockerignore` decide o que nem chega ao builder: o build fica mais rápido e o `.env` não entra em nenhuma camada. Um segredo copiado no build continua no histórico, mesmo apagado numa instrução seguinte. | Diagrama: feito para este guia")
 
 ### Os conceitos-chave
 
@@ -2132,6 +2154,8 @@ O `docker events` é leve e nativo, e acompanha mudanças de estado de container
 
 `docker restart` sem evidência desliga e liga o sistema sem ler o que ele disse: pode devolver o serviço por alguns minutos, mas também apaga o contexto operacional e não identifica a causa. A ordem acima protege o diagnóstico contra palpites: a inspeção vem antes de qualquer reinício.
 
+![Seis passos em sequência: estado com docker ps --all, logs com docker logs, configuração com docker inspect, eventos com docker events, processo e recursos com docker top e docker stats, e teste interno com docker exec, da evidência mais barata à mais específica.](/guides/containers/etapa11-investigacao.svg "A ordem vai do que custa menos para olhar ao que exige entrar no container. Cada passo confirma ou descarta uma hipótese antes do próximo. | Diagrama: feito para este guia")
+
 ### Os conceitos-chave
 
 - **Estado e código de saída**: o primeiro dado a olhar, antes de logs.
@@ -2298,6 +2322,8 @@ Os parâmetros principais são `test` (o comando), `interval` (de quanto em quan
 - Grafana consulta e visualiza os dados, monta dashboards e correlaciona logs com métricas.
 
 Para começar, vale montar um setup simples com Compose que inclua o coletor, o Loki e o Grafana. Combinar logs estruturados com alertas sobre eventos críticos eleva a observabilidade da aplicação.
+
+![Três estados: starting, durante o start_period de 20s, em que falhas não contam; healthy quando o teste passa; unhealthy depois de 3 falhas seguidas, e de volta a healthy quando o teste volta a passar. Embaixo, quem reage ao estado: restart, depends_on com service_healthy e docker compose up --wait.](/guides/containers/etapa12-healthcheck.svg "Os valores do exemplo da etapa. O healthcheck só classifica o container; quem age sobre o resultado é o runtime, o Compose ou o orquestrador. | Diagrama: feito para este guia")
 
 ### Os conceitos-chave
 
@@ -2508,6 +2534,8 @@ services:
 ```
 
 Ambos os formatos são aceitos pelo Compose v2; este guia usa `cpus` e `mem_limit`. Confira o resultado com `docker compose config`.
+
+![Na rede interna, a api, com init, USER node, read_only, tmpfs, cap_drop ALL, limites e healthcheck, recebe o cliente pela porta 3000 e fala com o db por TCP 5432 pelo nome; ela depende do db com service_healthy. O db, postgres:16-alpine sem porta publicada, usa o volume dados_db e o segredo db_password.](/guides/containers/etapa13-stack.svg "A stack do capstone num só quadro: só a api publica porta, o banco fica alcançável apenas pela rede `interna`, os dados ficam no volume e a senha chega como arquivo em `/run/secrets/`. | Diagrama: feito para este guia")
 
 ### Os conceitos-chave
 
