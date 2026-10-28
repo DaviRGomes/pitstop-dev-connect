@@ -214,6 +214,8 @@ Existem dois jeitos de trabalhar com o kubectl:
 
 Neste guia começamos pelo imperativo, que é mais rápido para aprender, e passamos ao declarativo na Etapa 03.
 
+![No terminal, kubectl get pods lê o kubeconfig, com o endereço do API Server e as credenciais, e envia GET /api/v1/namespaces/default/pods ao API Server, no control plane, que consulta o etcd; a resposta volta em JSON e o kubectl a formata. Embaixo, o modo imperativo com kubectl run e o declarativo com kubectl apply -f.](/guides/kubernetes/etapa02-kubectl-api.svg "Todo comando do kubectl vira uma requisição HTTP à API. O kubeconfig diz para onde mandar e com quais credenciais, e o `-v=6` mostra a requisição feita. | Diagrama: feito para este guia")
+
 ### Os conceitos-chave
 
 - **API Server**: a porta de entrada do cluster; recebe toda requisição, valida e executa.
@@ -785,6 +787,8 @@ Os **modos de acesso** do PVC definem quem pode montar o volume:
 - **ReadOnlyMany (ROX)**: somente leitura, por vários nós. Serve para assets estáticos.
 - **ReadWriteMany (RWX)**: leitura e escrita por vários nós. Exige NFS ou um backend equivalente.
 
+![O pod-persistente monta /dados a partir do PVC meu-pvc, que pede 1Gi em ReadWriteOnce e está Bound; o PVC é atendido por um PV criado automaticamente pela StorageClass standard, e os dados sobrevivem à recriação do Pod. Embaixo, o pod-efemero usa emptyDir, que nasce vazio e morre com o Pod.](/guides/kubernetes/etapa06-pvc.svg "O Pod só conhece o PVC, o pedido. Quem atende é o PV, criado pela StorageClass `standard` do Minikube. Com `emptyDir`, o dado vive só enquanto o Pod existir. | Diagrama: feito para este guia")
+
 ### Os conceitos-chave
 
 - **emptyDir**: volume temporário que vive e morre com o Pod.
@@ -946,6 +950,8 @@ Cada probe pode verificar de três formas:
 - **exec**: executa um comando dentro do container; código de saída 0 significa saudável.
 
 Boas práticas da aula: use as três probes juntas em produção; use endpoints diferentes para cada probe; comece pelas configurações padrão e ajuste intervalos só quando o app pedir; monitore as falhas de probe (por exemplo, com Prometheus), porque elas são o primeiro sinal de problema.
+
+![Três probes do Pod exemplo-probes, executadas pelo kubelet: livenessProbe em /health, que ao falhar faz o kubelet reiniciar o container no mesmo Pod; readinessProbe em /ready, que ao falhar tira o Pod do Service sem reiniciar; e startupProbe em /startup, que segura as outras duas enquanto não passa.](/guides/kubernetes/etapa07-probes.svg "O que importa é a consequência de cada falha: liveness reinicia, readiness tira do tráfego, startup adia as outras. Sem probe, o kubelet só reinicia o container quando o processo termina. | Diagrama: feito para este guia")
 
 ### Os conceitos-chave
 
@@ -1285,6 +1291,8 @@ Também importa o que **não** entrou. Nem toda peça aprendida cabe em todo app
 
 - A **startupProbe** (Etapa 07) ficou de fora porque o podinfo sobe em frações de segundo. Usar uma peça só porque ela existe no manual adiciona configuração sem benefício.
 - O **PVC** (Etapa 06) também ficou fora do Deployment, por um motivo técnico. O problema: o PVC da Etapa 06 usa `ReadWriteOnce`, e esse modo não pode ser dividido entre réplicas em nós diferentes. No Minikube (um nó só) colar o `volumes.persistentVolumeClaim` em um Deployment com várias réplicas pode até subir sem reclamar, mas num cluster com vários nós as réplicas extras ficam presas, disputando o mesmo disco (o evento aparece como `FailedAttachVolume`). As saídas, se o app precisasse de estado: um cache compartilhado de verdade (o podinfo tem a flag `--cache-server` para falar com um Redis) ou um disco por réplica, com um StatefulSet e `volumeClaimTemplates`, assunto do módulo avançado. A Etapa 06 continua válida: ela é a resposta certa para o cenário dela, um Pod único com dados, como um banco.
+
+![O ConfigMap podinfo-config alimenta o Deployment podinfo por envFrom; o Deployment, com a imagem stefanprodan/podinfo:6.14.1, 3 réplicas, requests de CPU e probes em /healthz e /readyz, cria 3 Pods na porta 9898; o HPA podinfo ajusta as réplicas entre 2 e 8 com alvo de 70% de CPU; o Service podinfo, NodePort 30898, encontra os Pods pelo selector e recebe o navegador.](/guides/kubernetes/etapa09-podinfo.svg "Os quatro manifestos da etapa e como se ligam: tudo se encontra pelo label `app: podinfo`, e o HPA passa a mandar no número de réplicas do Deployment. | Diagrama: feito para este guia")
 
 ### Os conceitos-chave
 

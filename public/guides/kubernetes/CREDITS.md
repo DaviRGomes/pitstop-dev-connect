@@ -15,3 +15,15 @@ https://creativecommons.org/licenses/by/4.0/
 | etapa08-hpa.svg | static/images/docs/horizontal-pod-autoscaler.svg |
 
 Os arquivos não foram modificados, apenas renomeados.
+
+## Diagramas próprios
+
+Desenhados para este guia a partir dos laboratórios das etapas, sem material de terceiros. Cada
+um tem uma versão em português (`.svg`) e uma em inglês (`.en.svg`).
+
+| Arquivo | Etapa |
+|---|---|
+| etapa02-kubectl-api.svg, etapa02-kubectl-api.en.svg | 02: kubectl, kubeconfig e API Server |
+| etapa06-pvc.svg, etapa06-pvc.en.svg | 06: Pod, PVC, PV e StorageClass |
+| etapa07-probes.svg, etapa07-probes.en.svg | 07: as três probes |
+| etapa09-podinfo.svg, etapa09-podinfo.en.svg | 09: os manifestos do podinfo |

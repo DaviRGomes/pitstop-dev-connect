@@ -453,6 +453,19 @@ export const LESSONS: Lesson[] = [
     tip: "Grave o fluxo de debug: `get pods` (qual o status?), depois `describe pod` (o que dizem os Events?), depois `logs` (o que o app diz?). Essa sequência resolve a maioria dos problemas.",
     takeaway:
       "Tudo no K8s é uma chamada à API REST, o kubectl é o cliente dessa API, e quando algo trava o caminho é sempre get, describe, logs.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/kubernetes/etapa02-kubectl-api.svg",
+            alt: "No terminal, kubectl get pods lê o kubeconfig, com o endereço do API Server e as credenciais, e envia GET /api/v1/namespaces/default/pods ao API Server, no control plane, que consulta o etcd; a resposta volta em JSON e o kubectl a formata. Embaixo, o modo imperativo com kubectl run e o declarativo com kubectl apply -f.",
+            caption:
+              "Todo comando do kubectl vira uma requisição HTTP à API. O kubeconfig diz para onde mandar e com quais credenciais, e o `-v=6` mostra a requisição feita.",
+          },
+        ],
+        credit: "Diagrama: feito para este guia",
+      },
+    ],
     handsOnIntro: "Execute o ciclo completo e provoque o primeiro erro de propósito.",
   },
   {
@@ -996,6 +1009,19 @@ export const LESSONS: Lesson[] = [
     tip: "Dado importante sempre fica atrás de um PVC. Se os dados sumiram após um restart ou uma recriação, quase certamente estavam em `emptyDir` ou no sistema de arquivos do próprio container.",
     takeaway:
       "PVC é o pedido, PV é o disco, StorageClass descreve os tipos de disco, e dado que importa mora sempre atrás de um PVC.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/kubernetes/etapa06-pvc.svg",
+            alt: "O pod-persistente monta /dados a partir do PVC meu-pvc, que pede 1Gi em ReadWriteOnce e está Bound; o PVC é atendido por um PV criado automaticamente pela StorageClass standard, e os dados sobrevivem à recriação do Pod. Embaixo, o pod-efemero usa emptyDir, que nasce vazio e morre com o Pod.",
+            caption:
+              "O Pod só conhece o PVC, o pedido. Quem atende é o PV, criado pela StorageClass `standard` do Minikube. Com `emptyDir`, o dado vive só enquanto o Pod existir.",
+          },
+        ],
+        credit: "Diagrama: feito para este guia",
+      },
+    ],
   },
   {
     id: "m7",
@@ -1109,6 +1135,19 @@ export const LESSONS: Lesson[] = [
     tip: "`Running` não significa saudável. Um app pode estar rodando e travado em um deadlock. É exatamente por isso que as probes existem.",
     takeaway:
       "Processo que cai o kubelet reinicia, Pod que some o ReplicaSet recria, e processo vivo porém travado só a liveness detecta: liveness falhou reinicia o container, readiness falhou tira o Pod do balanceador sem reiniciar, e startup segura as duas até o app terminar de subir.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/kubernetes/etapa07-probes.svg",
+            alt: "Três probes do Pod exemplo-probes, executadas pelo kubelet: livenessProbe em /health, que ao falhar faz o kubelet reiniciar o container no mesmo Pod; readinessProbe em /ready, que ao falhar tira o Pod do Service sem reiniciar; e startupProbe em /startup, que segura as outras duas enquanto não passa.",
+            caption:
+              "O que importa é a consequência de cada falha: liveness reinicia, readiness tira do tráfego, startup adia as outras. Sem probe, o kubelet só reinicia o container quando o processo termina.",
+          },
+        ],
+        credit: "Diagrama: feito para este guia",
+      },
+    ],
   },
   {
     id: "m8",
@@ -1376,6 +1415,19 @@ export const LESSONS: Lesson[] = [
     tip: "A pegadinha do ConfigMap é um erro comum: editar o ConfigMap não reinicia nada sozinho (a menos que exista algo como um Reloader cuidando disso). Em produção, o comando depois de aplicar uma configuração nova quase sempre é `kubectl rollout restart deployment/<nome>`.",
     takeaway:
       "Um manifesto profissional não é a soma de tudo que você aprendeu: é a escolha do que o app precisa (ConfigMap, réplicas, probes reais, Service, HPA) e a recusa consciente do que ele não precisa (startupProbe num app rápido, PVC num Deployment com várias réplicas); e crash de processo é tratado pelo kubelet, enquanto só uma probe que falha prova a liveness.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/kubernetes/etapa09-podinfo.svg",
+            alt: "O ConfigMap podinfo-config alimenta o Deployment podinfo por envFrom; o Deployment, com a imagem stefanprodan/podinfo:6.14.1, 3 réplicas, requests de CPU e probes em /healthz e /readyz, cria 3 Pods na porta 9898; o HPA podinfo ajusta as réplicas entre 2 e 8 com alvo de 70% de CPU; o Service podinfo, NodePort 30898, encontra os Pods pelo selector e recebe o navegador.",
+            caption:
+              "Os quatro manifestos da etapa e como se ligam: tudo se encontra pelo label `app: podinfo`, e o HPA passa a mandar no número de réplicas do Deployment.",
+          },
+        ],
+        credit: "Diagrama: feito para este guia",
+      },
+    ],
     handsOnIntro:
       "Neste exercício você monta o deployment completo, provoca falhas controladas e confirma cada comportamento. Os blocos de comandos de cada passo estão no exemplo acima.",
   },
