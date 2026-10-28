@@ -408,6 +408,8 @@ A crucial point: **the taint only repels, it does not attract.** A Pod that tole
 
 **PriorityClass and the nature of the scheduler.** The PriorityClass assigns a numeric priority to Pods. System Pods (`system-cluster-critical` and `system-node-critical`) have very high priority and are almost never evicted. Allocating Pods onto nodes with multiple constraints is a bin packing problem, NP-hard; the scheduler uses a greedy two-phase heuristic (it filters the nodes that fit, scores the ones left, picks the best), fast but not necessarily optimal.
 
+![The lab-m02 node has the taint dedicated=ml:NoSchedule and the label disk=ssd; the lab node has no taint. The com-toleration Pod, which tolerates dedicated=ml and requires disk=ssd, runs on lab-m02. The sem-toleration Pod, pinned to lab-m02 by nodeSelector and with no toleration, is repelled by the taint and stays Pending.](/guides/kubernetes-avancado/etapa02-taint-affinity.en.svg "The taint repels whoever does not tolerate it, and the affinity takes the Pod to the right node. One without the other is not enough: together, only the ML Pod gets into the dedicated node, and it goes only there. | Diagram: made for this guide")
+
 ### Key concepts
 
 - **Taint repels, affinity attracts**: for strong isolation (GPU node only for ML), combine the two.
@@ -705,6 +707,8 @@ The rollout is only triggered by changes in `.spec.template`. Changing the numbe
 
 **More sophisticated strategies.** Blue/Green and canary (next stages) are not native to the Deployment object. Controllers such as **Argo Rollouts** and **Flagger** implement them, with promotion steps and automatic analysis of metrics.
 
+![RollingUpdate of 4 replicas with maxUnavailable 0 and maxSurge 1, from nginx 1.26 to 1.27: at the start, 4 Pods on 1.26; then 1 extra Pod on 1.27 starting, with 4 ready and 5 in total; when it becomes ready, a 1.26 leaves and another 1.27 starts; at the end, 4 Pods on 1.27. Below, Recreate: 4 Pods on 1.26, a gap with no Pods and 4 Pods on 1.27.](/guides/kubernetes-avancado/etapa03-rolling.en.svg "With `maxUnavailable: 0` and `maxSurge: 1`, the swap never drops below 4 ready Pods and never goes above 5 in total. Recreate keeps the versions from coexisting, at the cost of a gap with no Pod at all. | Diagram: made for this guide")
+
 ### Key concepts
 
 - **RollingUpdate and Recreate**: zero downtime versus total consistency at the cost of a pause.
@@ -852,6 +856,8 @@ A Helm template behaves like a function: given the same values, it produces the 
 Helm 3 has no central server (the old Tiller was removed). The client uses the credentials of your `kubeconfig`, so **the user's RBAC limits what Helm can do**.
 
 **Governance at scale.** Charts follow SemVer (a major version change indicates a break and calls for human review), are distributed through repositories (Artifact Hub, private repositories) and can be **signed** (GPG, with a `.prov` file), which protects the supply chain. A chart should embed least-privilege RBAC (dedicated ServiceAccounts, limited Roles). Subcharts allow composition (an "umbrella" chart that joins the app and the database), and `values.schema.json` validates the values like a type schema. In GitOps flows (Argo CD, Flux), the chart lives in Git, synchronization is automatic and each release becomes an auditable commit.
+
+![The meuapp chart, with Chart.yaml, values.yaml and templates, is rendered by helm template with --set replicaCount=3, producing a web Deployment with replicas: 3. On the side, the web release with three revisions: 1 install, 2 upgrade with replicaCount=3 and 3 rollback web 1, which goes back to the state of revision 1; each revision is kept in a Secret.](/guides/kubernetes-avancado/etapa04-helm.en.svg "The template combines the chart with the values and produces plain YAML, which you can check before applying. Each install, upgrade and rollback creates a new revision, and the old ones do not change: that is what makes rollback reliable. | Diagram: made for this guide")
 
 ### Key concepts
 
@@ -1985,6 +1991,8 @@ This stage turns the manifests from Stage 09 of the basics guide into a Helm cha
 - **Blue/Green**: for a single public Service, one promotion strategy is chosen. The canary, progressive and metric-driven, fits better with a service that already exposes `/healthz` and `/readyz`.
 - **PVC**: stays out, for the same reason as in the basics guide (a `ReadWriteOnce` volume shared among several replicas).
 - **podAntiAffinity**: the chart follows the advice of Stage 02 and uses Topology Spread instead of affinity between Pods.
+
+![In the podinfo namespace, one chart creates two releases behind the same podinfo Service: the stable one, with 3 Pods on 6.14.1, rollout with maxUnavailable 0, maxSurge 1 and minReadySeconds 10, PDB minAvailable 2, topology spread maxSkew 1, requests with no CPU limit and HPA; and podinfo-canary, with 1 Pod on 6.15.0 and track: canary, which gets about 25% of the traffic. On the side, the podinfo-sa ServiceAccount with no token mounted.](/guides/kubernetes-avancado/etapa10-producao.en.svg "Each piece comes from a stage of the guide. The canary gets traffic through the replica ratio in the same Service, and the promotion is a `helm upgrade --atomic` of the stable release followed by removing the canary. | Diagram: made for this guide")
 
 ### Key concepts
 

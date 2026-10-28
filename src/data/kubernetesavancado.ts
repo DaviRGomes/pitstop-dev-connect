@@ -575,6 +575,19 @@ export const LESSONS: Lesson[] = [
     tip: "Monitore o uso de disco e de memória dos nós e alerte antes de chegar ao limite de despejo do kubelet. Por padrão, o kubelet inicia o despejo forçado de Pods quando o espaço livre do sistema de arquivos do nó cai abaixo de 10% (disco cerca de 90% cheio) ou a memória disponível cai abaixo de 100Mi, valores configuráveis. Um alerta em torno de 80% a 85% de uso de disco, somado a rotação de logs, evita um despejo em cadeia. Entre reagir drenando o nó manualmente e deixar o kubelet despejar em emergência, prefira sempre a primeira opção.",
     takeaway:
       "Taint repele, affinity atrai, topology spread distribui com números, e o PodDisruptionBudget protege as manutenções planejadas, mas não o despejo por pressão de recursos.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/kubernetes-avancado/etapa02-taint-affinity.svg",
+            alt: "O nó lab-m02 tem o taint dedicated=ml:NoSchedule e o label disk=ssd; o nó lab não tem taint. O Pod com-toleration, que tolera dedicated=ml e exige disk=ssd, roda em lab-m02. O Pod sem-toleration, preso a lab-m02 pelo nodeSelector e sem toleration, é repelido pelo taint e fica Pending.",
+            caption:
+              "O taint repele quem não o tolera, e a affinity leva o Pod ao nó certo. Uma sem a outra não basta: juntas, só o Pod de ML entra no nó dedicado, e ele só vai para lá.",
+          },
+        ],
+        credit: "Diagrama: feito para este guia",
+      },
+    ],
   },
   {
     id: "m3",
@@ -689,6 +702,19 @@ export const LESSONS: Lesson[] = [
     tip: "Sempre preencha a annotation `kubernetes.io/change-cause`. Sem ela, o `rollout history` mostra `<none>` e, na hora de um incidente às 3h da manhã, você não sabe para qual revisão voltar. A flag `--record`, que fazia isso automaticamente, está obsoleta; prefira `kubectl annotate` ou o próprio manifesto.",
     takeaway:
       "RollingUpdate troca sem derrubar, maxSurge dá folga para criar Pods extras e maxUnavailable define o piso de capacidade, e o Deployment só avisa que o rollout travou, quem desfaz é você.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/kubernetes-avancado/etapa03-rolling.svg",
+            alt: "RollingUpdate de 4 réplicas com maxUnavailable 0 e maxSurge 1, de nginx 1.26 para 1.27: no início, 4 Pods 1.26; depois, 1 Pod 1.27 extra subindo, com 4 prontos e 5 no total; quando ele fica pronto, um 1.26 sai e outro 1.27 sobe; no fim, 4 Pods 1.27. Embaixo, o Recreate: 4 Pods 1.26, um intervalo sem Pods e 4 Pods 1.27.",
+            caption:
+              "Com `maxUnavailable: 0` e `maxSurge: 1`, a troca nunca baixa de 4 Pods prontos e nunca passa de 5 no total. O Recreate evita que as versões coexistam, ao custo de um intervalo sem nenhum Pod.",
+          },
+        ],
+        credit: "Diagrama: feito para este guia",
+      },
+    ],
   },
   {
     id: "m4",
@@ -823,6 +849,19 @@ export const LESSONS: Lesson[] = [
     tip: 'Rode `helm diff upgrade` (plugin `helm-diff`, instalado com `helm plugin install https://github.com/databus23/helm-diff`) antes de aplicar em produção. Ver o que vai mudar no cluster evita a insegurança de aplicar um template "às cegas", uma queixa comum de quem começa com Helm.',
     takeaway:
       "O Helm transforma manifestos repetidos em um chart com values por ambiente, registra cada mudança como uma revisão e permite voltar atrás com um comando.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/kubernetes-avancado/etapa04-helm.svg",
+            alt: "O chart meuapp, com Chart.yaml, values.yaml e templates, é renderizado pelo helm template com --set replicaCount=3, gerando um Deployment web com replicas: 3. Ao lado, a release web com três revisões: 1 install, 2 upgrade com replicaCount=3 e 3 rollback web 1, que volta ao estado da revisão 1; cada revisão fica num Secret.",
+            caption:
+              "O template junta o chart com os values e produz YAML comum, que dá para conferir antes de aplicar. Cada install, upgrade e rollback gera uma revisão nova, e as antigas não mudam: é isso que torna o rollback confiável.",
+          },
+        ],
+        credit: "Diagrama: feito para este guia",
+      },
+    ],
   },
   {
     id: "m5",
@@ -1644,6 +1683,19 @@ export const LESSONS: Lesson[] = [
     tip: "O `--atomic` não é uma garantia completa: ele desfaz a release se as probes não ficarem saudáveis, mas só depois de tentar. Combine sempre com o PDB e com `maxUnavailable: 0`, para que uma tentativa fracassada nunca reduza a capacidade enquanto o Helm ainda decide desistir. Duas precisões sobre o chart: `minAvailable` igual ao `minReplicas` do HPA (2, neste caso) deixa `ALLOWED DISRUPTIONS` em 0 quando o HPA está no piso, e um `drain` nesse momento fica bloqueado (considere `maxUnavailable: 1` no PDB). E o campo `replicas` do Deployment é reaplicado pelo valor do chart a cada `helm upgrade`, o que pode desfazer o ajuste do HPA; uma prática comum é omitir `replicas` do template quando o HPA está ativo.",
     takeaway:
       "Um deploy de produção é a composição certa e não mais YAML: Helm empacota, uma ServiceAccount sem permissões isola a identidade, topology spread e PDB protegem contra falha de nó e manutenção, o rollout ajustado evita queda de capacidade e o canário testa a versão nova com tráfego real.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/kubernetes-avancado/etapa10-producao.svg",
+            alt: "No namespace podinfo, um chart gera duas releases atrás do mesmo Service podinfo: a estável, com 3 Pods 6.14.1, rollout com maxUnavailable 0, maxSurge 1 e minReadySeconds 10, PDB minAvailable 2, topology spread maxSkew 1, requests sem limit de CPU e HPA; e a podinfo-canary, com 1 Pod 6.15.0 e track: canary, que recebe cerca de 25% do tráfego. Ao lado, a ServiceAccount podinfo-sa sem token montado.",
+            caption:
+              "Cada peça vem de uma etapa do guia. O canário recebe tráfego pela proporção de réplicas no mesmo Service, e a promoção é um `helm upgrade --atomic` da release estável seguido da remoção do canário.",
+          },
+        ],
+        credit: "Diagrama: feito para este guia",
+      },
+    ],
   },
 ];
 

@@ -408,6 +408,8 @@ Ponto crucial: **o taint só repele, não atrai.** Um Pod que tolera o taint do 
 
 **PriorityClass e a natureza do scheduler.** A PriorityClass atribui prioridade numérica a Pods. Pods de sistema (`system-cluster-critical` e `system-node-critical`) têm prioridade altíssima e quase nunca são despejados. Alocar Pods em nós com múltiplas restrições é um problema de bin packing, NP-difícil; o scheduler usa uma heurística gulosa em duas fases (filtra os nós que servem, pontua os que sobraram, escolhe o melhor), rápida mas não necessariamente ótima.
 
+![O nó lab-m02 tem o taint dedicated=ml:NoSchedule e o label disk=ssd; o nó lab não tem taint. O Pod com-toleration, que tolera dedicated=ml e exige disk=ssd, roda em lab-m02. O Pod sem-toleration, preso a lab-m02 pelo nodeSelector e sem toleration, é repelido pelo taint e fica Pending.](/guides/kubernetes-avancado/etapa02-taint-affinity.svg "O taint repele quem não o tolera, e a affinity leva o Pod ao nó certo. Uma sem a outra não basta: juntas, só o Pod de ML entra no nó dedicado, e ele só vai para lá. | Diagrama: feito para este guia")
+
 ### Os conceitos-chave
 
 - **Taint repele, affinity atrai**: para isolamento forte (nó de GPU só para ML), combine os dois.
@@ -705,6 +707,8 @@ O rollout só é disparado por mudanças em `.spec.template`. Mudar o número de
 
 **Estratégias mais sofisticadas.** Blue/Green e canário (próximas etapas) não são nativos do objeto Deployment. Controladores como **Argo Rollouts** e **Flagger** os implementam, com passos de promoção e análise automática de métricas.
 
+![RollingUpdate de 4 réplicas com maxUnavailable 0 e maxSurge 1, de nginx 1.26 para 1.27: no início, 4 Pods 1.26; depois, 1 Pod 1.27 extra subindo, com 4 prontos e 5 no total; quando ele fica pronto, um 1.26 sai e outro 1.27 sobe; no fim, 4 Pods 1.27. Embaixo, o Recreate: 4 Pods 1.26, um intervalo sem Pods e 4 Pods 1.27.](/guides/kubernetes-avancado/etapa03-rolling.svg "Com `maxUnavailable: 0` e `maxSurge: 1`, a troca nunca baixa de 4 Pods prontos e nunca passa de 5 no total. O Recreate evita que as versões coexistam, ao custo de um intervalo sem nenhum Pod. | Diagrama: feito para este guia")
+
 ### Os conceitos-chave
 
 - **RollingUpdate e Recreate**: zero downtime versus consistência total ao custo de uma pausa.
@@ -852,6 +856,8 @@ Um template Helm se comporta como uma função: dados os mesmos values, produz o
 O Helm 3 não tem servidor central (o antigo Tiller foi removido). O cliente usa as credenciais do seu `kubeconfig`, então **o RBAC do usuário limita o que o Helm consegue fazer**.
 
 **Governança em escala.** Charts seguem SemVer (uma mudança de versão maior indica quebra e pede revisão humana), são distribuídos por repositórios (Artifact Hub, repositórios privados) e podem ser **assinados** (GPG, com um arquivo `.prov`), o que protege a cadeia de suprimentos. Um chart deve embutir RBAC de menor privilégio (ServiceAccounts dedicadas, Roles limitadas). Subcharts permitem composição (um chart "guarda-chuva" que junta o app e o banco), e `values.schema.json` valida os values como um esquema de tipos. Em fluxos de GitOps (Argo CD, Flux), o chart fica no Git, a sincronização é automática e cada release vira um commit auditável.
+
+![O chart meuapp, com Chart.yaml, values.yaml e templates, é renderizado pelo helm template com --set replicaCount=3, gerando um Deployment web com replicas: 3. Ao lado, a release web com três revisões: 1 install, 2 upgrade com replicaCount=3 e 3 rollback web 1, que volta ao estado da revisão 1; cada revisão fica num Secret.](/guides/kubernetes-avancado/etapa04-helm.svg "O template junta o chart com os values e produz YAML comum, que dá para conferir antes de aplicar. Cada install, upgrade e rollback gera uma revisão nova, e as antigas não mudam: é isso que torna o rollback confiável. | Diagrama: feito para este guia")
 
 ### Os conceitos-chave
 
@@ -1985,6 +1991,8 @@ Esta etapa transforma os manifestos da Etapa 09 do básico em um chart Helm e re
 - **Blue/Green**: para um único Service público, escolhe-se uma estratégia de promoção. O canário, progressivo e guiado por métricas, combina melhor com um serviço que já expõe `/healthz` e `/readyz`.
 - **PVC**: continua fora, pelo mesmo motivo do guia básico (volume `ReadWriteOnce` compartilhado entre várias réplicas).
 - **podAntiAffinity**: o chart segue o conselho da Etapa 02 e usa Topology Spread em vez de afinidade entre Pods.
+
+![No namespace podinfo, um chart gera duas releases atrás do mesmo Service podinfo: a estável, com 3 Pods 6.14.1, rollout com maxUnavailable 0, maxSurge 1 e minReadySeconds 10, PDB minAvailable 2, topology spread maxSkew 1, requests sem limit de CPU e HPA; e a podinfo-canary, com 1 Pod 6.15.0 e track: canary, que recebe cerca de 25% do tráfego. Ao lado, a ServiceAccount podinfo-sa sem token montado.](/guides/kubernetes-avancado/etapa10-producao.svg "Cada peça vem de uma etapa do guia. O canário recebe tráfego pela proporção de réplicas no mesmo Service, e a promoção é um `helm upgrade --atomic` da release estável seguido da remoção do canário. | Diagrama: feito para este guia")
 
 ### Os conceitos-chave
 

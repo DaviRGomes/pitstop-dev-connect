@@ -40,3 +40,15 @@ https://www.apache.org/licenses/LICENSE-2.0
 | Arquivo | Original |
 |---|---|
 | etapa08-keda.png | static/img/keda-arch.png |
+
+## Diagramas próprios
+
+Desenhados para este guia a partir dos laboratórios das etapas, sem material de terceiros. Cada
+um tem uma versão em português (`.svg`) e uma em inglês (`.en.svg`).
+
+| Arquivo | Etapa |
+|---|---|
+| etapa02-taint-affinity.svg, etapa02-taint-affinity.en.svg | 02: taint, toleration e affinity |
+| etapa03-rolling.svg, etapa03-rolling.en.svg | 03: RollingUpdate e Recreate |
+| etapa04-helm.svg, etapa04-helm.en.svg | 04: chart, template e revisões do Helm |
+| etapa10-producao.svg, etapa10-producao.en.svg | 10: o podinfo em produção |

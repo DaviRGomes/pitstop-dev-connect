@@ -573,6 +573,19 @@ export const LESSONS: Lesson[] = [
     tip: "Monitor the disk and memory usage of the nodes and alert before reaching the kubelet's eviction threshold. By default, the kubelet starts forced eviction of Pods when the free space of the node's filesystem falls below 10% (disk about 90% full) or the available memory falls below 100Mi, values that are configurable. An alert at around 80% to 85% disk usage, together with log rotation, avoids a chain of evictions. Between reacting by draining the node manually and letting the kubelet evict in an emergency, always prefer the first option.",
     takeaway:
       "Taint repels, affinity attracts, topology spread distributes with numbers, and the PodDisruptionBudget protects planned maintenance, but not eviction under resource pressure.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/kubernetes-avancado/etapa02-taint-affinity.en.svg",
+            alt: "The lab-m02 node has the taint dedicated=ml:NoSchedule and the label disk=ssd; the lab node has no taint. The com-toleration Pod, which tolerates dedicated=ml and requires disk=ssd, runs on lab-m02. The sem-toleration Pod, pinned to lab-m02 by nodeSelector and with no toleration, is repelled by the taint and stays Pending.",
+            caption:
+              "The taint repels whoever does not tolerate it, and the affinity takes the Pod to the right node. One without the other is not enough: together, only the ML Pod gets into the dedicated node, and it goes only there.",
+          },
+        ],
+        credit: "Diagram: made for this guide",
+      },
+    ],
   },
   {
     id: "m3",
@@ -687,6 +700,19 @@ export const LESSONS: Lesson[] = [
     tip: "Always fill in the `kubernetes.io/change-cause` annotation. Without it, `rollout history` shows `<none>` and, at the moment of an incident at 3 a.m., you do not know which revision to go back to. The `--record` flag, which did this automatically, is deprecated; prefer `kubectl annotate` or the manifest itself.",
     takeaway:
       "RollingUpdate swaps without bringing anything down, maxSurge gives slack to create extra Pods and maxUnavailable defines the capacity floor, and the Deployment only warns that the rollout stalled: undoing it is up to you.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/kubernetes-avancado/etapa03-rolling.en.svg",
+            alt: "RollingUpdate of 4 replicas with maxUnavailable 0 and maxSurge 1, from nginx 1.26 to 1.27: at the start, 4 Pods on 1.26; then 1 extra Pod on 1.27 starting, with 4 ready and 5 in total; when it becomes ready, a 1.26 leaves and another 1.27 starts; at the end, 4 Pods on 1.27. Below, Recreate: 4 Pods on 1.26, a gap with no Pods and 4 Pods on 1.27.",
+            caption:
+              "With `maxUnavailable: 0` and `maxSurge: 1`, the swap never drops below 4 ready Pods and never goes above 5 in total. Recreate keeps the versions from coexisting, at the cost of a gap with no Pod at all.",
+          },
+        ],
+        credit: "Diagram: made for this guide",
+      },
+    ],
   },
   {
     id: "m4",
@@ -821,6 +847,19 @@ export const LESSONS: Lesson[] = [
     tip: 'Run `helm diff upgrade` (the `helm-diff` plugin, installed with `helm plugin install https://github.com/databus23/helm-diff`) before applying in production. Seeing what will change in the cluster removes the insecurity of applying a template "blindly", a common complaint from those starting with Helm.',
     takeaway:
       "Helm turns repeated manifests into a chart with values per environment, records each change as a revision and lets you go back with a single command.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/kubernetes-avancado/etapa04-helm.en.svg",
+            alt: "The meuapp chart, with Chart.yaml, values.yaml and templates, is rendered by helm template with --set replicaCount=3, producing a web Deployment with replicas: 3. On the side, the web release with three revisions: 1 install, 2 upgrade with replicaCount=3 and 3 rollback web 1, which goes back to the state of revision 1; each revision is kept in a Secret.",
+            caption:
+              "The template combines the chart with the values and produces plain YAML, which you can check before applying. Each install, upgrade and rollback creates a new revision, and the old ones do not change: that is what makes rollback reliable.",
+          },
+        ],
+        credit: "Diagram: made for this guide",
+      },
+    ],
   },
   {
     id: "m5",
@@ -1642,6 +1681,19 @@ export const LESSONS: Lesson[] = [
     tip: "`--atomic` is not a complete guarantee: it undoes the release if the probes do not become healthy, but only after trying. Always combine it with the PDB and with `maxUnavailable: 0`, so that a failed attempt never reduces capacity while Helm is still deciding to give up. Two precisions about the chart: a `minAvailable` equal to the HPA's `minReplicas` (2, in this case) leaves `ALLOWED DISRUPTIONS` at 0 when the HPA is at the floor, and a `drain` at that moment gets blocked (consider `maxUnavailable: 1` in the PDB). And the Deployment's `replicas` field is reapplied from the chart's value on every `helm upgrade`, which can undo the HPA's adjustment; a common practice is to omit `replicas` from the template when the HPA is active.",
     takeaway:
       "A production deployment is the right composition and not more YAML: Helm packages, a ServiceAccount without permissions isolates the identity, topology spread and the PDB protect against node failure and maintenance, the tuned rollout avoids a drop in capacity and the canary tests the new version with real traffic.",
+    figures: [
+      {
+        items: [
+          {
+            src: "/guides/kubernetes-avancado/etapa10-producao.en.svg",
+            alt: "In the podinfo namespace, one chart creates two releases behind the same podinfo Service: the stable one, with 3 Pods on 6.14.1, rollout with maxUnavailable 0, maxSurge 1 and minReadySeconds 10, PDB minAvailable 2, topology spread maxSkew 1, requests with no CPU limit and HPA; and podinfo-canary, with 1 Pod on 6.15.0 and track: canary, which gets about 25% of the traffic. On the side, the podinfo-sa ServiceAccount with no token mounted.",
+            caption:
+              "Each piece comes from a stage of the guide. The canary gets traffic through the replica ratio in the same Service, and the promotion is a `helm upgrade --atomic` of the stable release followed by removing the canary.",
+          },
+        ],
+        credit: "Diagram: made for this guide",
+      },
+    ],
   },
 ];
 
