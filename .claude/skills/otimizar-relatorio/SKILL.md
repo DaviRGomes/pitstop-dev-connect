@@ -73,13 +73,30 @@ grep -nP "—|–" relatorios/<slug>/03-comentarista.md
 
 As únicas exceções permitidas são intervalos numéricos ("aulas 1–8") e travessão de atribuição de citação ("— Ayrton Senna"). Qualquer outra ocorrência volta para a persona que escreveu o trecho antes da promoção para `final.md`.
 
+## Custo de tokens: modelo e esforço por agente
+
+Os relatórios têm de 30 a 50 mil tokens, então o que mais pesa é reescrever o arquivo inteiro e usar Opus onde não precisa. A divisão abaixo fica no frontmatter de cada agente; não passe `model` nem `effort` no Agent, exceto se o usuário pedir.
+
+| Agente | Modelo | Esforço | Por quê |
+|---|---|---|---|
+| `professor-software` | opus | medium | cria todo o conteúdo didático: é onde a qualidade se decide |
+| `piloto-f1` | opus | medium | escreve só a lente, mas é a parte criativa da analogia |
+| `comentarista-f1` | sonnet | low | ajuste de tom com regras explícitas, guiado por grep |
+| `aluno-software` | sonnet | medium | leitura de aluno e gates mecânicos |
+| `tradutor-en` | sonnet | low | tradução fiel, sem criação |
+| `revisor-bilingue` | sonnet | low | o script `scripts/check-bilingual-parity.py` faz as contagens |
+
+- **Piloto e comentarista editam, não reescrevem**: copiam a entrada para a saída (`cp`) e alteram só os trechos com a ferramenta Edit. Nos ciclos de revisão vale o mesmo: cada conserto é um Edit no arquivo do estágio.
+- **Orquestração**: esta skill só repassa caminhos e roda grep. Rodá-la numa sessão Sonnet basta; não leia os relatórios inteiros na sessão principal.
+- **Sem paralelismo**: cada estágio depende do anterior. Rodar agentes em paralelo só gastaria mais tokens com contexto repetido.
+
 ## Pipeline PT-BR (agentes em sequência, cada um depende do anterior)
 
 Execute cada estágio com a tool Agent, usando o `subagent_type` indicado. Passe sempre os caminhos absolutos de entrada e saída no prompt, e sempre a regra do travessão.
 
 1. **`professor-software`**: "Otimize didaticamente o relatório em `<pasta>/00-bruto.md` e salve em `<pasta>/01-professor.md`. Explicação técnica completa, sem F1 e sem euforia, com a seção `## Os termos em palavras simples` (glossário do dia a dia) depois da abertura. Não use travessão (—) na prosa."
-2. **`piloto-f1`**: "Escreva a lente de F1 do relatório em `<pasta>/01-professor.md` e salve em `<pasta>/02-piloto.md`: só a seção `## A lente de F1 deste guia` depois da abertura, com o glossário em palavras simples do professor movido para dentro dela (sem F1) e `### Onde a comparação para` (um item por etapa). Não coloque F1 nas etapas. Tom calmo, sem narração nem euforia, sem corridas, pilotos, equipes ou datas reais. Não use travessão (—) na prosa, nem nas tabelas." Guarde o quadro de correspondência que ele devolver.
-3. **`comentarista-f1`**: "Escreva a abertura explicativa e revise o tom do relatório em `<pasta>/02-piloto.md` (guia de estudo calmo, sem narração de transmissão nem euforia, sem corridas ou pilotos reais, F1 só na lente geral do início, nenhuma F1 nas etapas) e salve em `<pasta>/03-comentarista.md`. Não use travessão (—) na prosa. Quadro de analogias do piloto: <colar quadro>."
+2. **`piloto-f1`**: "Copie `<pasta>/01-professor.md` para `<pasta>/02-piloto.md` e edite a cópia (Edit, sem reescrever o arquivo) para incluir a lente de F1: só a seção `## A lente de F1 deste guia` depois da abertura, com o glossário em palavras simples do professor movido para dentro dela (sem F1) e `### Onde a comparação para` (um item por etapa). Não coloque F1 nas etapas. Tom calmo, sem narração nem euforia, sem corridas, pilotos, equipes ou datas reais. Não use travessão (—) na prosa, nem nas tabelas." Guarde o quadro de correspondência que ele devolver.
+3. **`comentarista-f1`**: "Copie `<pasta>/02-piloto.md` para `<pasta>/03-comentarista.md` e, editando só os trechos necessários na cópia (Edit, sem reescrever o arquivo), escreva a abertura explicativa e revise o tom (guia de estudo calmo, sem narração de transmissão nem euforia, sem corridas ou pilotos reais, F1 só na lente geral do início, nenhuma F1 nas etapas). Não use travessão (—) na prosa. Quadro de analogias do piloto: <colar quadro>."
 4. **`aluno-software`**: "Leia `<pasta>/03-comentarista.md` e salve o parecer em `<pasta>/04-parecer-aluno.md`. Inclua o gate de travessões."
 
 ## Ciclo de revisão
@@ -93,7 +110,7 @@ Execute cada estágio com a tool Agent, usando o `subagent_type` indicado. Passe
 Só comece quando `final.md` estiver aprovado.
 
 1. **`tradutor-en`**: traduza `final.md` para `<pasta>/05-tradutor-en.md`. Preserve integralmente estrutura, fatos, comandos, código e ordem dos exercícios. Não use travessão na prosa.
-2. **`revisor-bilingue`**: compare `final.md` com `05-tradutor-en.md` e salve o parecer em `<pasta>/06-parecer-bilingue.md`. Verifique seções, exemplos, comandos, exercícios, fatos, termos técnicos e gate de travessões.
+2. **`revisor-bilingue`**: compare `final.md` com `05-tradutor-en.md` e salve o parecer em `<pasta>/06-parecer-bilingue.md`. Comece por `python3 scripts/check-bilingual-parity.py <pasta>/final.md <pasta>/05-tradutor-en.md` e depois verifique, lendo, seções, exemplos, comandos, exercícios, fatos, termos técnicos e gate de travessões.
 3. Se o parecer estiver **APROVADO**, copie `05-tradutor-en.md` para `final.en.md`.
 4. Se houver ressalvas, devolva somente os itens apontados ao `tradutor-en`, rode novamente o revisor e limite a dois ciclos. Nunca publique uma versão parcial como se fosse equivalente.
 

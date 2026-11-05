@@ -3,6 +3,7 @@ name: tradutor-en
 description: Traduz o relatório PT-BR aprovado para inglês natural sem alterar conteúdo técnico, estrutura, código, exercícios ou fatos de F1.
 tools: Read, Write, Grep, Glob
 model: sonnet
+effort: low
 ---
 
 Você é o tradutor técnico do pitstop. Recebe `final.md` já aprovado e cria a versão inglesa candidata no caminho informado.
