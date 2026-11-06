@@ -5,7 +5,7 @@ description: Pipeline bilíngue de otimização de relatório de estudo do pitst
 
 # /otimizar-relatorio: pipeline de relatório de estudo
 
-Transforma um relatório de estudo bruto num guia didático: o tema ensinado de forma técnica, etapa por etapa, com uma lente geral de Fórmula 1 no início. A versão PT-BR passa por `professor-software` → `piloto-f1` → `comentarista-f1` → `aluno-software`. Depois, `tradutor-en` cria a versão inglesa e `revisor-bilingue` verifica a equivalência antes da publicação.
+Transforma um relatório de estudo bruto num guia didático: o tema ensinado de forma técnica, etapa por etapa, com uma lente geral de Fórmula 1 no início. A versão PT-BR passa por `professor-software` → `piloto-f1` → `comentarista-f1` → `aluno-software`. Depois, `tradutor-en` cria a versão inglesa, `revisor-bilingue` verifica a equivalência e `ilustrador-tecnico` deixa o guia rico em imagens (pelo menos uma por etapa: primeiro busca com o Tavily imagens de licença aberta, só desenha quando não acha) antes da publicação.
 
 ## Entrada
 
@@ -24,6 +24,7 @@ Crie `relatorios/<slug>/` na raiz do projeto. Todos os estágios ficam salvos ne
 - `05-tradutor-en.md`: tradução inglesa candidata
 - `06-parecer-bilingue.md`: parecer de paridade entre os idiomas
 - `final.en.md`: versão inglesa aprovada
+- `public/guides/<guia>/`: diagramas da etapa de imagens (`.svg` PT e `.en.svg` EN) e `CREDITS.md`
 
 ## Formato do projeto: lente de F1 geral no início, etapas só técnicas
 
@@ -38,9 +39,14 @@ Estrutura de todo relatório:
 
 O guia de Kubernetes básico já usa esse formato no site (`src/components/guide/LensKit.tsx`): depois de mudar `relatorios/kubernetes-basico/final.md` ou `final.en.md`, rode `python3 scripts/build-lens-guide.py basico` para regenerar `src/data/kubernetesbasico.ts` e `.en.ts`, e depois `npm run content:check`. O Kubernetes avançado (`avancado`) e Servidores Web (`servidores-web`) também já usam esse formato; para converter outro guia, acrescente uma entrada em `GUIDES` no `scripts/build-lens-guide.py` (o conversor `scripts/md-to-lens-guide.py` exige os cabeçalhos fixos deste formato).
 
-## Imagens técnicas
+## Imagens técnicas: guia rico em imagens
 
-As etapas podem ter diagramas técnicos (nunca fotos de F1). A fonte preferida é a documentação oficial do Kubernetes (repositório `kubernetes/website`, licença CC BY 4.0, uso permitido com crédito); evite imagens do Google, que em geral têm direitos reservados. Os arquivos ficam em `public/guides/<guia>/` com o crédito de origem em `CREDITS.md`. No markdown, a figura fica no fim de "O conceito": `![texto alternativo](/guides/<guia>/arquivo.svg "legenda | Diagrama: kubernetes.io, The Kubernetes Authors, CC BY 4.0")`; linhas de imagem seguidas viram uma sequência de quadros. Baixar imagens novas exige confirmação do usuário.
+O usuário quer guias **ricos em imagens**: toda etapa tem pelo menos um diagrama técnico (nunca fotos de F1). Isso é uma etapa fixa do pipeline, feita pelo `ilustrador-tecnico` depois da aprovação bilíngue (ver "Pipeline de imagens" abaixo); não é um acabamento opcional para depois.
+
+- **Primeiro buscar, depois desenhar** (pedido do usuário): para cada etapa o agente busca na internet com o Tavily (`include_images`) imagens de **licença aberta**: Wikimedia Commons, kubernetes.io (CC BY 4.0), docs.docker.com (Apache 2.0), docs do Azure e do Google Cloud (CC BY 4.0). Confirma a licença na página de origem antes de baixar e credita fonte, autor e licença. Com licença aberta verificada, pode baixar sem pedir confirmação.
+- **Nunca** imagem sem licença clara: Medium, blogs, sites de fornecedores e marketing, bancos de imagens, Google Imagens.
+- **Só quando a busca não acha nada adequado**, o agente desenha a partir do laboratório da etapa com `scripts/svg-diagram.py` (gera `.svg` PT e `.en.svg` EN no estilo visual dos guias) e confere com `node scripts/svg-preview.mjs`, que renderiza PNG para ver texto cortado e sobreposição.
+- Os arquivos ficam em `public/guides/<guia>/` com o crédito de origem em `CREDITS.md`. No markdown, a figura fica no fim de "O conceito": `![texto alternativo](/guides/<guia>/arquivo.svg "legenda | Diagrama: feito para este guia")` (no inglês, `.en.svg` e `Diagram: made for this guide`); linhas de imagem seguidas viram uma sequência de quadros.
 
 ## Regra de tom do projeto: guia de estudo, não transmissão
 
@@ -85,6 +91,7 @@ Os relatórios têm de 30 a 50 mil tokens, então o que mais pesa é reescrever 
 | `aluno-software` | sonnet | medium | leitura de aluno e gates mecânicos |
 | `tradutor-en` | sonnet | low | tradução fiel, sem criação |
 | `revisor-bilingue` | sonnet | low | o script `scripts/check-bilingual-parity.py` faz as contagens |
+| `ilustrador-tecnico` | sonnet | medium | busca e licença pelo Tavily; o gerador `scripts/svg-diagram.py` cuida do estilo quando precisa desenhar |
 
 - **Piloto e comentarista editam, não reescrevem**: copiam a entrada para a saída (`cp`) e alteram só os trechos com a ferramenta Edit. Nos ciclos de revisão vale o mesmo: cada conserto é um Edit no arquivo do estágio.
 - **Orquestração**: esta skill só repassa caminhos e roda grep. Rodá-la numa sessão Sonnet basta; não leia os relatórios inteiros na sessão principal.
@@ -114,8 +121,16 @@ Só comece quando `final.md` estiver aprovado.
 3. Se o parecer estiver **APROVADO**, copie `05-tradutor-en.md` para `final.en.md`.
 4. Se houver ressalvas, devolva somente os itens apontados ao `tradutor-en`, rode novamente o revisor e limite a dois ciclos. Nunca publique uma versão parcial como se fosse equivalente.
 
+## Pipeline de imagens
+
+Só comece quando `final.md` e `final.en.md` estiverem aprovados.
+
+1. **`ilustrador-tecnico`**: "Deixe o guia em `<pasta>` rico em imagens: pelo menos uma imagem técnica por etapa em `public/guides/<guia>/`. Busque primeiro com o Tavily imagens de licença aberta verificada; desenhe com `scripts/svg-diagram.py` só quando não achar nada adequado. Insira no fim de 'O conceito' em `final.md` e `final.en.md` e atualize `CREDITS.md`. Sem F1 nas imagens. Não use travessão (—) na prosa." 
+2. Confira: `python3 scripts/check-bilingual-parity.py <pasta>/final.md <pasta>/final.en.md` (imagens n/n) e `grep -c "^!\[" <pasta>/final*.md` (pelo menos uma por etapa).
+3. Abra você mesmo 2 ou 3 dos PNG de conferência antes de o agente apagá-los, ou gere de novo com `node scripts/svg-preview.mjs`, e devolva ao agente o que estiver ilegível.
+
 Antes da aprovação final, troque referências relativas como "hoje" por formulações que não envelheçam. Os guias não usam fatos de temporada de F1 (corridas, pilotos, classificação): se algum aparecer, troque por uma cena conceitual. A tradução não pode alterar um fato isoladamente: qualquer correção entra nos dois idiomas.
 
 ## Relatório final ao usuário
 
-Ao terminar, informe: caminhos de `final.md` e `final.en.md`, vereditos dos dois revisores, nota do aluno, quadro de-para das analogias, ciclos de revisão, contagem final de travessões e de ocorrências de tom de transmissão nos dois idiomas. Sugira (sem executar) converter as versões para `src/data/<slug>.ts` e `src/data/<slug>.en.ts`, preservando os mesmos IDs, exemplos, comandos e exercícios, e criar as rotas PT-BR e `/en` correspondentes.
+Ao terminar, informe: caminhos de `final.md` e `final.en.md`, vereditos dos dois revisores, a tabela de imagens do ilustrador (origem e licença de cada uma), nota do aluno, quadro de-para das analogias, ciclos de revisão, contagem final de travessões e de ocorrências de tom de transmissão nos dois idiomas. Sugira (sem executar) converter as versões para `src/data/<slug>.ts` e `src/data/<slug>.en.ts`, preservando os mesmos IDs, exemplos, comandos e exercícios, e criar as rotas PT-BR e `/en` correspondentes.
