@@ -40,6 +40,7 @@ services:
         VITE_PITSTOP_API: ${VITE_PITSTOP_API:-}
         # opcional: URL absoluta do vídeo quando ele estiver em uma CDN
         VITE_SENNA_BG_URL: ${VITE_SENNA_BG_URL:-}
+    restart: unless-stopped # volta sozinho se o processo ou o Docker reiniciar
     environment:
       - NODE_ENV=production
     expose:
@@ -51,6 +52,7 @@ services:
   api-prod:
     build:
       context: ./server
+    restart: unless-stopped # sem isso o backend ficou dias fora depois de uma queda
     expose:
       - "3333" # só na rede interna; o caddy roteia /api/* e /tracks/* pra cá
     environment:
