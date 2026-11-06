@@ -60,7 +60,7 @@ const guides = [
     name: "escalabilidade",
     pt: () => import("../src/data/escalabilidade.ts"),
     en: () => import("../src/data/escalabilidade.en.ts"),
-    shape: "scale",
+    shape: "lens",
   },
   {
     name: "cultura-devops",

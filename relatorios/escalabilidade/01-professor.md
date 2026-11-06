@@ -1,18 +1,20 @@
-# Escalabilidade nos servidores: do primeiro servidor à arquitetura que aguenta o pico
+# Escalabilidade nos servidores: do primeiro servidor a uma arquitetura que aguenta o pico
 
-> Versão didática dos seis materiais da disciplina "Escalabilidade nos servidores" (DevOps e Arquitetura Cloud, Fase 2). Cada aula virou uma etapa, na mesma ordem. As aulas originais são conceituais e usam o console da AWS como demonstração; aqui cada etapa ganha um laboratório que roda na sua máquina, sem conta de nuvem.
+> Baseado nas 6 aulas da disciplina "Escalabilidade nos servidores" (DevOps e Arquitetura Cloud, Fase 2), uma etapa por aula, na mesma ordem. As aulas são conceituais e usam o console da AWS como demonstração; aqui cada etapa ganha um laboratório que roda na sua máquina, sem conta de nuvem.
 
-**O que você vai saber fazer ao final deste guia:** distinguir desempenho, otimização e escalabilidade e medir a diferença entre elas; explicar escala vertical, horizontal e elasticidade; montar um load balancer com três réplicas e observar algoritmos, failover e deploy canary; tornar uma aplicação stateless com Redis; desacoplar trabalho pesado com fila e workers; inspecionar `Cache-Control`, `304` e cache hit/miss numa borda de CDN; montar uma réplica de leitura de Postgres, aplicar cache-aside e entender sharding e o teorema CAP; e, por fim, juntar tudo numa arquitetura completa, verificá-la com um script e rastreá-la com métricas, logs e um identificador de requisição.
+Este guia ensina, em seis etapas, a fazer um sistema aguentar mais carga sem cair. Você começa separando desempenho, otimização e escalabilidade, e mede na prática a diferença entre escalar para cima e escalar para fora. Depois coloca um load balancer na frente de três réplicas e observa algoritmos de distribuição, failover, canary e blue/green. Em seguida olha para dentro da aplicação: tira o estado da memória do servidor e leva para o Redis, e tira o trabalho lento do caminho da resposta com uma fila e workers. Na quarta etapa aproxima o conteúdo do usuário com uma borda de CDN e lê `Cache-Control`, `304` e cache hit e miss. Na quinta enfrenta o banco de dados: réplica de leitura com Postgres, cache-aside, sharding, teorema CAP, RPO e RTO. Por fim, junta todas as peças numa arquitetura completa, verifica cada propriedade com um script e acompanha uma requisição com métricas, logs e um identificador de rastreio.
+
+Cada etapa só depende do que foi explicado antes dela e termina com um bloco "Mão na massa": um laboratório e exercícios com resposta esperada. Escalabilidade se aprende medindo, então rode os comandos e compare os números.
 
 **Pré-requisitos:**
 
 - Docker Engine ou Docker Desktop, com o comando `docker compose` (Compose v2 recente). Confira com `docker compose version`.
 - Um terminal com `bash`, `curl`, `awk`, `sort`, `uniq` e `sed` (GNU). Linux, macOS ou WSL servem.
-- **Nota para macOS:** o `sed` que vem no macOS é o BSD, que não aceita `sed -i` sem sufixo nem `\n` na substituição. Instale o GNU sed com `brew install gnu-sed` e use `gsed` no lugar de `sed` nos comandos deste guia (a Etapa 02 também traz uma alternativa por edição manual).
+- **Nota para macOS:** o `sed` do macOS é o BSD, que não aceita `sed -i` sem sufixo nem `\n` na substituição. Instale o GNU sed com `brew install gnu-sed` e use `gsed` no lugar de `sed` nos comandos deste guia (a Etapa 02 também traz uma alternativa por edição manual).
 - Conhecimento básico de containers (imagem, container, porta publicada, rede do Compose).
-- Nada de conta de nuvem. Onde a aula usa AWS (ALB, ASG, SQS, CloudFront, RDS), o laboratório usa um equivalente local e diz claramente onde a analogia termina.
+- Nenhuma conta de nuvem. Onde a aula usa AWS (ALB, ASG, SQS, CloudFront, RDS), o laboratório usa um equivalente local e diz claramente onde a equivalência termina.
 
-> **Cuidado com limpeza:** cada etapa deixa containers rodando. Ao terminar uma etapa, rode o bloco "Limpeza" dela antes de começar a próxima. Várias etapas usam as mesmas portas (8080, por exemplo).
+> **Cuidado com limpeza:** cada etapa deixa containers rodando. Ao terminar uma etapa (laboratório e exercícios), rode o bloco "Limpeza" dela antes de começar a próxima, porque várias etapas usam as mesmas portas (8080, por exemplo). `docker compose down -v` remove também os volumes da etapa, com os dados de laboratório guardados neles.
 
 **Estrutura de pastas do laboratório** (você vai criando aos poucos):
 
@@ -26,25 +28,97 @@ lab-escalabilidade/
   etapa-06/            # arquitetura completa
 ```
 
+Todos os comandos partem da pasta `lab-escalabilidade`, salvo quando a etapa manda entrar na pasta dela.
+
+## Os termos em palavras simples
+
+O quadro abaixo traduz cada termo técnico do guia para uma ideia do dia a dia, sem F1 e sem jargão. Não precisa decorar; volte a ele quando um termo aparecer no texto.
+
+| Termo técnico | Em palavras simples |
+|---|---|
+| Desempenho (latência) | Quanto tempo leva para atender uma pessoa só, como os minutos que um caixa gasta para passar as compras de um cliente. |
+| Throughput | Quantas pessoas são atendidas por minuto no total, somando todos os caixas abertos. |
+| Otimização | Fazer a mesma tarefa gastar menos sem contratar ninguém, como o caixa que aprende um jeito mais rápido de passar os produtos. |
+| Escalabilidade | A capacidade de atender mais gente quando se acrescentam recursos, como a loja que abre mais caixas quando a fila cresce. |
+| Triângulo de trade-offs | Numa reforma você quer que fique rápida, barata e simples, e raramente consegue as três coisas juntas. Com servidores é igual: desempenho, custo e complexidade. |
+| Escala vertical | Trocar o fogão da cozinha por um maior. É simples, mas existe um tamanho máximo e, durante a troca, a cozinha para. |
+| Escala horizontal | Abrir mais cozinhas iguais e dividir os pedidos entre elas. |
+| Ponto único de falha (SPOF) | A única ponte que liga um bairro ao resto da cidade: se ela fecha, ninguém passa. |
+| Elasticidade e autoscaling | Abrir e fechar caixas conforme o movimento, seguindo regras combinadas antes, em vez de alguém decidir na hora. |
+| Load balancer | A pessoa que organiza a fila do banco e indica a cada cliente qual guichê está livre. O cliente só conhece a fila, não os guichês. |
+| Camada 4 e camada 7 | Na camada 4, o carteiro entrega olhando só o endereço do envelope. Na camada 7, a secretária abre a carta e encaminha ao setor certo conforme o assunto. |
+| Round-robin | Distribuir as cartas do baralho uma para cada jogador, em volta da mesa, sem olhar quem já tem mais. |
+| Least connections | Mandar o próximo cliente para o caixa que está atendendo menos gente naquele momento. |
+| IP hash (afinidade de sessão) | Cada cliente é sempre atendido pelo mesmo gerente da agência, escolhido por uma conta feita sobre o número dele. |
+| Health check | A pergunta feita de tempos em tempos a cada guichê, "consegue atender?"; quem não responde deixa de receber clientes. |
+| Failover | Quando um guichê fecha de repente, os próximos clientes são mandados para os outros sem perceber. |
+| Connection draining | Antes de fechar um guichê, terminar de atender quem já está nele, sem chamar ninguém novo. |
+| Blue/Green | Duas lojas idênticas lado a lado e uma placa na entrada apontando para uma delas. Virar a placa muda todos os clientes de uma vez, e desvirar é igualmente rápido. |
+| Canary | Servir a receita nova primeiro para uma mesa em cada dez e observar a reação antes de mudar o cardápio inteiro. |
+| Ingress | O quadro na entrada do prédio que indica: "pedidos, sala 2; todo o resto, recepção". |
+| Stateful | O atendente que guarda o seu pedido de cabeça: só ele consegue continuar o atendimento. |
+| Stateless | O pedido anotado numa comanda que fica no balcão: qualquer atendente lê e continua. |
+| Sticky session | Obrigar o cliente a voltar sempre ao mesmo atendente, porque só ele lembra do pedido. |
+| Redis | Um quadro de recados rápido no meio da cozinha, que todos os cozinheiros leem e escrevem. |
+| ReplicaSet e Auto Scaling Group | A regra do gerente "sempre três caixas abertos": se um fecha, abre-se outro no lugar. |
+| Fila e worker | Os pedidos pendurados no varal da cozinha e os cozinheiros que pegam um por vez para preparar. |
+| Produtor e resposta 202 | O garçom que anota, pendura o pedido no varal e diz "recebido"; o prato chega depois. |
+| KEDA | Chamar mais cozinheiros quando o varal de pedidos enche e dispensá-los quando esvazia. |
+| Sidecar | Um assistente que trabalha ao lado do cozinheiro anotando tudo o que sai, sem que o cozinheiro precise parar para isso. |
+| Ambassador | O despachante que cuida de toda a conversa da empresa com repartições externas, inclusive insistindo quando a ligação cai. |
+| Retry com backoff exponencial | Ligar de novo quando ninguém atende, esperando 1, depois 2, depois 4 minutos, para não congestionar a linha. |
+| Fallback | O plano B combinado antes: se o prato acabou, serve-se a opção da casa. |
+| Circuit breaker | O disjuntor da casa: depois de falhas repetidas ele desarma, e ninguém insiste naquele circuito até ele ser religado. |
+| CDN | Uma rede de filiais de livraria que guardam cópias dos livros mais procurados perto de cada bairro. |
+| Origem | O depósito central, onde ficam os originais. |
+| PoP (borda) | A filial do bairro, perto de quem compra. |
+| Cache hit e cache miss | Hit: a filial tem o livro na prateleira. Miss: a filial precisa pedir ao depósito, e guarda uma cópia para o próximo cliente. |
+| Cache-Control e TTL | A etiqueta de validade que o depósito cola em cada cópia, como "vale por uma hora". |
+| ETag e 304 Not Modified | O número da edição do livro. A filial pergunta "a edição 3 ainda é a atual?" e o depósito responde "é, continue usando", sem mandar outro exemplar. |
+| Invalidação (purge) | O recolhimento: mandar todas as filiais descartarem uma cópia na hora, antes da validade vencer. |
+| Cache hit ratio | A porcentagem de clientes atendidos pela filial sem que ela precise pedir nada ao depósito. |
+| WAF | O segurança na porta que barra quem chega com um tipo de ataque já conhecido. |
+| TLS offload | A conferência demorada de documentos feita na portaria, para que os setores de dentro não precisem repeti-la. |
+| Primary e read replica | O livro-caixa oficial, o único onde se faz lançamento, e as cópias dele que vão sendo atualizadas logo depois e que todos podem consultar, sem escrever nelas. |
+| Replicação assíncrona | A cópia é atualizada logo depois do original, mas o original não espera a confirmação da cópia; por instantes ela pode estar atrasada. |
+| Write splitting | A regra da casa: lançamentos só no livro oficial; consultas, nas cópias. |
+| Cache-aside | Antes de ir ao arquivo, olhar o bilhete na mesa; se não houver bilhete, buscar no arquivo e deixar um bilhete para a próxima vez. |
+| Sharding | Dividir as fichas de clientes entre vários armários, por letra do nome (range) ou por uma conta sobre o número do cliente (hash). |
+| Hotspot | O armário que todo mundo abre ao mesmo tempo, enquanto os outros ficam parados. |
+| Teorema CAP e partição | Quando o telefone entre duas filiais cai, cada uma escolhe: continuar atendendo com a informação que tem (disponível, talvez desatualizada) ou parar até conseguir confirmar com a outra (consistente, mas parada). |
+| Consistência eventual | Um aviso trocado em várias salas: por alguns instantes uma sala ainda mostra o aviso antigo, mas no fim todas mostram o mesmo. |
+| Promoção da réplica (failover de banco) | O substituto que acompanhava o livro-caixa passa a ser o titular e a fazer os lançamentos. |
+| RPO | Quanto trabalho você aceita perder, como "se o computador queimar, aceito refazer no máximo os últimos 5 minutos". |
+| RTO | Quanto tempo você aceita ficar parado até voltar a atender. |
+| Serverless | Pagar a corrida de táxi em vez de manter um carro: alguém cuida do veículo e, sem viagem, não há conta. |
+| Monolito | Um restaurante com uma cozinha só, de onde saem todos os pratos. |
+| Microsserviços | Uma praça de alimentação: cada balcão faz uma coisa, tem a sua equipe e precisa combinar com os outros. |
+| Lei de Conway | O jeito como a empresa se organiza acaba aparecendo no jeito como o sistema é dividido. |
+| Métricas | Os números do medidor de luz ao longo do mês: mostram que o consumo subiu, e quando. |
+| Logs | O livro de ocorrências da portaria, com a hora e a descrição de cada evento. |
+| Traces | O rastreio de uma encomenda, que mostra por quais centros ela passou e quanto tempo ficou em cada um. |
+| X-Request-ID | O código de rastreio impresso na encomenda, o mesmo em todos os centros por onde ela passa. |
+| SLO e error budget | A meta "a loja fica aberta 99,9% do tempo"; o 0,1% que sobra é a folga para imprevistos e mudanças, e quando ela acaba a prioridade vira estabilidade. |
+
 ---
 
 ## Etapa 01: Fundamentos de escalabilidade moderna
 
 ### O problema
 
-Um aplicativo viraliza depois de uma campanha de marketing. Milhões de usuários tentam acessá-lo ao mesmo tempo e o sistema sai do ar. O que deveria ser sucesso vira frustração e perda de receita. Isso é falha de escala. Grandes varejistas fora do ar na Black Friday e o "Fail Whale" do Twitter (atual X) são os exemplos clássicos, e tecnicamente costumavam vir de gargalos em componentes difíceis de escalar horizontalmente: um banco relacional sobrecarregado ou um sistema de pagamentos que não aguentava a concorrência.
+Um aplicativo viraliza depois de uma campanha de marketing. Milhões de usuários tentam acessá-lo ao mesmo tempo e o sistema sai do ar. O que deveria ser sucesso vira frustração e perda de receita: é uma falha de escala. Grandes varejistas fora do ar na Black Friday e o "Fail Whale" do Twitter (atual X) são os exemplos clássicos. Tecnicamente, essas quedas costumavam vir de gargalos em componentes difíceis de escalar horizontalmente, como um banco relacional sobrecarregado ou um sistema de pagamentos que não aguentava a concorrência.
 
-Crescer junto com a demanda é necessidade de negócio, não luxo. Mas há uma armadilha: nem todo sistema lento tem problema de escala. Antes de comprar mais máquinas, é preciso saber o que exatamente está lento.
+Crescer junto com a demanda é necessidade de negócio. Mas há uma armadilha: nem todo sistema lento tem problema de escala. Antes de comprar mais máquinas, é preciso saber o que exatamente está lento.
 
 ### O conceito
 
-**Analogia do supermercado:**
+Três palavras costumam ser usadas como se fossem a mesma coisa, e não são. Pense num supermercado:
 
 - **Desempenho (performance)** é a velocidade de uma única tarefa, ou seja, a latência de uma operação: quantos itens por minuto um caixa escaneia.
 - **Otimização** é melhorar o desempenho sem adicionar recursos: ensinar o caixa a escanear 20% mais rápido ou reorganizar os produtos nas prateleiras.
 - **Escalabilidade** é a capacidade de aumentar a produtividade (throughput) proporcionalmente aos recursos adicionados. Quando a fila fica gigantesca, não adianta ter o caixa mais rápido do mundo: abrem-se mais caixas.
 
-**O triângulo de trade-offs.** Performance, custo e complexidade: é praticamente impossível maximizar os três ao mesmo tempo. Banco com hardware de ponta e várias camadas de cache eleva custo e complexidade. Microsserviços podem baratear o custo por requisição em larga escala, mas trazem complexidade operacional enorme comparada a um monolito. O papel do profissional é navegar esses trade-offs conforme os requisitos técnicos e de negócio.
+**O triângulo de trade-offs.** Performance, custo e complexidade: é praticamente impossível maximizar os três ao mesmo tempo. Um banco com hardware de ponta e várias camadas de cache eleva custo e complexidade. Microsserviços podem baratear o custo por requisição em larga escala, mas trazem complexidade operacional enorme comparada a um monolito. O papel do profissional é navegar esses trade-offs conforme os requisitos técnicos e de negócio.
 
 **Escala vertical (scaling up)** é aumentar um único servidor: mais CPU, mais RAM, discos mais rápidos.
 
@@ -54,27 +128,38 @@ Crescer junto com a demanda é necessidade de negócio, não luxo. Mas há uma a
 **Escala horizontal (scaling out)** é adicionar mais servidores para distribuir a carga: uma frota de máquinas menores e mais baratas.
 
 - Vantagem: escala teoricamente ilimitada e mais resiliência, pois a falha de uma instância só redireciona o tráfego para as saudáveis.
-- Custo: a aplicação precisa ser projetada para ambiente distribuído (idealmente stateless) e a operação fica mais complexa, com a necessidade de um Load Balancer (próxima etapa).
+- Custo: a aplicação precisa ser projetada para ambiente distribuído (idealmente stateless) e a operação fica mais complexa, com a necessidade de um load balancer (Etapa 02).
 
-**Elasticidade e autoscaling.** Elasticidade é a capacidade de crescer e encolher recursos conforme a carga. Autoscaling é o mecanismo automatizado que a implementa, com regras predefinidas, sem equipe de plantão adicionando servidores na mão. Há três estilos:
+**Elasticidade e autoscaling.** Elasticidade é a capacidade de crescer e encolher recursos conforme a carga. Autoscaling é o mecanismo automatizado que a implementa, com regras predefinidas, sem uma equipe de plantão adicionando servidores na mão. Há três estilos:
 
 | Estilo | Como decide | Exemplo do material |
 |---|---|---|
 | Baseado em métricas (o mais comum) | Reage a um número medido | "Se a CPU média da frota passar de 70% por mais de 5 minutos, adicione um servidor; se cair abaixo de 30% por 10 minutos, remova um" |
 | Agendado | Para demanda previsível | "Todo dia útil às 8h55, suba para 10 servidores; às 18h05, desça para 2" |
-| Preditivo | Machine Learning sobre histórico prevê picos | Ajusta a capacidade antes que o pico aconteça |
+| Preditivo | Machine Learning sobre o histórico prevê os picos | Ajusta a capacidade antes que o pico aconteça |
 
-A automação é a chave para eficiência de custos: paga-se só pelo que se usa.
+A automação é a chave para a eficiência de custos: paga-se só pelo que se usa.
 
 **Quando NÃO escalar.** Às vezes o gargalo se resolve com otimização de código ou uma query mais eficiente. Para um sistema interno de 50 funcionários com tráfego baixo e estável, autoscaling é exagero de custo e complexidade. Distinguir problema de escala de problema de otimização é sinal de maturidade.
 
-**Ferramentas citadas no material:** Kubernetes (padrão de orquestração), AWS Auto Scaling Groups (ASG, elasticidade na nuvem), Karpenter (provisiona recursos pela necessidade real, com foco em custo) e KEDA (escala com base em eventos, como o tamanho de uma fila). Microsserviços, contêineres e picos sazonais imprevisíveis são os desafios atuais: a granularidade permite escalar só o componente necessário (por exemplo, o carrinho), mas traz latência de rede e desafios de observabilidade.
+**Desafios atuais e ferramentas.** Microsserviços, contêineres, sistemas orientados a eventos e picos sazonais imprevisíveis multiplicam os componentes: dezenas ou centenas de serviços, cada um com a sua necessidade de escala. A granularidade permite escalar só o componente necessário (por exemplo, o carrinho de compras), mas traz latência de rede e desafios de observabilidade. As ferramentas citadas no material são o Kubernetes (padrão de orquestração), o AWS Auto Scaling Groups (ASG, elasticidade na nuvem), o Karpenter (provisiona recursos pela necessidade real, com foco em custo) e o KEDA (escala com base em eventos, como o tamanho de uma fila).
 
-**No mercado (segundo o material):** o iFood enfrenta picos em finais de campeonato e dias chuvosos, e responde com microsserviços na nuvem, autoscaling intensivo e filas para desacoplar o processamento de pedidos. A tendência FinOps olha a escalabilidade também pela ótica de custo. Venda de ingressos de festivais e eventos esportivos derrubando sites força o mercado a evoluir em balanceamento, proteção contra bots e cache distribuído via CDN.
+**No mercado (segundo o material):** o iFood enfrenta picos em finais de campeonato e dias chuvosos e responde com microsserviços na nuvem, autoscaling intensivo e filas para desacoplar o processamento de pedidos. A tendência FinOps olha a escalabilidade também pela ótica de custo; o Karpenter provisiona os recursos exatos usando as instâncias mais baratas disponíveis. Vendas de ingressos de festivais e eventos esportivos derrubando sites forçam o mercado a evoluir em balanceamento, proteção contra bots e cache distribuído via CDN.
+
+### Os conceitos-chave
+
+- **Desempenho**: latência de uma operação isolada.
+- **Throughput**: quanto trabalho o sistema completa por unidade de tempo.
+- **Otimização**: melhora o desempenho sem acrescentar recursos; costuma melhorar o throughput junto.
+- **Escalabilidade**: aumenta o throughput acrescentando recursos; não reduz a latência de uma requisição isolada.
+- **Escala vertical**: um servidor maior; simples, com teto, downtime no upgrade e SPOF.
+- **Escala horizontal**: mais servidores; resiliente e com teto alto, exige aplicação preparada e load balancer.
+- **SPOF**: componente sem redundância cuja falha derruba o sistema inteiro.
+- **Elasticidade e autoscaling**: crescer e encolher automaticamente, por métrica, por agenda ou por previsão.
 
 ### Exemplo comentado: uma "loja" com capacidade limitada
 
-Para sentir a diferença entre otimizar, escalar para cima e escalar para fora, vamos usar uma aplicação de teste que modela um servidor com capacidade finita: cada instância atende no máximo N requisições ao mesmo tempo, e cada requisição leva um tempo fixo. É um **modelo** (uma maquete), não um servidor real, mas deixa os números previsíveis.
+Para sentir a diferença entre otimizar, escalar para cima e escalar para fora, vamos usar uma aplicação de teste que modela um servidor com capacidade finita: cada instância atende no máximo N requisições ao mesmo tempo (`CAPACIDADE`), e cada requisição leva um tempo fixo (`TRABALHO_MS`). As requisições que excedem a capacidade esperam a vez. É um **modelo**, não um servidor real, mas deixa os números previsíveis. O caminho `/health` responde na hora, sem simular trabalho.
 
 Crie a pasta e os arquivos:
 
@@ -136,7 +221,7 @@ EXPOSE 8080
 CMD ["python", "-u", "app.py"]
 ```
 
-Construa a imagem e defina uma função de carga (100 requisições, 20 em paralelo, e o tempo total):
+Construa a imagem e defina uma função de carga (100 requisições, 20 em paralelo, medindo o tempo total):
 
 ```sh
 # Constrói a imagem com o nome lab-app
@@ -146,9 +231,20 @@ docker build -t lab-app ./app
 carga() { time (seq 1 100 | xargs -P 20 -I{} curl -s -o /dev/null "$1"); }
 ```
 
-Saída esperada do build (resumida): `naming to docker.io/library/lab-app` ao final.
+Saída esperada do build (resumida): `naming to docker.io/library/lab-app` ao final. A função `carga` vale só para o terminal em que foi definida; se abrir outro terminal, defina de novo.
+
+### Comandos essenciais
+
+- `docker build -t lab-app ./app`: constrói a imagem da aplicação de teste.
+- `docker run -d --name NOME -p PORTA:8080 -e VAR=valor lab-app`: sobe uma instância em segundo plano, com variáveis de ambiente.
+- `curl -s -o /dev/null -w "%{time_total}s\n" URL`: mede a latência de uma requisição.
+- `curl -s -o /dev/null -w "%{http_code}\n" --max-time 2 URL`: mostra só o código HTTP (`000` significa que não houve resposta).
+- `seq 1 100 | xargs -P 20 -I{} curl ...`: dispara requisições em paralelo.
+- `docker rm -f NOMES`: remove os containers de laboratório.
 
 ### Mão na massa
+
+**Laboratório**
 
 **1. Linha de base: uma instância, capacidade 2, 100 ms por requisição.**
 
@@ -165,7 +261,7 @@ latência de uma requisição: 0.10xxxxs
 real    0m5.2s
 ```
 
-A conta: 2 requisições por 100 ms = 20 por segundo; 100 requisições levam cerca de 5 segundos.
+A conta: 2 requisições a cada 100 ms dão 20 por segundo; 100 requisições levam cerca de 5 segundos.
 
 **2. Otimização: mesma máquina, trabalho pela metade.**
 
@@ -175,7 +271,7 @@ curl -s -o /dev/null -w "latência: %{time_total}s\n" localhost:8082/
 carga http://localhost:8082/
 ```
 
-Esperado: latência perto de 0.05s e tempo total perto de 2,5s.
+Esperado: latência perto de 0.05s e tempo total perto de 2,5 s.
 
 **3. Escala vertical: um "servidor maior" (capacidade 4).**
 
@@ -185,7 +281,7 @@ curl -s -o /dev/null -w "latência: %{time_total}s\n" localhost:8083/
 carga http://localhost:8083/
 ```
 
-Esperado: latência continua perto de 0.10s, tempo total perto de 2,5s.
+Esperado: latência continua perto de 0.10s; tempo total perto de 2,5 s.
 
 **4. Escala horizontal: três instâncias pequenas, com um "balanceador" feito à mão.**
 
@@ -198,9 +294,9 @@ docker run -d --name h3 -p 8086:8080 lab-app
 time (seq 1 100 | xargs -P 20 -I{} sh -c 'curl -s -o /dev/null http://localhost:$((8084 + {} % 3))/')
 ```
 
-Esperado: tempo total perto de 1,7s (3 instâncias × 20 por segundo = 60 por segundo).
+Esperado: tempo total perto de 1,7 s (3 instâncias × 20 por segundo = 60 por segundo).
 
-**5. O que observar:**
+**5. O que observar.**
 
 | Experimento | Latência de 1 requisição | Tempo para 100 requisições |
 |---|---|---|
@@ -209,7 +305,7 @@ Esperado: tempo total perto de 1,7s (3 instâncias × 20 por segundo = 60 por se
 | Vertical | cerca de 0,10 s | cerca de 2,5 s |
 | Horizontal (3) | cerca de 0,10 s | cerca de 1,7 s |
 
-Escalar (vertical ou horizontal) **não mexeu na latência** de uma requisição isolada, só no throughput. Otimizar mexeu nos dois. É exatamente a distinção entre desempenho e escalabilidade.
+Escalar (vertical ou horizontalmente) **não mexeu na latência** de uma requisição isolada, só no throughput. Otimizar mexeu nos dois. É exatamente a distinção entre desempenho e escalabilidade.
 
 **6. O ponto único de falha, ao vivo.**
 
@@ -221,7 +317,7 @@ docker stop h1
 for p in 8084 8085 8086; do curl -s -o /dev/null -w "%{http_code} " --max-time 2 localhost:$p/; done; echo
 ```
 
-Esperado: `000` na primeira (conexão recusada, o SPOF caiu) e `000 200 200` na segunda: com a frota, só um terço falha. Mas quem decide para onde mandar a requisição? Hoje é o seu `sh -c`. Na próxima etapa, é o load balancer.
+Esperado: `000` na primeira chamada (conexão recusada: o SPOF caiu) e `000 200 200` na segunda. Com a frota, só um terço falha. Mas quem decide para onde mandar a requisição ainda é o seu `sh -c`, que não sabe que `h1` caiu. Na próxima etapa, quem decide é o load balancer.
 
 **Limpeza:**
 
@@ -229,11 +325,18 @@ Esperado: `000` na primeira (conexão recusada, o SPOF caiu) e `000 200 200` na 
 docker rm -f base otim vert h1 h2 h3
 ```
 
-### Exercícios
+**Exercícios**
 
-1. **Escalar ou otimizar?** Para cada situação, diga qual alavanca usar primeiro e por quê: (a) uma página faz 400 consultas SQL em loop; (b) o site da campanha de Black Friday vai receber 20 vezes o tráfego normal em 3 horas; (c) um sistema interno de 50 funcionários está lento às segundas de manhã. *Resposta esperada:* (a) otimizar (o problema é a query, escalar só multiplicaria o desperdício); (b) escalar horizontalmente, de preferência agendado ou com autoscaling; (c) medir antes, provavelmente otimizar, e evitar autoscaling por ser exagero de custo e complexidade.
-2. **Escreva as três regras.** Para uma loja com pico previsível às 20h, escreva uma regra baseada em métrica, uma agendada e descreva o que uma preditiva faria de diferente. *Resposta esperada:* (métrica) "se a CPU média da frota passar de 70% por mais de 5 minutos, adicione um servidor; se cair abaixo de 30% por 10 minutos, remova um"; (agendada) "todo dia às 19h50, suba para o número de servidores que o pico pede, e às 22h desça para o mínimo"; (preditiva) um modelo de Machine Learning treinado no histórico aprende o formato do pico (por exemplo, que sexta-feira é mais forte que terça) e sobe a capacidade antes de ele começar, sem depender de um horário fixo escrito à mão. A diferença de fundo: a regra por métrica reage depois que a carga subiu; a agendada e a preditiva se antecipam.
-3. **Triângulo.** Você precisa baixar a latência do banco pela metade. Cite uma solução que sacrifica custo e outra que sacrifica complexidade. *Resposta esperada:* sacrificando custo, hardware de ponta para o banco (escala vertical: mais RAM, discos mais rápidos), o que é simples de operar, mas caro, com teto e ponto único de falha; sacrificando complexidade, uma ou mais camadas de cache (por exemplo, Redis) na frente do banco, que são baratas por unidade, mas trazem novos problemas (invalidação, dado desatualizado). E, antes das duas, vale conferir se uma query ou índice melhor já resolve (otimização, que custa pouco nos três vértices).
+1. **Escalar ou otimizar?** Para cada situação, diga qual alavanca usar primeiro e por quê: (a) uma página faz 400 consultas SQL em loop; (b) o site da campanha de Black Friday vai receber 20 vezes o tráfego normal em 3 horas; (c) um sistema interno de 50 funcionários está lento às segundas de manhã.
+   *Resposta esperada:* (a) otimizar, porque o problema é a query e escalar só multiplicaria o desperdício; (b) escalar horizontalmente, de preferência com autoscaling agendado ou por métrica; (c) medir antes, provavelmente otimizar, e evitar autoscaling por ser exagero de custo e complexidade.
+2. **Escreva as três regras.** Para uma loja com pico previsível às 20h, escreva uma regra baseada em métrica, uma agendada e descreva o que uma preditiva faria de diferente.
+   *Resposta esperada:* (métrica) "se a CPU média da frota passar de 70% por mais de 5 minutos, adicione um servidor; se cair abaixo de 30% por 10 minutos, remova um"; (agendada) "todo dia às 19h50, suba para o número de servidores que o pico pede, e às 22h desça para o mínimo"; (preditiva) um modelo de Machine Learning treinado no histórico aprende o formato do pico (por exemplo, que sexta-feira é mais forte que terça) e sobe a capacidade antes de ele começar, sem depender de um horário escrito à mão. A diferença de fundo: a regra por métrica reage depois que a carga subiu; a agendada e a preditiva se antecipam.
+3. **Triângulo.** Você precisa baixar a latência do banco pela metade. Cite uma solução que sacrifica custo e outra que sacrifica complexidade.
+   *Resposta esperada:* sacrificando custo, hardware de ponta para o banco (escala vertical: mais RAM, discos mais rápidos), simples de operar, mas caro, com teto e ponto único de falha; sacrificando complexidade, uma ou mais camadas de cache (por exemplo, Redis) na frente do banco, baratas por unidade, mas com novos problemas (invalidação, dado desatualizado). Antes das duas, vale conferir se uma query ou um índice melhor já resolve, porque a otimização custa pouco nos três vértices.
+
+### Dica
+
+Antes de escalar, meça duas coisas separadamente: a latência de uma requisição sozinha e o tempo de um lote em paralelo. Se a requisição sozinha já é lenta, o problema é de desempenho e mais servidores não vão resolvê-lo.
 
 ### Anota aí
 
@@ -245,24 +348,22 @@ docker rm -f base otim vert h1 h2 h3
 
 ### O problema
 
-Você tem três servidores idênticos e uma pergunta: como o tráfego chega até eles de forma organizada? Na Etapa 01, o seu `sh -c` fazia o papel de distribuidor e, quando uma instância caiu, um terço das requisições simplesmente falhou. Em produção, ninguém quer um cliente decidindo isso sozinho, e ninguém quer derrubar o site para publicar uma versão nova. É aqui que entra o Load Balancer (balanceador de carga): ele evita sobrecarga, mantém a aplicação no ar mesmo se uma instância falhar e viabiliza deploys com zero downtime (como Netflix e Spotify fazem).
+Você tem três servidores idênticos e uma pergunta: como o tráfego chega até eles de forma organizada? Na Etapa 01, o seu `sh -c` fazia o papel de distribuidor e, quando uma instância caiu, um terço das requisições simplesmente falhou. Em produção, ninguém quer o cliente decidindo isso sozinho, e ninguém quer derrubar o site para publicar uma versão nova numa sexta-feira à tarde. É aqui que entra o load balancer (balanceador de carga): ele evita sobrecarga, mantém a aplicação no ar mesmo se uma instância falhar e viabiliza deploys com zero downtime, como os que Netflix e Spotify fazem.
 
 ### O conceito
 
-**Analogia:** o controlador de tráfego aéreo. Ele direciona os aviões para pistas livres e mantém o aeroporto operando mesmo com uma pista interditada.
+Um load balancer é um servidor proxy entre os clientes e os servidores da aplicação. Ele é o único ponto de contato e uma abstração: o cliente fala com um endereço só. Além de distribuir requisições, garante alta disponibilidade, confiabilidade e gerenciamento simplificado. O material o compara ao controlador de tráfego aéreo, que direciona aviões para pistas livres e mantém a operação mesmo com uma pista interditada.
 
-Um Load Balancer é um servidor proxy entre clientes e servidores da aplicação, o único ponto de contato e uma abstração: o cliente fala com um endereço só. Ele distribui requisições e garante alta disponibilidade, confiabilidade e gerenciamento simplificado.
-
-**Camada 4 vs Camada 7 (modelo OSI):**
+**Camada 4 vs camada 7 (modelo OSI):**
 
 | | L4 (transporte, TCP/UDP) | L7 (aplicação, HTTP/HTTPS) |
 |---|---|---|
 | Decide com base em | IP de origem e destino e portas, nos primeiros pacotes | O conteúdo de cada requisição |
 | O que enxerga | Nada do conteúdo: buscar imagem e pagar são pacotes iguais | Caminho, `User-Agent`, `Accept-Language`, cookies |
 | Vantagem | Extremamente rápido, milhões de requisições por segundo, latência mínima | Roteamento inteligente |
-| Exemplos de uso | Jogos online, streaming, balancear outros LBs (AWS NLB) | `/api/pagamentos` para servidores robustos e `/blog` para servidores simples; mobile para versão otimizada; idioma; teste A/B por cookie (AWS ALB) |
+| Exemplos de uso | Jogos online, streaming, balancear outros LBs (AWS Network Load Balancer, NLB) | `/api/pagamentos` para servidores robustos e `/blog` para servidores simples; mobile para a versão otimizada; idioma; teste A/B por cookie (AWS Application Load Balancer, ALB, a escolha padrão para aplicações web modernas) |
 
-**Externo vs interno.** O externo tem interface pública (IP público ou DNS) e é o portão de entrada. O interno só existe dentro da rede privada (VPC) e gerencia a comunicação entre serviços: o "Carrinho" fala com o "Estoque" sem expor o Estoque à internet, o que é ganho de segurança.
+**Externo vs interno.** O externo tem interface pública (IP público ou DNS) e é o portão de entrada da aplicação. O interno só existe dentro da rede privada (VPC) e gerencia a comunicação entre serviços: o "Carrinho" fala com o "Estoque" sem expor o Estoque à internet, o que é ganho de segurança.
 
 **Algoritmos:**
 
@@ -270,16 +371,27 @@ Um Load Balancer é um servidor proxy entre clientes e servidores da aplicação
 - **Least Connections:** manda para quem tem menos conexões ativas. Bom quando as conexões têm durações muito diferentes (uploads, streaming).
 - **IP Hashing:** o hash do IP do cliente define o servidor, então o mesmo IP cai sempre no mesmo servidor (afinidade de sessão). Desvantagens: distribuição desigual quando muitos usuários estão atrás do mesmo proxy corporativo e problemas de sessão se um servidor falha e o hash é recalculado.
 
-**Health checks e failover.** O LB testa ativamente a saúde de cada servidor. Parâmetros: intervalo, timeout, *unhealthy threshold* (falhas consecutivas para marcar como não saudável) e *healthy threshold* (sucessos consecutivos para voltar). Falhou: ocorre o **failover**, e o LB para de mandar tráfego novo para a instância doente, de forma transparente. O **connection draining** deixa as conexões existentes terminarem antes de remover a instância.
+**Health checks e failover.** O LB testa ativamente a saúde de cada servidor. Parâmetros: intervalo, timeout, *unhealthy threshold* (falhas consecutivas para marcar como não saudável) e *healthy threshold* (sucessos consecutivos para voltar). Quando um servidor falha, ocorre o **failover**: o LB para de mandar tráfego novo para a instância doente, de forma transparente. O **connection draining** deixa as conexões existentes terminarem antes de remover a instância.
 
 **Estratégias de deploy:**
 
 - **Blue/Green:** dois ambientes idênticos e isolados. O LB manda 100% para Blue (estável); Green (a nova versão) é validado; a "virada" aponta tudo para Green. O rollback é igualmente rápido. Atenção ao banco compartilhado: mudanças de schema precisam ser retrocompatíveis.
-- **Canary:** nome vindo dos canários nas minas de carvão. Uma pequena porcentagem (1%, 5%) vai para a versão nova; monitoram-se métricas técnicas (erros, latência) e de negócio (conversão, engajamento); aumenta-se gradualmente até 100%.
+- **Canary:** nome vindo dos canários usados nas minas de carvão. Uma pequena porcentagem (1%, 5%) vai para a versão nova; monitoram-se métricas técnicas (erros, latência) e de negócio (conversão, engajamento); aumenta-se gradualmente até 100%.
 
-**No mercado (segundo o material):** a Netflix usa LBs internos para desacoplar milhares de microsserviços (se recomendações ficam lentas, o tráfego vai para um fallback ou circuit breakers são ativados, evitando falha em cascata). Service Mesh e API Gateways (Istio e Linkerd, com sidecar proxies agindo como LBs L7 por serviço) trazem observabilidade, mTLS e controle granular. O GSLB (Global Server Load Balancing) usa DNS inteligente para multi-cloud e híbrido: usuário do Brasil vai para São Paulo, da Europa para Frankfurt, conforme geolocalização, latência e saúde.
+**No mercado (segundo o material):** a Netflix usa LBs internos para desacoplar milhares de microsserviços; se as recomendações ficam lentas, o tráfego vai para um fallback ou circuit breakers são ativados, evitando falha em cascata. Service Mesh e API Gateways (Istio e Linkerd, com sidecar proxies agindo como LBs L7 por serviço) trazem observabilidade, mTLS e controle granular. O GSLB (Global Server Load Balancing) usa DNS inteligente para multi-cloud e ambientes híbridos: o usuário do Brasil vai para São Paulo, o da Europa para Frankfurt, conforme geolocalização, latência e saúde. Cloudflare e F5 são citados como líderes.
 
-**Como o laboratório se encaixa:** o Nginx fará o papel do Application Load Balancer (L7). Em AWS, o *listener* é a porta de entrada, o *target group* é o grupo de servidores de destino e o *health check* decide quem está saudável. No Nginx, o `listen` é o listener, o bloco `upstream` é o target group, e a verificação de saúde é **passiva** (o Nginx de código aberto marca um servidor como falho quando as conexões reais dele falham; o health check ativo, que sonda periodicamente, é recurso do NGINX Plus).
+**Como o laboratório se encaixa.** O Nginx fará o papel do Application Load Balancer (L7). Na AWS, o *listener* é a porta de entrada, o *target group* é o grupo de servidores de destino e o *health check* decide quem está saudável. No Nginx, o `listen` é o listener, o bloco `upstream` é o target group e a verificação de saúde é **passiva**: o Nginx de código aberto marca um servidor como falho quando as conexões reais para ele falham. O health check ativo, que sonda periodicamente, é recurso do NGINX Plus.
+
+### Os conceitos-chave
+
+- **Load balancer**: ponto único de entrada que distribui requisições entre servidores.
+- **L4**: decide por IP e porta; rápido e cego ao conteúdo.
+- **L7**: decide pelo conteúdo HTTP (caminho, cabeçalhos, cookies); mais inteligente e mais caro de processar.
+- **Round-robin, weighted, least connections, IP hash**: as regras de escolha do próximo servidor.
+- **Health check, failover, connection draining**: detectar o servidor doente, tirá-lo de rotação e deixar terminar o que já estava em andamento.
+- **Blue/Green**: virada total entre dois ambientes, com rollback igualmente rápido.
+- **Canary**: uma fração pequena do tráfego na versão nova, aumentada aos poucos.
+- **Ingress**: o roteador L7 do Kubernetes, que leva o tráfego externo aos serviços certos do cluster.
 
 ### Exemplo comentado: Nginx balanceando 3 réplicas
 
@@ -329,7 +441,7 @@ upstream azul {
 }
 
 upstream verde {
-    server verde:8080;
+    server verde:8080;                  # a versão nova, um container só
 }
 
 server {
@@ -349,9 +461,51 @@ docker compose up -d --build
 docker compose ps
 ```
 
-Saída esperada (resumida): três linhas `lab-etapa-02-app-1/2/3` em `running`, mais `verde` e `lb`.
+Saída esperada (resumida): três linhas `lab-etapa-02-app-1`, `-2` e `-3` em `running`, mais `verde` e `lb`.
+
+### Exemplo comentado: um Ingress do Kubernetes
+
+O Ingress é o "roteador inteligente" que leva o tráfego externo aos serviços certos do cluster. Ele faz, em Kubernetes, o mesmo papel dos blocos `location` do Nginx:
+
+```yaml
+apiVersion: networking.k8s.io/v1   # versão da API do recurso Ingress
+kind: Ingress                      # tipo do recurso
+metadata:
+  name: loja                       # nome do Ingress
+spec:
+  ingressClassName: nginx          # qual controlador de Ingress vai implementá-lo
+  rules:
+    - host: loja.exemplo.com       # só vale para este domínio
+      http:
+        paths:
+          - path: /api             # requisições que começam com /api
+            pathType: Prefix       # casamento por prefixo
+            backend:
+              service:
+                name: api          # vão para o Service "api"
+                port:
+                  number: 80
+          - path: /                # todo o resto
+            pathType: Prefix
+            backend:
+              service:
+                name: web          # vai para o Service "web"
+                port:
+                  number: 80
+```
+
+### Comandos essenciais
+
+- `docker compose up -d --build`: constrói e sobe a stack em segundo plano.
+- `docker compose ps` e `docker compose ps -q app`: listam os containers (o `-q` devolve só os IDs).
+- `docker compose exec lb nginx -t`: valida a configuração do Nginx antes de aplicá-la.
+- `docker compose exec lb nginx -s reload`: aplica a configuração nova sem derrubar as conexões em andamento.
+- `... | awk '{print $1}' | sort | uniq -c`: conta quantas respostas vieram de cada servidor.
+- `docker compose down -v`: derruba a stack e remove os volumes dela.
 
 ### Mão na massa
+
+**Laboratório**
 
 **1. Round-robin.** 30 requisições, contando quem respondeu:
 
@@ -367,7 +521,7 @@ Esperado (os IDs mudam):
      10 a1b2c3d4e5f6
 ```
 
-Graças à diretiva `zone`, os processos worker do Nginx compartilham o mesmo contador de round-robin, por isso a divisão sai exata. Sem ela, cada worker teria o seu contador e a distribuição poderia sair irregular (por exemplo, 12 para um, 9 para cada um dos outros).
+Graças à diretiva `zone`, os processos worker do Nginx compartilham o mesmo contador de round-robin, por isso a divisão sai exata. Sem ela, cada worker teria o seu contador e a distribuição poderia sair irregular (por exemplo, 12 para um e 9 para cada um dos outros).
 
 **2. Failover.** Derrube uma réplica e continue chamando:
 
@@ -376,7 +530,7 @@ docker stop $(docker compose ps -q app | head -n 1)
 for i in $(seq 1 20); do curl -s -o /dev/null -w "%{http_code}\n" localhost:8080/; done | sort | uniq -c
 ```
 
-Esperado: `20 200`. Nenhuma falha chegou ao cliente. A primeira requisição que cair na réplica morta pode demorar cerca de 1 segundo (o `proxy_connect_timeout`) antes de o Nginx tentar outro servidor. Compare com a Etapa 01, em que `000` apareceu.
+Esperado: `20 200`. Nenhuma falha chegou ao cliente. A primeira requisição que cair na réplica parada pode demorar cerca de 1 segundo (o `proxy_connect_timeout`) antes de o Nginx tentar outro servidor. Compare com a Etapa 01, em que apareceu `000`.
 
 Traga a réplica de volta e atualize o Nginx, que resolve nomes só na partida e por isso pode estar com um IP desatualizado:
 
@@ -385,7 +539,7 @@ docker compose up -d
 docker compose exec lb nginx -s reload
 ```
 
-**3. Algoritmos.** Troque para `least_conn` e depois `ip_hash`. (No macOS, use `gsed` no lugar de `sed`, ou edite `nginx/default.conf` à mão: insira a linha `least_conn;` logo abaixo de `upstream azul {` e, depois, troque-a por `ip_hash;`.)
+**3. Algoritmos.** Troque para `least_conn` e depois para `ip_hash`. (No macOS, use `gsed` no lugar de `sed`, ou edite `nginx/default.conf` à mão: insira a linha `least_conn;` logo abaixo de `upstream azul {` e, depois, troque-a por `ip_hash;`.)
 
 ```sh
 # Insere "least_conn;" logo depois da abertura do bloco upstream azul
@@ -398,7 +552,7 @@ docker compose exec lb nginx -t && docker compose exec lb nginx -s reload
 for i in $(seq 1 10); do curl -s localhost:8080/; done | awk '{print $1}' | sort | uniq -c
 ```
 
-Esperado com `ip_hash`: uma única linha com `10` e um só servidor. O seu cliente tem sempre o mesmo IP (o do gateway do Docker), logo cai sempre no mesmo servidor: é a afinidade de sessão, e também o desequilíbrio que acontece quando muita gente compartilha um IP. Remova a linha para voltar ao round-robin:
+Esperado com `ip_hash`: uma única linha com `10` e um só servidor. O seu cliente tem sempre o mesmo IP (o do gateway do Docker) e por isso cai sempre no mesmo servidor: é a afinidade de sessão, e também o desequilíbrio que acontece quando muita gente compartilha um IP. Remova a linha para voltar ao round-robin:
 
 ```sh
 sed -i '/ip_hash;/d' nginx/default.conf
@@ -438,7 +592,7 @@ docker compose exec lb nginx -t && docker compose exec lb nginx -s reload
 seq 1 200 | xargs -P 10 -I{} curl -s localhost:8080/ | awk '{print $2}' | sort | uniq -c
 ```
 
-Esperado, aproximadamente: `180 v1` e `20 v2` (o sorteio varia um pouco).
+Esperado, aproximadamente: `180 v1` e `20 v2` (o sorteio varia um pouco). Se as métricas da `v2` piorassem, só esses 10% teriam sentido.
 
 **5. Blue/Green: a virada e o rollback.** (No macOS, use `gsed`, ou edite o arquivo à mão: troque `10%` por `100%` na virada e apague a linha do `verde` no rollback.)
 
@@ -456,51 +610,29 @@ for i in 1 2 3 4 5; do curl -s localhost:8080/ | awk '{print $2}'; done
 # Esperado: v1 cinco vezes
 ```
 
-O `nginx -s reload` é gracioso: os processos antigos terminam as conexões em andamento antes de sair, a ideia do connection draining.
+O `nginx -s reload` é gracioso: os processos antigos terminam as conexões em andamento antes de sair. É a ideia do connection draining.
 
-**Limpeza (só ao terminar também os exercícios):**
+**Exercícios**
+
+Os exercícios 1 e 2 mexem no `nginx/default.conf` com a stack no ar. O arquivo está no formato do canary/rollback (com o `split_clients`), e é o bloco `location /` dele que você troca no exercício 1. Depois de editar, rode `docker compose exec lb nginx -t && docker compose exec lb nginx -s reload`.
+
+1. **Roteamento L7.** Troque o bloco `location /` por dois: `location /api/` com `proxy_pass http://verde;` e `location /` com `proxy_pass http://azul;`. Chame `curl -s localhost:8080/api/pagamentos` e `curl -s localhost:8080/blog`. Qual versão responde a cada uma? Por que isso só é possível em L7?
+   *Resposta esperada:* `/api/pagamentos` responde com `v2` (o grupo `verde`) e `/blog` com `v1` (o grupo `azul`). Só o L7 consegue, porque o caminho `/api/...` está dentro da requisição HTTP, e o L4 enxerga apenas IP e porta.
+2. **Pesos.** Qual seria o efeito de `server app:8080 weight=3;` ao lado de outro servidor com peso 1, e em que cenário real você usaria isso?
+   *Resposta esperada:* o servidor de peso 3 receberia cerca de 3 de cada 4 requisições (proporção 3 para 1). É o Weighted Round-robin, útil quando as máquinas são desiguais e um servidor mais potente deve receber mais carga que um menor.
+3. **Ingress (leitura).** No YAML do segundo exemplo comentado, qual serviço atende `/api/pedidos` e qual atende `/`?
+   *Resposta esperada:* `/api/pedidos` vai para o Service `api`; `/` vai para o `web`. É o mesmo raciocínio dos blocos `location` do Nginx.
+
+**Limpeza (ao terminar o laboratório e os exercícios):**
 
 ```sh
 docker compose down -v
 cd ..
 ```
 
-### Exercícios
+### Dica
 
-Os exercícios 1 e 2 mexem no `nginx/default.conf` e precisam da stack no ar. Se você já rodou a limpeza acima, suba de novo: estando em `lab-escalabilidade`, rode `cd etapa-02 && docker compose up -d --build`. O arquivo `nginx/default.conf` continua no disco no formato do canary/rollback (com o `split_clients`), e é o bloco `location /` desse arquivo que você troca no exercício 1. Depois de editar, rode `docker compose exec lb nginx -t && docker compose exec lb nginx -s reload`. Ao terminar, repita a limpeza.
-
-1. **Roteamento L7.** Troque o bloco `location /` por dois: `location /api/` com `proxy_pass http://verde;` e `location /` com `proxy_pass http://azul;`. Chame `curl -s localhost:8080/api/pagamentos` e `curl -s localhost:8080/blog`. Qual versão responde a cada uma? Isso só é possível em L7: por quê? *Resposta esperada:* `/api/pagamentos` responde com `v2` (o grupo `verde`) e `/blog` responde com `v1` (o grupo `azul`). Só o L7 consegue, porque o caminho `/api/...` está dentro da requisição HTTP, e o L4 enxerga apenas IP e porta.
-2. **Pesos.** Qual seria o efeito de `server app:8080 weight=3;` ao lado de outro servidor com peso 1, e em que cenário real você usaria isso? *Resposta esperada:* o servidor de peso 3 receberia cerca de 3 de cada 4 requisições (proporção 3 para 1). É o Weighted Round-robin, útil quando as máquinas são desiguais: um servidor mais potente deve receber mais carga que um menor.
-3. **Ingress (leitura).** O Ingress do Kubernetes é o "roteador inteligente" que leva o tráfego externo aos serviços certos. Leia o YAML e diga qual serviço atende `/api/pedidos` e qual atende `/`:
-
-```yaml
-apiVersion: networking.k8s.io/v1   # versão da API do recurso Ingress
-kind: Ingress                      # tipo do recurso
-metadata:
-  name: loja                       # nome do Ingress
-spec:
-  ingressClassName: nginx          # qual controlador de Ingress vai implementá-lo
-  rules:
-    - host: loja.exemplo.com       # só vale para este domínio
-      http:
-        paths:
-          - path: /api             # requisições que começam com /api
-            pathType: Prefix       # casamento por prefixo
-            backend:
-              service:
-                name: api          # vão para o Service "api"
-                port:
-                  number: 80
-          - path: /                # todo o resto
-            pathType: Prefix
-            backend:
-              service:
-                name: web          # vai para o Service "web"
-                port:
-                  number: 80
-```
-
-*Resposta esperada:* `/api/pedidos` vai para o Service `api`; `/` vai para o `web`. É o mesmo raciocínio do `location` do Nginx.
+Antes de todo `reload`, rode `nginx -t`. Uma configuração inválida faz o reload ser recusado e o Nginx continua com a configuração anterior, mas o `-t` mostra o erro e a linha na hora, em vez de você descobrir que a mudança não entrou.
 
 ### Anota aí
 
@@ -512,41 +644,50 @@ spec:
 
 ### O problema
 
-Já temos LB e frota. Mas de que adianta uma frota de carros idênticos se cada um só funciona com um motorista específico? Um cliente coloca café no carrinho, o LB manda a próxima requisição para outra instância, e o carrinho está vazio. E se o processamento de pagamentos for muito mais lento que o resto? Adicionar servidores para tudo é desperdício. Esta etapa olha para dentro da aplicação.
+Já temos load balancer e frota. Mas de que adianta uma frota de servidores idênticos se cada cliente só pode ser atendido por um servidor específico? Um cliente coloca café no carrinho, o load balancer manda a próxima requisição para outra instância, e o carrinho aparece vazio. E se o processamento de pagamentos for muito mais lento que o resto? Adicionar servidores para tudo é desperdício. Esta etapa olha para dentro da aplicação.
 
-Há um segundo cenário, o do e-commerce na Black Friday: confirmar um pedido envolve validar o pagamento, baixar o estoque, emitir a nota fiscal e enviar um e-mail. Feito de forma síncrona, o usuário fica esperando tudo isso olhando para uma tela de carregamento.
+Há um segundo cenário, o do e-commerce na Black Friday: confirmar um pedido envolve validar o pagamento, baixar o estoque, emitir a nota fiscal e enviar um e-mail. Feito de forma síncrona, o usuário fica esperando tudo isso diante de uma tela de carregamento, e cada servidor fica ocupado com trabalho que não precisava acontecer naquele momento.
 
 ### O conceito
 
 **Regra de ouro: stateless.**
 
-- **Stateful:** guarda dados da sessão na memória do servidor (por exemplo, o carrinho numa variável de sessão). O cliente fica "preso" ao servidor; se o LB o manda para outro, o carrinho some. O contorno são as *sticky sessions*, que limitam a resiliência e a eficiência do balanceamento.
-- **Stateless:** nenhuma informação de contexto fica entre requisições; cada requisição traz tudo de que precisa. O estado vai para um armazenamento compartilhado e rápido (um banco ou um cache distribuído como o Redis). Qualquer servidor atende qualquer cliente a qualquer momento: é compatível com escala horizontal e com failover automático.
+- **Stateful:** guarda dados da sessão na memória do servidor (por exemplo, o carrinho numa variável de sessão). O cliente fica "preso" ao servidor; se o load balancer o manda para outro, o carrinho some. O contorno são as *sticky sessions*, que limitam a resiliência e a eficiência do balanceamento.
+- **Stateless:** nenhuma informação de contexto fica no servidor entre requisições; cada requisição traz tudo de que precisa. O estado vai para um armazenamento compartilhado e rápido (um banco ou um cache distribuído como o Redis). Qualquer servidor atende qualquer cliente a qualquer momento, o que é compatível com escala horizontal e com failover automático.
 
-**Analogia:** o atendente que anota o seu pedido no próprio braço (stateful) contra o que escreve numa comanda de papel que fica no balcão (stateless): se o atendente sai, outro lê a comanda e continua.
-
-**Unidades de escala:**
+**Unidades de escala.** São os mecanismos que mantêm o número certo de cópias rodando:
 
 - **Kubernetes ReplicaSet:** garante um número especificado de cópias idênticas de um Pod sempre rodando.
 - **AWS Auto Scaling Group (ASG):** gerencia o ciclo de vida de um grupo de instâncias EC2, mantendo a quantidade desejada saudável.
 
-No Compose, o campo `deploy.replicas` que você usou na Etapa 02 cumpre um papel parecido.
+No Compose, o campo `deploy.replicas` que você usou na Etapa 02 cumpre um papel parecido, para réplicas locais.
 
-**Workers e filas.** A aplicação principal (o **produtor**) publica uma mensagem numa fila (AWS SQS, RabbitMQ) e responde na hora ("Seu pedido foi recebido e está sendo processado!"). Os **workers** (consumidores) leem a fila e fazem o trabalho pesado de forma assíncrona. Os workers escalam de forma independente, com base no tamanho da fila.
+**Workers e filas.** A aplicação principal (o **produtor**) publica uma mensagem numa fila (AWS SQS, RabbitMQ) e responde na hora ("Seu pedido foi recebido e está sendo processado"). Os **workers** (consumidores) leem a fila e fazem o trabalho pesado de forma assíncrona. Os workers escalam de forma independente da API, com base no tamanho da fila.
 
 **Padrões avançados:**
 
 - **Sidecar:** contêiner auxiliar no mesmo Pod do principal, cuidando de logs, monitoramento ou proxy de rede sem a aplicação saber.
 - **Ambassador:** variação de proxy focada na comunicação com o exterior ou com outros serviços (retries, descoberta de serviços).
-- **Sharding:** escala horizontal de dados; o banco é particionado em bancos menores e independentes (shards). Veremos na Etapa 05.
+- **Sharding:** escala horizontal de dados; o banco é particionado em bancos menores e independentes (shards). Fica para a Etapa 05.
 
-**Trade-offs e resiliência.** Política de autoscaling agressiva dá melhor performance e conta alta; a conservadora economiza e degrada nos picos. FinOps busca o equilíbrio. Em sistemas distribuídos a falha é certa, por isso existem o **Retry** com exponential backoff e o **Fallback** (plano B, como servir do cache ou uma resposta padrão).
+**Trade-offs e resiliência.** Uma política de autoscaling agressiva dá melhor performance e conta alta; a conservadora economiza e degrada nos picos. FinOps busca o equilíbrio. Em sistemas distribuídos a falha é certa, por isso existem o **Retry** com exponential backoff (tentar de novo, esperando cada vez mais entre as tentativas) e o **Fallback** (plano B, como servir do cache ou uma resposta padrão).
 
-**Ferramentas e mercado (segundo o material):** KEDA (Kubernetes Event-driven Autoscaling) monitora o tamanho de fila no SQS ou o lag de um tópico Kafka e escala workers de zero a N. O Karpenter provisiona nós exatos, mais baratos e adequados no momento. A Netflix popularizou o Circuit Breaker com a biblioteca Hystrix: falhas repetidas "abrem" o circuito, bloqueando chamadas ao serviço falho e indo para o fallback. Instagram e iFood usam workers e filas em larga escala. Serverless (AWS Lambda) é a evolução máxima de workers e filas: escala de zero a milhares de execuções e cobra por execução. Istio e Linkerd implementam Sidecar e Ambassador de forma padronizada.
+**Ferramentas e mercado (segundo o material):** o KEDA (Kubernetes Event-driven Autoscaling) monitora o tamanho de uma fila no SQS ou o lag de um tópico Kafka e escala workers de zero a N. O Karpenter provisiona nós exatos, mais baratos e adequados no momento. A Netflix popularizou o **Circuit Breaker** com a biblioteca Hystrix: falhas repetidas "abrem" o circuito, bloqueando chamadas ao serviço falho e indo direto para o fallback; uma falha nas recomendações não impede ninguém de assistir. Instagram e iFood usam workers e filas para bilhões de uploads e milhões de pedidos. O serverless (AWS Lambda) é a evolução máxima de workers e filas: escala de zero a milhares de execuções e cobra por execução. Istio e Linkerd implementam Sidecar e Ambassador de forma padronizada, com retries, timeouts, segurança e observabilidade.
+
+### Os conceitos-chave
+
+- **Stateful**: estado na memória do servidor; prende o cliente a ele.
+- **Stateless**: estado fora do servidor (Redis, banco); qualquer réplica atende qualquer cliente.
+- **Sticky session**: remendo que prende o cliente a uma réplica; o estado ainda morre com ela.
+- **ReplicaSet e ASG**: mantêm N cópias idênticas e saudáveis.
+- **Produtor, fila e worker**: responder na hora e processar o trabalho pesado depois.
+- **Escala por tamanho de fila**: workers crescem com a fila, independentemente da API (a ideia do KEDA).
+- **Sidecar e ambassador**: proxies auxiliares ao lado da aplicação.
+- **Retry com backoff, fallback e circuit breaker**: os mecanismos para conviver com falhas.
 
 ### Exemplo comentado: carrinho stateful vs stateless, e fila com workers
 
-Vamos substituir a aplicação por uma versão completa: carrinho (em memória ou em Redis, conforme a variável `MODO`), endpoint de pedido que enfileira, e um worker. Ela mantém o comportamento da Etapa 01 em `/` e `/health`.
+Vamos substituir a aplicação por uma versão completa: carrinho em memória ou em Redis, conforme a variável `MODO`; um endpoint de pedido que enfileira e responde `202`; e um worker. Ela mantém o comportamento da Etapa 01 em `/` e `/health`.
 
 Substitua `app/app.py`:
 
@@ -731,7 +872,44 @@ server {
 }
 ```
 
+### Exemplo comentado: um ReplicaSet do Kubernetes
+
+O ReplicaSet descreve "quantas cópias de qual Pod devem existir sempre":
+
+```yaml
+apiVersion: apps/v1          # versão da API do ReplicaSet
+kind: ReplicaSet             # tipo do recurso
+metadata:
+  name: carrinho             # nome do ReplicaSet
+spec:
+  replicas: 3                # quantas cópias do Pod devem existir sempre
+  selector:
+    matchLabels:
+      app: carrinho          # quais Pods pertencem a este ReplicaSet
+  template:                  # molde dos Pods criados
+    metadata:
+      labels:
+        app: carrinho        # o rótulo que o selector procura
+    spec:
+      containers:
+        - name: carrinho
+          image: nginx:1.27-alpine   # imagem do container
+          ports:
+            - containerPort: 80
+```
+
+### Comandos essenciais
+
+- `export MODO=redis` (ou `memoria`): escolhe o modo da API antes de subir a stack.
+- `docker compose up -d --scale worker=N`: ajusta o número de workers sem mexer na API.
+- `docker compose exec redis redis-cli LRANGE carrinho:ana 0 -1`: lista o carrinho guardado no Redis.
+- `docker compose exec redis redis-cli LLEN fila:pedidos`: mostra o tamanho da fila.
+- `docker compose exec -T ...`: executa sem terminal interativo, para capturar a saída num script.
+- `docker compose logs -f worker`: acompanha o trabalho dos workers (Ctrl+C para sair).
+
 ### Mão na massa
+
+**Laboratório**
 
 **1. O problema: carrinho stateful.**
 
@@ -753,7 +931,7 @@ Esperado (os IDs e a ordem variam):
 {"servidor": "ccc333", "modo": "memoria", "user": "ana", "itens": ["item3"]}
 ```
 
-Cada resposta tem **um item só**. O carrinho da Ana está espalhado em três memórias, e nenhuma réplica o vê por inteiro. É o problema do estado preso ao servidor. (O `zone` no `upstream` faz os workers do Nginx compartilharem o round-robin, então as seis requisições percorrem as três réplicas em ordem e cada leitura cai na réplica que recebeu o item correspondente.)
+Cada resposta tem **um item só**. O carrinho da Ana está espalhado em três memórias e nenhuma réplica o vê por inteiro. É o problema do estado preso ao servidor. (O `zone` no `upstream` faz os workers do Nginx compartilharem o round-robin, então as seis requisições percorrem as três réplicas em ordem e cada leitura cai na réplica que recebeu o item correspondente.)
 
 **2. A solução: estado no Redis.**
 
@@ -781,7 +959,7 @@ docker stop $(docker compose ps -q app | head -n 1)
 curl -s "localhost:8080/carrinho?user=ana"
 ```
 
-Esperado: o carrinho continua completo (pode levar até cerca de 1 segundo se a requisição cair na réplica parada: o Nginx de código aberto só percebe a falha ao tentar, e o `proxy_connect_timeout 1s` limita a espera antes de ele passar para outra réplica). Suba a réplica de volta e atualize o Nginx, que resolve nomes só na partida e a réplica pode voltar com outro IP:
+Esperado: o carrinho continua completo. Pode levar até cerca de 1 segundo se a requisição cair na réplica parada: o Nginx de código aberto só percebe a falha ao tentar, e o `proxy_connect_timeout 1s` limita a espera antes de ele passar para outra réplica. Suba a réplica de volta e atualize o Nginx, que resolve nomes só na partida (a réplica pode voltar com outro IP):
 
 ```sh
 docker compose up -d
@@ -801,7 +979,7 @@ for i in $(seq 1 12); do curl -s -o /dev/null -w "%{http_code} %{time_total}s\n"
 docker compose exec redis redis-cli LLEN fila:pedidos
 ```
 
-Esperado: doze linhas do tipo `202 0.00xs` e um `(integer) N` com N entre 1 e 11 (os workers já estão consumindo). Veja o worker trabalhando (Ctrl+C para sair):
+Esperado: doze linhas do tipo `202 0.00xs` e um `(integer) N` com N entre 1 e 11, porque o worker já está consumindo. Veja o worker trabalhando (Ctrl+C para sair):
 
 ```sh
 docker compose logs -f worker
@@ -814,7 +992,7 @@ lab-etapa-03-worker-1  | [9f8e7d6c5b4a] processando pedido 1
 lab-etapa-03-worker-1  | [9f8e7d6c5b4a] pedido 1 concluido
 ```
 
-**5. Escalar os workers pelo tamanho da fila.** Meça o tempo para esvaziar a fila com 1 worker e depois com 3:
+**5. Escalar os workers pelo tamanho da fila.** Espere a fila do passo anterior esvaziar (`LLEN` igual a `0`, cerca de 12 s) para a medição não somar pedidos antigos. Depois meça o tempo para esvaziar a fila com 1 worker e com 3:
 
 ```sh
 # Com 1 worker (12 pedidos de 1 s: perto de 12 s)
@@ -829,7 +1007,33 @@ time { while [ "$(docker compose exec -T redis redis-cli LLEN fila:pedidos | tr 
 
 Os workers escalaram **independentemente da API**, e foi o tamanho da fila que justificou o escalonamento. É a ideia do KEDA.
 
-**Limpeza (só ao terminar também os exercícios):**
+**Exercícios**
+
+Os exercícios 1 e 3 precisam da stack no ar: `export MODO=redis` no exercício 1 e `export MODO=memoria` no exercício 3. Para trocar de modo, rode `docker compose down`, exporte o novo valor e `docker compose up -d`.
+
+1. **KEDA à mão.** Suponha que cada worker processa 1 pedido por segundo e você quer esvaziar a fila em até 4 segundos. Escreva a fórmula do número de workers em função do `LLEN` (arredonde para cima) e teste com `--scale`.
+   *Resposta esperada:* `workers = ceil(LLEN / 4)`, porque cada worker dá conta de 4 pedidos em 4 segundos. Em Bash, `n=$(( (LLEN + 3) / 4 ))`. Com `LLEN` igual a 12, são 3 workers (`docker compose up -d --scale worker=3`) e a fila esvazia em cerca de 4 segundos. É a lógica que o KEDA automatiza.
+2. **Retry com backoff exponencial.** Rode o script abaixo contra uma porta onde nada escuta. Durante a espera, em outro terminal, suba `docker run -d --rm -p 9999:8080 lab-app` e veja o script ter sucesso.
+
+   ```sh
+   for tentativa in 1 2 3 4 5; do
+     # --fail trata HTTP de erro como falha; --max-time 2 limita a espera de cada tentativa
+     if curl -sf --max-time 2 -o /dev/null http://localhost:9999/health; then
+       echo "ok na tentativa $tentativa"; break
+     fi
+     espera=$((2 ** (tentativa - 1)))   # espera 1, 2, 4, 8, 16 segundos
+     echo "tentativa $tentativa falhou, esperando ${espera}s"
+     sleep "$espera"
+   done
+   ```
+
+   *Resposta esperada:* linhas como `tentativa 1 falhou, esperando 1s`, `tentativa 2 falhou, esperando 2s`, e assim por diante, até aparecer `ok na tentativa N` na primeira tentativa depois de o container subir. O intervalo dobra a cada falha, então o script insiste sem martelar o serviço. Se você não subir o container, as cinco tentativas falham e o script termina sem a linha de `ok`. Ao final, pare o container de teste com `docker stop $(docker ps -q --filter publish=9999)`.
+3. **Sticky session, o remendo.** Com a stack em `MODO=memoria`, adicione `ip_hash;` ao `upstream backend` em `nginx/default.conf` (logo abaixo da linha `upstream backend {`), rode `docker compose exec lb nginx -s reload` e repita o teste do carrinho do passo 1 com um usuário novo (por exemplo, `user=bia`). Funciona? Agora derrube a réplica que atendeu (o campo `"servidor"` da resposta é o ID curto do container: `docker stop ID`) e leia o carrinho de novo. O que aconteceu, e por que isso limita a resiliência?
+   *Resposta esperada:* com `ip_hash`, todas as requisições do seu cliente (sempre o mesmo IP) caem na mesma réplica, então as três leituras mostram `["item1", "item2", "item3"]`, sempre com o mesmo `"servidor"`: o remendo funciona enquanto essa réplica vive. Depois do `docker stop`, a próxima leitura é desviada para outra réplica (possivelmente com cerca de 1 s de espera) e volta com `"itens": []`. O carrinho morava na memória da réplica que caiu e morreu com ela. A sticky session não tira o estado do servidor, só esconde o problema: a falha de uma instância continua perdendo dados dos clientes presos a ela, e a carga se distribui pelo IP, não pela capacidade. Ao terminar, apague a linha `ip_hash;`, rode `docker compose up -d` para recriar a réplica e `docker compose exec lb nginx -s reload`.
+4. **ReplicaSet (leitura).** No YAML do segundo exemplo comentado, mapeie cada campo ao Compose: quem é o `replicas`, quem é a imagem, e o que não tem equivalente direto?
+   *Resposta esperada:* `spec.replicas: 3` corresponde a `deploy.replicas: 3`; o `image` dentro de `template.spec.containers` corresponde ao `image:` do serviço; o `template` inteiro é o molde, como a definição de um serviço no Compose; `metadata.name` faz o papel do nome do serviço; `containerPort: 80` documenta a porta, como o `EXPOSE` do Dockerfile. O `selector` com `matchLabels` não tem equivalente que você escreva no Compose: ali as réplicas são agrupadas pelo nome do serviço, enquanto no Kubernetes o ReplicaSet encontra "os seus" Pods pelo rótulo `app: carrinho`.
+
+**Limpeza (ao terminar o laboratório e os exercícios):**
 
 ```sh
 docker compose down -v
@@ -837,49 +1041,9 @@ unset MODO
 cd ..
 ```
 
-### Exercícios
+### Dica
 
-Os exercícios 1 e 3 precisam da stack no ar. Se você já rodou a limpeza acima, suba de novo: estando em `lab-escalabilidade`, rode `cd etapa-03`, depois `export MODO=redis` (exercício 1) ou `export MODO=memoria` (exercício 3) e `docker compose up -d --build`. Se a stack já estiver no ar no outro modo, rode `docker compose down` antes de trocar o `MODO`. O exercício 1 ainda usa `--scale worker=N`. Ao terminar, repita a limpeza.
-
-1. **KEDA à mão.** Suponha que cada worker processa 1 pedido por segundo e você quer esvaziar a fila em até 4 segundos. Escreva a fórmula do número de workers em função do `LLEN` (dica: arredonde para cima). Teste com `--scale`. *Resposta esperada:* `workers = ceil(LLEN / 4)`, porque cada worker dá conta de 4 pedidos em 4 segundos. Em Bash, `n=$(( (LLEN + 3) / 4 ))`. Com `LLEN` igual a 12, são 3 workers (`docker compose up -d --scale worker=3`) e a fila esvazia em cerca de 4 segundos. É a lógica que o KEDA automatiza ao escalar workers pelo tamanho da fila.
-2. **Retry com backoff exponencial.** Rode o script abaixo contra uma porta onde nada escuta. Depois, em outro terminal, suba `docker run -d --rm -p 9999:8080 lab-app` durante a espera e veja o script ter sucesso.
-
-```sh
-for tentativa in 1 2 3 4 5; do
-  # --fail trata HTTP de erro como falha; --max-time 2 limita a espera de cada tentativa
-  if curl -sf --max-time 2 -o /dev/null http://localhost:9999/health; then
-    echo "ok na tentativa $tentativa"; break
-  fi
-  espera=$((2 ** (tentativa - 1)))   # espera 1, 2, 4, 8, 16 segundos
-  echo "tentativa $tentativa falhou, esperando ${espera}s"
-  sleep "$espera"
-done
-```
-
-3. **Sticky session, o remendo.** Volte ao `MODO=memoria` (`docker compose down`, `export MODO=memoria`, `docker compose up -d`), adicione `ip_hash;` ao `upstream backend` em `nginx/default.conf`, rode `docker compose exec lb nginx -s reload` e repita o teste do carrinho. Funciona? Agora derrube a réplica que atendeu a Ana (`docker stop` no container que respondeu). O que aconteceu com o carrinho, e por que isso limita a resiliência?
-4. **ReplicaSet (leitura).** Mapeie cada campo ao Compose: quem é o `replicas`, quem é a imagem?
-
-```yaml
-apiVersion: apps/v1          # versão da API do ReplicaSet
-kind: ReplicaSet             # tipo do recurso
-metadata:
-  name: carrinho             # nome do ReplicaSet
-spec:
-  replicas: 3                # quantas cópias do Pod devem existir sempre
-  selector:
-    matchLabels:
-      app: carrinho          # quais Pods pertencem a este ReplicaSet
-  template:                  # molde dos Pods criados
-    metadata:
-      labels:
-        app: carrinho        # o rótulo que o selector procura
-    spec:
-      containers:
-        - name: carrinho
-          image: nginx:1.27-alpine   # imagem do container
-          ports:
-            - containerPort: 80
-```
+Para descobrir se uma aplicação é stateless, faça o teste deste laboratório: grave algo numa requisição, derrube a réplica que atendeu e leia na próxima. Se o dado sumiu, há estado preso ao processo, e nenhum ajuste no load balancer resolve isso.
 
 ### Anota aí
 
@@ -891,35 +1055,44 @@ spec:
 
 ### O problema
 
-Seus servidores estão no Brasil e funcionam bem para usuários locais. Mas um cliente em Lisboa, Tóquio ou Nova York sofre com a latência imposta pela distância e pelos cabos submarinos, centenas de milissegundos antes mesmo de o processamento começar. Nenhum servidor potente vence a física: a latência depende da velocidade da luz e da distância. A solução é aproximar o conteúdo do usuário, e é isso que uma CDN (Content Delivery Network) faz. Ela é, também, uma camada de segurança e de escalabilidade, porque a maior parte das requisições nem chega à sua origem.
+Seus servidores estão no Brasil e funcionam bem para usuários locais. Mas um cliente em Lisboa, Tóquio ou Nova York sofre com a latência imposta pela distância e pelos cabos submarinos: centenas de milissegundos antes mesmo de o processamento começar. Nenhum servidor potente vence a física, porque a latência depende da velocidade da luz e da distância. A saída é aproximar o conteúdo do usuário, e é isso que uma CDN (Content Delivery Network) faz. Ela é, também, uma camada de segurança e de escalabilidade, porque a maior parte das requisições nem chega à sua origem.
 
 ### O conceito
 
-**Analogia:** uma rede de filiais de uma livraria. Em vez de todo cliente do mundo pedir o livro ao depósito central, cada filial guarda cópias dos mais vendidos. O depósito só é incomodado quando a filial não tem o livro.
-
-Uma CDN é uma rede global de servidores proxy em pontos de troca de tráfego (IXPs), chamados **PoPs** (Points of Presence) ou **Edge Locations**, guardando cópias do conteúdo perto do usuário.
+Uma CDN é uma rede global de servidores proxy instalados em pontos de troca de tráfego (IXPs), chamados **PoPs** (Points of Presence) ou **Edge Locations**, que guardam cópias do conteúdo perto do usuário. O servidor onde o conteúdo original mora é a **origem**.
 
 **Como funciona:**
 
-1. **Geolocalização via DNS.** A consulta DNS vai para o DNS inteligente da CDN, que identifica a localização pelo IP e devolve o IP do PoP mais próximo, em vez do da origem.
-2. **Edge caching.** O PoP (por exemplo, Paris) verifica o cache local. Na primeira vez há um **Cache Miss**: ele busca na origem no Brasil, entrega e guarda uma cópia. O próximo usuário próximo tem um **Cache Hit**, servido instantaneamente da borda.
+1. **Geolocalização via DNS.** A consulta DNS vai para o DNS inteligente da CDN, que identifica a localização pelo IP e devolve o IP do PoP mais próximo, em vez do IP da origem.
+2. **Edge caching.** O PoP (por exemplo, Paris) verifica o cache local. Na primeira vez há um **Cache Miss**: ele busca na origem no Brasil, entrega e guarda uma cópia. O próximo usuário da região tem um **Cache Hit**, servido instantaneamente da borda.
 
-**Controle de cache.** O cabeçalho `Cache-Control` manda na história. O `max-age` define o TTL em segundos: `Cache-Control: public, max-age=3600` guarda por uma hora. Expirado, o arquivo fica *stale* e é revalidado com a origem; se não mudou, a origem responde `304 Not Modified` e a CDN renova o TTL sem baixar o arquivo de novo.
+**Controle de cache.** Quem decide por quanto tempo uma cópia vale é a origem, pelo cabeçalho `Cache-Control`. O `max-age` define o TTL em segundos: `Cache-Control: public, max-age=3600` guarda por uma hora. Expirado, o arquivo fica *stale* e é revalidado com a origem; se não mudou, a origem responde `304 Not Modified` e a CDN renova o TTL sem baixar o arquivo de novo. Para perguntar "mudou?", usa-se o `ETag`, um identificador da versão do arquivo, enviado de volta no cabeçalho `If-None-Match`.
 
-**Invalidação (purging).** É remover à força arquivos de todos os caches, por painel ou API (por exemplo, um bug fix urgente num JavaScript). Use com critério: pode custar dinheiro e reduz a eficiência do cache.
+**Invalidação (purging).** É remover à força arquivos de todos os caches, por painel ou API (por exemplo, para um bug fix urgente num JavaScript). Use com critério: pode custar dinheiro e reduz a eficiência do cache.
 
-**Além de assets estáticos.** CDNs também escalam APIs: respostas GET que mudam pouco (um catálogo de produtos) podem ser cacheadas na borda, aliviando aplicação e banco. Players citados: Amazon CloudFront, Akamai, Fastly.
+**Além de assets estáticos.** CDNs também escalam APIs: respostas GET que mudam pouco (um catálogo de produtos) podem ser cacheadas na borda, aliviando aplicação e banco. Players citados: Amazon CloudFront, Akamai e Fastly.
 
 **Segurança e performance na borda:**
 
 - **WAF** integrado à CDN bloqueia SQL Injection e XSS na borda.
 - **TLS Offload:** a CDN faz o handshake TLS (caro em CPU) nos servidores de borda otimizados e mantém uma conexão segura otimizada com a origem.
 
-**Infraestrutura e observabilidade.** CDNs usam BGP para anunciar as rotas mais eficientes para seus PoPs e acordos de peering (conexões diretas com grandes provedores) para reduzir saltos. As métricas principais: **Cache Hit Ratio** (a mais importante), economia de banda, latência de resposta e taxa de erros.
+**Infraestrutura e observabilidade.** CDNs usam BGP para anunciar as rotas mais eficientes para seus PoPs e acordos de peering (conexões diretas com grandes provedores) para reduzir saltos. As métricas principais são o **Cache Hit Ratio** (a mais importante), a economia de banda, a latência de resposta e a taxa de erros.
 
-**No mercado (segundo o material):** patches de Fortnite e League of Legends (dezenas de GB) são pré-posicionados nos PoPs dias antes do lançamento. Edge Computing (AWS Lambda@Edge, Cloudflare Workers) executa código nos PoPs (renderização, testes A/B, imagens, autenticação). Dynamic Content Acceleration (Akamai, Fastly) acelera até conteúdo não cacheável com otimização TCP/IP e roteamento inteligente.
+**No mercado (segundo o material):** patches de Fortnite e League of Legends (dezenas de GB) são pré-posicionados nos PoPs dias antes do lançamento. Edge Computing (AWS Lambda@Edge, Cloudflare Workers) executa código nos PoPs: renderização, testes A/B, manipulação de imagens, autenticação na borda. Dynamic Content Acceleration (Akamai, Fastly) acelera até conteúdo não cacheável com otimização TCP/IP e roteamento inteligente (BGP e peering).
 
-**Como o laboratório se encaixa:** uma CDN real tem centenas de PoPs, mas o mecanismo de um PoP é um proxy com cache. Montaremos duas instâncias de Nginx: a **origem** (que define o `Cache-Control`) e a **borda** (que cacheia e informa `X-Cache`). No CloudFront, o *Origin* é a origem, o *Behavior* é a regra de cache por tipo de requisição e o domínio da CDN é a borda.
+**Como o laboratório se encaixa.** Uma CDN real tem centenas de PoPs, mas o mecanismo de um PoP é um proxy com cache. Montaremos duas instâncias de Nginx: a **origem** (que define o `Cache-Control`) e a **borda** (que cacheia e informa o resultado no cabeçalho `X-Cache`). No CloudFront, o *Origin* é a origem, o *Behavior* é a regra de tratamento e tempo de cache por tipo de requisição, e o domínio fornecido pela CDN é a borda. A aula também usa as ferramentas de desenvolvedor do navegador como "detetive de performance"; aqui o detetive é o `curl`.
+
+### Os conceitos-chave
+
+- **CDN, PoP e origem**: rede de proxies com cache perto do usuário, na frente do servidor original.
+- **DNS inteligente**: devolve o IP do PoP mais próximo do usuário.
+- **Cache miss e cache hit**: a borda precisou ir à origem, ou respondeu com a cópia guardada.
+- **`Cache-Control` e `max-age`**: a origem define se e por quanto tempo a resposta pode ser guardada.
+- **`ETag`, `If-None-Match` e `304`**: revalidação sem baixar o arquivo de novo.
+- **Invalidação (purge)**: apagar cópias antes do TTL; útil, mas gera novos misses.
+- **Cache hit ratio**: `hits / (hits + misses)`, a métrica principal de uma CDN.
+- **WAF e TLS offload**: segurança e criptografia resolvidas na borda.
 
 ### Exemplo comentado: origem e borda
 
@@ -989,13 +1162,24 @@ server {
 }
 ```
 
-O Nginx respeita o `Cache-Control: max-age` vindo da origem para decidir o TTL; respostas sem `Cache-Control` nem `Expires` não são cacheadas, a menos que você configure `proxy_cache_valid`.
+O Nginx respeita o `Cache-Control: max-age` vindo da origem para decidir o TTL. Respostas sem `Cache-Control` nem `Expires` não são cacheadas, a menos que você configure `proxy_cache_valid`.
 
 ```sh
 docker compose up -d
 ```
 
+### Comandos essenciais
+
+- `curl -sI URL`: mostra só os cabeçalhos da resposta (método HEAD).
+- `curl -s -D - -o /dev/null URL`: faz um GET e imprime os cabeçalhos, descartando o corpo.
+- `curl -sI -H "If-None-Match: $ETAG" URL`: pergunta à origem se a versão mudou.
+- `... | tr -d '\r' | grep -i '^x-cache'`: filtra o cabeçalho que diz se a resposta veio do cache.
+- `docker compose logs origem | grep 'app.js'`: mostra quantas vezes a origem foi realmente consultada.
+- `docker compose exec origem nginx -s reload`: aplica mudanças na configuração da origem.
+
 ### Mão na massa
+
+**Laboratório**
 
 **1. Detetive de performance na origem.** Inspecione os cabeçalhos:
 
@@ -1041,13 +1225,13 @@ X-Cache: HIT
 for i in $(seq 1 20); do curl -s -D - -o /dev/null http://localhost:8081/estatico/app.js | tr -d '\r' | grep -i '^x-cache'; done | sort | uniq -c
 ```
 
-Esperado: `20 X-Cache: HIT` se você rodou logo depois do passo 3 (dentro dos 10 s de TTL). Se já passaram mais de 10 s, o resultado é `1 X-Cache: REVALIDATED` e `19 X-Cache: HIT`: a borda já tem a cópia, então a primeira resposta depois do TTL revalida com a origem e nunca aparece `MISS` (o `MISS` só acontece quando a borda não tem nada guardado, como no passo 3). O hit ratio é `hits / (hits + misses)`: aqui, entre 95% e 100%. Confirme que a origem quase não foi incomodada:
+Esperado: `20 X-Cache: HIT` se você rodou logo depois do passo 3 (dentro dos 10 s de TTL). Se já passaram mais de 10 s, o resultado é `1 X-Cache: REVALIDATED` e `19 X-Cache: HIT`: a borda já tem a cópia, então a primeira resposta depois do TTL revalida com a origem, e `MISS` não aparece (o `MISS` só acontece quando a borda não tem nada guardado, como no passo 3). O hit ratio é `hits / (hits + misses)`: aqui, entre 95% e 100%. Confirme que a origem quase não foi incomodada:
 
 ```sh
 docker compose logs origem | grep 'app.js' | wc -l
 ```
 
-Esperado: cerca de `4`. Três dessas linhas vêm dos `curl -sI` que você mandou direto à origem, na porta 8082 (uma do passo 1 e duas do passo 2), e só uma vem da borda (o `MISS` do passo 3). Se o TTL venceu antes deste passo e houve revalidação, soma-se mais uma linha (o `304`). O que importa: as 20 requisições deste passo foram atendidas pela borda, e a origem foi consultada no máximo uma vez (na revalidação).
+Esperado: cerca de `4`. Três dessas linhas vêm dos `curl -sI` que você mandou direto à origem, na porta 8082 (uma do passo 1 e duas do passo 2), e só uma vem da borda (o `MISS` do passo 3). Se o TTL venceu antes deste passo e houve revalidação, soma-se mais uma linha (o `304`). O que importa: as 20 requisições deste passo foram atendidas pela borda, e a origem foi consultada no máximo uma vez.
 
 **5. Expiração e revalidação.** Espere o TTL passar e peça de novo:
 
@@ -1057,7 +1241,7 @@ curl -s -D - -o /dev/null http://localhost:8081/estatico/app.js | tr -d '\r' | g
 docker compose logs origem | grep 'app.js' | tail -n 3
 ```
 
-Esperado: `X-Cache: REVALIDATED` e, nos logs da origem, uma linha com `304` (a borda perguntou, a origem disse "não mudou", o TTL foi renovado sem transferir o arquivo).
+Esperado: `X-Cache: REVALIDATED` e, nos logs da origem, uma linha com `304`. A borda perguntou, a origem respondeu "não mudou" e o TTL foi renovado sem transferir o arquivo.
 
 **6. Arquivo que mudou: expira e baixa de novo.**
 
@@ -1068,7 +1252,7 @@ sleep 11
 curl -s -D - http://localhost:8081/estatico/app.js | tr -d '\r' | grep -iE '^x-cache|console'
 ```
 
-Esperado: a primeira chamada mostra `console.log("v1");` (cópia da borda, ainda válida). Depois do TTL, aparece `X-Cache: EXPIRED` e `console.log("v2");`.
+Esperado: a primeira chamada mostra `console.log("v1");` (cópia da borda, ainda válida). Depois do TTL, aparecem `X-Cache: EXPIRED` e `console.log("v2");`. Entre a mudança e o fim do TTL, os usuários viram a versão antiga: é a janela de defasagem que todo TTL aceita. Se a primeira chamada já mostrar `v2`, o TTL do passo anterior tinha vencido; repita o passo com uma nova edição.
 
 **7. Invalidação (purge) simulada.** O Nginx de código aberto não tem API de purge; simulamos apagando o cache. Primeiro encha o cache, depois "invalide":
 
@@ -1082,21 +1266,29 @@ curl -s -D - http://localhost:8081/estatico/app.js | tr -d '\r' | grep -iE '^x-c
 
 Esperado: `X-Cache: MISS` e `console.log("v3");`, na hora, sem esperar o TTL. Uma CDN real faz isso por API ou painel, e é por isso que invalidar demais custa eficiência: cada purge obriga um novo miss.
 
-**Limpeza (só ao terminar também os exercícios):**
+**Exercícios**
+
+Os exercícios 1 e 2 precisam da stack no ar. Depois de editar `origem/default.conf`, rode `docker compose exec origem nginx -s reload`.
+
+1. **Cachear a API.** Em `origem/default.conf`, adicione `add_header Cache-Control "public, max-age=60";` no `location /api/` e recarregue. Faça 10 chamadas a `localhost:8081/api/produtos` antes e depois da mudança, olhando o `X-Cache`. O que muda? Que tipo de resposta de API é segura de cachear assim?
+   *Resposta esperada:* antes, as 10 chamadas aparecem como `MISS`, porque a resposta não traz `Cache-Control` e a borda não a guarda (a origem é consultada toda vez); depois, a primeira é `MISS` e as 9 seguintes são `HIT` (dentro dos 60 s). É seguro para respostas GET públicas, iguais para todos os usuários e que mudam pouco, como o catálogo de produtos; não serve para respostas personalizadas.
+2. **Quando não cachear.** Troque o valor por `Cache-Control "private, no-store"`. O `X-Cache` volta a ser `HIT`? Por que dados de um usuário logado não deveriam ficar numa borda compartilhada?
+   *Resposta esperada:* não. Depois que a cópia de 60 s do exercício anterior expirar (ou for apagada, como no passo 7), as chamadas voltam a ser `MISS`, porque `no-store` proíbe a borda de guardar a resposta. Dados de um usuário logado numa borda compartilhada poderiam ser entregues a outra pessoa, e `private` indica que só o navegador do próprio usuário pode guardá-los.
+3. **Quanto cachear?** Para cada item, escolha um TTL e justifique: logo da empresa, bundle JavaScript versionado, catálogo de produtos, saldo bancário do usuário.
+   *Resposta esperada (exemplos):* logo da empresa, TTL longo (dias), porque quase nunca muda; bundle JavaScript versionado, TTL muito longo (meses), porque o nome do arquivo muda a cada versão e a cópia nunca fica velha; catálogo de produtos, TTL curto (de segundos a poucos minutos), aceitando uma pequena defasagem; saldo bancário, não cachear (`private, no-store`), porque é dado pessoal e muda o tempo todo.
+4. **Conceitual.** Explique, em três frases, por que o DNS inteligente da CDN faz o usuário de Lisboa falar com o PoP de Paris e não com o servidor no Brasil.
+   *Resposta esperada:* quando o navegador pergunta o endereço do site, a consulta chega ao DNS inteligente da CDN. Esse DNS identifica a localização do usuário pelo IP e devolve o IP do PoP mais próximo (Paris), em vez do IP da origem. O navegador então se conecta a esse PoP, que responde do cache (hit) e só vai ao Brasil se não tiver a cópia (miss).
+
+**Limpeza (ao terminar o laboratório e os exercícios):**
 
 ```sh
 docker compose down -v
 cd ..
 ```
 
-### Exercícios
+### Dica
 
-Os exercícios 1 e 2 precisam da stack no ar. Se você já rodou a limpeza acima, suba de novo: estando em `lab-escalabilidade`, rode `cd etapa-04 && docker compose up -d` (os arquivos `site/`, `origem/` e `edge/` continuam no disco). Depois de editar `origem/default.conf`, rode `docker compose exec origem nginx -s reload`. Ao terminar, repita a limpeza.
-
-1. **Cachear a API.** Em `origem/default.conf`, adicione `add_header Cache-Control "public, max-age=60";` no `location /api/` e rode `docker compose exec origem nginx -s reload`. Faça 10 chamadas a `localhost:8081/api/produtos` antes e depois. O que muda no `X-Cache`? Que tipo de resposta de API é segura de cachear assim? *Resposta esperada:* antes, todas as 10 chamadas aparecem como `MISS`, porque a resposta não traz `Cache-Control` e a borda não a guarda (a origem é consultada toda vez); depois, a primeira é `MISS` e as 9 seguintes são `HIT` (dentro dos 60 s). É seguro para respostas GET públicas, iguais para todos os usuários e que mudam pouco, como o catálogo de produtos; não serve para respostas personalizadas.
-2. **Quando não cachear.** Troque o valor por `Cache-Control "private, no-store"`. O `X-Cache` volta a ser `HIT`? Por que dados de um usuário logado não deveriam ficar numa borda compartilhada? *Resposta esperada:* não, depois que a cópia de 60 s do exercício anterior expirar (ou for apagada, como no passo 7) as chamadas voltam a ser `MISS`, porque `no-store` proíbe a borda de guardar a resposta. Dados de um usuário logado numa borda compartilhada poderiam ser entregues a outra pessoa, e `private` indica que só o navegador do próprio usuário pode guardá-los.
-3. **Quanto cachear?** Para cada item, escolha um TTL e justifique: logo da empresa, bundle JavaScript versionado, catálogo de produtos, saldo bancário do usuário. *Resposta esperada (exemplos):* logo da empresa, TTL longo (dias), porque quase nunca muda; bundle JavaScript versionado, TTL muito longo (meses), porque o nome do arquivo muda a cada versão e a cópia nunca fica velha; catálogo de produtos, TTL curto (de segundos a poucos minutos), aceitando uma pequena defasagem; saldo bancário, não cachear (`private, no-store`), porque é dado pessoal e muda o tempo todo.
-4. **Conceitual.** Explique, em três frases, por que o DNS inteligente da CDN é o que faz o usuário de Lisboa falar com o PoP de Paris e não com o servidor no Brasil. *Resposta esperada:* quando o navegador pergunta o endereço do site, a consulta chega ao DNS inteligente da CDN. Esse DNS identifica a localização do usuário pelo IP e devolve o IP do PoP mais próximo (Paris), em vez do IP da origem. O navegador então se conecta a esse PoP, que responde do cache (hit) e só vai ao Brasil se não tiver a cópia (miss).
+Para arquivos estáticos, prefira nomes versionados (por exemplo, `app.3f9c.js`) com TTL longo a TTLs curtos com purge frequente. Quando o conteúdo muda, o nome muda, e a cópia antiga simplesmente deixa de ser pedida, sem invalidação e sem janela de defasagem.
 
 ### Anota aí
 
@@ -1108,13 +1300,13 @@ Os exercícios 1 e 2 precisam da stack no ar. Se você já rodou a limpeza acima
 
 ### O problema
 
-A aplicação está escalada, há LB e há CDN. Mas quase toda ação relevante (compra, post, busca) lê ou escreve dados, e tudo aponta para um único lugar: o banco de dados, o "chefão final" da escalabilidade. Ele é stateful e precisa de consistência, então não dá para simplesmente "ligar mais três" como fizemos com a API. Numa Black Friday, o banco relacional sobrecarregado costuma ser exatamente o ponto que derruba tudo.
+A aplicação está escalada, há load balancer e há CDN. Mas quase toda ação relevante (compra, post, busca) lê ou escreve dados, e tudo aponta para um único lugar: o banco de dados, o "chefão final" da escalabilidade. Ele é stateful e precisa de consistência, então não dá para simplesmente "ligar mais três" como fizemos com a API: três bancos independentes teriam três versões do estoque. Numa Black Friday, o banco relacional sobrecarregado costuma ser exatamente o ponto que derruba tudo.
 
 ### O conceito
 
 **Os três desafios:**
 
-- **Consistência:** uma transação atômica e leituras subsequentes vendo o resultado correto.
+- **Consistência:** uma transação atômica, e leituras subsequentes vendo o resultado correto.
 - **Concorrência:** múltiplos acessos simultâneos sem corromper dados.
 - **Latência:** operações rápidas mesmo com mais volume.
 
@@ -1123,33 +1315,44 @@ A aplicação está escalada, há LB e há CDN. Mas quase toda ação relevante 
 1. **Caching** (Redis, Memcached) entre a aplicação e o banco: a primeira linha de defesa. O padrão **cache-aside** funciona assim: a aplicação tenta o cache; se houver *miss*, busca no banco e grava no cache antes de retornar.
 2. **Read Replicas:** modelo primary-replica (antes chamado master-slave). O primary recebe todas as escritas (INSERT, UPDATE, DELETE) e as replica, geralmente de forma assíncrona, para réplicas somente leitura. A aplicação implementa o **write splitting**: escritas no primary, leituras distribuídas entre as réplicas.
 
-**Escalando escrita.** Todas as escritas ainda vão para um servidor. A solução é o **sharding** (particionamento horizontal):
+**Escalando escrita.** Mesmo com réplicas, todas as escritas ainda vão para um servidor. A solução é o **sharding** (particionamento horizontal): os dados são divididos entre bancos menores e independentes, cada um responsável por uma parte.
 
 - **Por range** (A a M no shard 1, N a Z no shard 2): simples, mas cria *hotspots* se a distribuição não é uniforme.
 - **Por hash** (hash do ID do usuário): distribuição mais equitativa, mas dificulta consultas por faixa.
 
-A complexidade é imensa, especialmente no **re-sharding**.
+A complexidade é imensa, especialmente no **re-sharding** (mudar o número de shards e redistribuir os dados).
 
 **Bancos distribuídos.** Amazon DynamoDB (NoSQL), CockroachDB (NewSQL) e Apache Cassandra (NoSQL) fazem sharding e replicação de forma transparente. No DynamoDB, a demonstração da aula configura "unidades de capacidade de leitura e escrita", ou seja, você declara quanta leitura e escrita espera.
 
-**Teorema CAP (Eric Brewer).** Um sistema distribuído garante ao mesmo tempo só duas de três propriedades:
+**Teorema CAP (Eric Brewer).** Três propriedades de um sistema distribuído:
 
 - **Consistência:** todos os nós veem o mesmo dado.
 - **Disponibilidade:** toda requisição recebe resposta, sem garantia de ser a escrita mais recente.
-- **Tolerância a Partição:** opera mesmo com quebra de comunicação entre nós.
+- **Tolerância a Partição:** o sistema opera mesmo com quebra de comunicação entre nós.
 
-Como partições são inevitáveis, a escolha real é CP ou AP. Relacionais tradicionais tendem a CP; o Cassandra escolhe AP, o que leva à **Consistência Eventual**: sem novas escritas, as réplicas convergem, mas por um tempo nós diferentes podem retornar valores diferentes.
+Como partições de rede são inevitáveis, a escolha real é o que fazer durante uma delas: priorizar consistência (CP) ou disponibilidade (AP). Relacionais tradicionais tendem a CP; o Cassandra escolhe AP, o que leva à **Consistência Eventual**: sem novas escritas, as réplicas convergem, mas por um tempo nós diferentes podem retornar valores diferentes.
 
-**Estratégia e resiliência.** Escalar verticalmente ainda pode ser o mais simples e eficaz até certo ponto; a horizontal é mais complexa, com teto maior e mais resiliência. O **failover** automatizado promove uma réplica a primary. Dois números definidos pelo negócio guiam o desenho:
+**Estratégia e resiliência.** Escalar verticalmente ainda pode ser o mais simples e eficaz até certo ponto; a escala horizontal é mais complexa, com teto maior e mais resiliência. O **failover** automatizado promove uma réplica a primary quando o primary cai. Dois números definidos pelo negócio guiam o desenho:
 
 - **RPO (Recovery Point Objective):** quanta perda de dados é tolerável. RPO de 5 minutos significa aceitar perder os últimos 5 minutos de transações.
 - **RTO (Recovery Time Objective):** quanto tempo o sistema pode ficar fora. RTO de 15 minutos significa que detecção, failover e retorno devem levar menos de 15 minutos.
 
 Eles ditam a escolha entre replicação síncrona e assíncrona e o nível de automação do failover.
 
-**No mercado (segundo o material):** o Google Spanner entrega consistência forte global com alta disponibilidade usando relógios atômicos, e o CockroachDB leva essa ideia ao mercado sem o hardware do Google. Bancos serverless (Aurora Serverless, MongoDB Atlas Serverless, Neon) separam computação de armazenamento e escalam até zero. HTAP (SingleStore, TiDB) une OLTP e OLAP num sistema só, evitando ETL.
+**No mercado (segundo o material):** o Google Spanner entrega consistência forte global com alta disponibilidade usando relógios atômicos, e o CockroachDB leva essa ideia ao mercado sem o hardware do Google. Bancos serverless (Aurora Serverless, MongoDB Atlas Serverless, Neon para Postgres) separam computação de armazenamento e escalam até zero. HTAP (SingleStore, TiDB) une OLTP e OLAP num sistema só, evitando ETL e permitindo análise em tempo real.
 
-**Como o laboratório se encaixa:** no Amazon RDS, criar uma Read Replica são poucos cliques e a AWS gerencia a replicação. Aqui você fará à mão, com Postgres, o que o RDS esconde: uma réplica por *streaming replication* assíncrona. Também aplicará cache-aside com Redis.
+**Como o laboratório se encaixa.** No Amazon RDS, criar uma Read Replica são poucos cliques e a AWS gerencia a replicação assíncrona. Aqui você fará à mão, com Postgres, o que o RDS esconde: uma réplica por *streaming replication* assíncrona. Também aplicará cache-aside com Redis.
+
+### Os conceitos-chave
+
+- **Cache-aside**: cache primeiro; no miss, banco, e grava no cache antes de responder.
+- **Primary e read replica**: um nó aceita escritas; as réplicas, só leituras.
+- **Replicação assíncrona**: o primary não espera a réplica; ela pode ficar um pouco atrasada.
+- **Write splitting**: a aplicação manda escrita para o primary e leitura para as réplicas.
+- **Sharding por range e por hash**: dividir os dados para escalar escrita; range sofre com hotspots, hash dificulta consultas por faixa.
+- **Re-sharding**: mudar o número de shards obriga a mover dados.
+- **CAP e consistência eventual**: durante uma partição, escolhe-se entre consistência e disponibilidade.
+- **Failover, RPO e RTO**: promover uma réplica; quanto dado se aceita perder e quanto tempo se aceita ficar fora.
 
 ### Exemplo comentado: Postgres primary + réplica + Redis
 
@@ -1226,7 +1429,46 @@ docker compose logs replica | tail -n 5
 
 Esperado ao final (pode levar alguns segundos): uma linha com `database system is ready to accept read only connections`.
 
+### Exemplo comentado: cache-aside em script
+
+Crie `cache-aside.sh`, que será usado no passo 6 do laboratório:
+
+```bash
+#!/usr/bin/env bash
+# uso: bash cache-aside.sh <id do produto>
+chave="produto:$1"
+
+# 1. Tenta o cache (-T desliga o terminal interativo para capturar a saída)
+valor=$(docker compose exec -T redis redis-cli GET "$chave" | tr -d '\r')
+if [ -n "$valor" ]; then
+  echo "HIT  $valor"
+  exit 0
+fi
+
+# 2. Miss: busca no banco (na réplica, que atende leitura)
+valor=$(docker compose exec -T replica psql -U postgres -tA -c "SELECT nome FROM produtos WHERE id = $1" | tr -d '\r')
+if [ -z "$valor" ]; then
+  echo "não encontrado"
+  exit 1
+fi
+
+# 3. Grava no cache com validade de 30 s (EX) antes de devolver
+docker compose exec -T redis redis-cli SET "$chave" "$valor" EX 30 > /dev/null
+echo "MISS $valor"
+```
+
+### Comandos essenciais
+
+- `psql -U postgres -c "SELECT pg_is_in_recovery();"`: `f` no primary, `t` numa réplica.
+- `SELECT client_addr, state, sync_state FROM pg_stat_replication;`: no primary, mostra as réplicas conectadas e se a replicação é síncrona ou assíncrona.
+- `SELECT pg_wal_replay_pause();` e `SELECT pg_wal_replay_resume();`: na réplica, pausam e retomam a aplicação das mudanças.
+- `SELECT pg_promote();`: promove a réplica a primary (failover manual).
+- `redis-cli GET`, `SET chave valor EX 30`, `TTL` e `DEL`: ler, gravar com validade, consultar a validade e invalidar uma chave.
+- `docker network disconnect` e `docker network connect`: simulam e desfazem uma partição de rede.
+
 ### Mão na massa
+
+**Laboratório**
 
 **1. Quem é quem.**
 
@@ -1288,31 +1530,7 @@ docker compose exec replica psql -U postgres -tA -c "SELECT count(*) FROM produt
 
 Esperado: `3`. Por um tempo, dois nós responderam coisas diferentes e depois convergiram: consistência eventual.
 
-**6. Cache-aside com Redis, lendo da réplica.** Crie `cache-aside.sh`:
-
-```bash
-#!/usr/bin/env bash
-# uso: bash cache-aside.sh <id do produto>
-chave="produto:$1"
-
-# 1. Tenta o cache (-T desliga o terminal interativo para capturar a saída)
-valor=$(docker compose exec -T redis redis-cli GET "$chave" | tr -d '\r')
-if [ -n "$valor" ]; then
-  echo "HIT  $valor"
-  exit 0
-fi
-
-# 2. Miss: busca no banco (na réplica, que atende leitura)
-valor=$(docker compose exec -T replica psql -U postgres -tA -c "SELECT nome FROM produtos WHERE id = $1" | tr -d '\r')
-if [ -z "$valor" ]; then
-  echo "não encontrado"
-  exit 1
-fi
-
-# 3. Grava no cache com validade de 30 s (EX) antes de devolver
-docker compose exec -T redis redis-cli SET "$chave" "$valor" EX 30 > /dev/null
-echo "MISS $valor"
-```
+**6. Cache-aside com Redis, lendo da réplica.** Use o `cache-aside.sh` do segundo exemplo comentado:
 
 ```sh
 bash cache-aside.sh 1
@@ -1323,7 +1541,7 @@ docker compose exec redis redis-cli TTL produto:1
 
 Esperado: `MISS Camiseta`, depois `HIT  Camiseta` duas vezes, e um `(integer)` entre 1 e 30 (os segundos restantes de vida da chave).
 
-**7. O preço do cache: dado velho.** Atenção ao relógio: a chave do cache vive só 30 s. Rode este passo logo depois do passo 6; se passou mais que isso, rode `bash cache-aside.sh 1` antes do `UPDATE` para repovoar o cache, senão o dado velho não aparece (você veria `MISS Camiseta Azul` direto). Altere o dado e releia:
+**7. O preço do cache: dado velho.** A chave do cache vive só 30 s, então rode este passo logo depois do passo 6. Se passou mais que isso, rode `bash cache-aside.sh 1` antes do `UPDATE` para repovoar o cache; caso contrário o dado velho não aparece (você veria `MISS Camiseta Azul` direto). Altere o dado e releia:
 
 ```sh
 docker compose exec primary psql -U postgres -c "UPDATE produtos SET nome='Camiseta Azul' WHERE id=1;"
@@ -1337,55 +1555,62 @@ docker compose exec redis redis-cli DEL produto:1
 bash cache-aside.sh 1
 ```
 
-Esperado: `MISS Camiseta Azul`. Quem escreve precisa invalidar (ou aceitar o TTL como janela de defasagem).
+Esperado: `MISS Camiseta Azul`. Quem escreve precisa invalidar o cache (ou aceitar o TTL como janela de defasagem).
 
-**Limpeza (só ao terminar também os exercícios):**
+**Exercícios**
+
+Faça os exercícios na ordem: o 2 e o 3 alteram o estado do laboratório.
+
+1. **Sharding por hash, e o custo do re-sharding.** Distribua 10 IDs em 2 shards pelo módulo (um hash bem simples) e, depois, veja quantos IDs trocam de shard ao passar para 3 shards:
+
+   ```sh
+   for id in $(seq 1 10); do echo "usuario $id -> shard $((id % 2))"; done
+
+   mudou=0
+   for id in $(seq 1 1000); do
+     # compara o shard antigo (2 shards) com o novo (3 shards)
+     if [ $((id % 2)) -ne $((id % 3)) ]; then mudou=$((mudou + 1)); fi
+   done
+   echo "IDs que trocaram de shard: $mudou de 1000"
+   ```
+
+   Esperado: `IDs que trocaram de shard: 667 de 1000`. Cerca de dois terços dos dados precisariam migrar: é a dor do re-sharding. Bancos como Cassandra e DynamoDB fazem esse trabalho de forma transparente. Pergunta: e o sharding por range, que problema ele tem?
+   *Resposta esperada:* hotspots. Como cada shard recebe uma faixa fixa de valores, se os dados ou os acessos não se distribuem por igual entre as faixas, um shard fica sobrecarregado enquanto os outros ficam ociosos. Dois exemplos: na divisão A a M e N a Z, nomes concentrados em certas letras pesam mais num dos lados; numa divisão por faixa de ID crescente (ou de data), todas as escritas novas caem no último shard. Em troca, o range facilita consultas por faixa, que é justamente o que o hash dificulta.
+2. **Partição de rede (CAP na prática).** Desconecte a réplica da rede, escreva no primary e leia dos dois lados:
+
+   ```sh
+   docker network disconnect lab-etapa-05_default $(docker compose ps -q replica)
+   docker compose exec primary psql -U postgres -c "INSERT INTO produtos VALUES (4,'Chaveiro');"
+   docker compose exec primary psql -U postgres -tA -c "SELECT count(*) FROM produtos;"
+   docker compose exec replica psql -U postgres -tA -c "SELECT count(*) FROM produtos;"
+   ```
+
+   Esperado: o primary com uma linha a mais que a réplica. A réplica **respondeu** (disponibilidade) com dado desatualizado (sem consistência). Reconecte com `docker network connect lab-etapa-05_default $(docker compose ps -q replica)` e espere até cerca de 1 minuto: a conexão de replicação antiga pode ficar pendurada até o `wal_receiver_timeout` estourar (60 s por padrão), e a réplica pode voltar com outro IP. Para acompanhar, rode `docker compose exec replica psql -U postgres -c "SELECT status FROM pg_stat_wal_receiver;"`; quando a replicação volta, o status é `streaming`. Rode o `count(*)` de novo e confira que os números convergem. Pergunta: se a sua prioridade fosse consistência, o que a réplica deveria ter feito durante a partição?
+   *Resposta esperada:* escolhendo consistência (CP), a réplica deveria recusar a leitura, devolvendo erro ou saindo de rotação, enquanto não pudesse confirmar que está em dia com o primary; o preço é a disponibilidade durante a partição. O laboratório mostrou o outro lado, a escolha por disponibilidade (AP): a réplica respondeu com o que tinha, e os nós convergiram depois (consistência eventual).
+3. **Failover manual e o RTO.** Derrube o primary e promova a réplica:
+
+   ```sh
+   docker compose stop primary
+   time docker compose exec replica psql -U postgres -c "SELECT pg_promote();"
+   docker compose exec replica psql -U postgres -c "SELECT pg_is_in_recovery();"
+   docker compose exec replica psql -U postgres -c "INSERT INTO produtos VALUES (5,'Adesivo');"
+   ```
+
+   Esperado: `pg_promote` devolve `t`, `pg_is_in_recovery` passa a `f` e o INSERT funciona. Você acaba de fazer um failover. Perguntas: que parte do RTO foi automática, e qual dependeu de você? Com replicação assíncrona, o que pode ter ficado para trás no momento da queda (qual RPO você aceitou)? Para recomeçar o laboratório depois, rode `docker compose down -v` e suba tudo de novo.
+   *Resposta esperada:* quase nada do RTO foi automático: perceber a queda, decidir promover e rodar o `pg_promote` dependeram de você (um serviço gerenciado como o RDS automatiza a detecção e a promoção). Quanto ao RPO, com replicação assíncrona as transações já confirmadas no primary que ainda não tinham chegado à réplica no instante da queda se perdem; com rede local costuma ser pouco ou nada, mas não há garantia, e é essa janela que o RPO mede.
+4. **RPO e RTO.** O negócio define RPO de 5 minutos e RTO de 15. Replicação síncrona ou assíncrona? O failover pode ser manual? Justifique.
+   *Resposta esperada:* a replicação assíncrona basta, porque o negócio aceita perder até 5 minutos de transações, desde que o atraso da réplica seja monitorado e fique dentro desse limite; a síncrona só seria necessária se o RPO fosse próximo de zero. O failover pode ser manual se a equipe conseguir detectar, decidir e promover com folga dentro dos 15 minutos (com plantão e um roteiro testado); automatizá-lo reduz o risco de estourar o RTO e de erro humano, ao custo de mais complexidade.
+
+**Limpeza (ao terminar o laboratório e os exercícios):**
 
 ```sh
 docker compose down -v
 cd ..
 ```
 
-### Exercícios
+### Dica
 
-1. **Sharding por hash, e o custo do re-sharding.** Distribua 10 IDs em 2 shards pelo módulo (um hash bem simples) e, depois, veja quantos IDs trocam de shard ao passar para 3 shards:
-
-```sh
-for id in $(seq 1 10); do echo "usuario $id -> shard $((id % 2))"; done
-
-mudou=0
-for id in $(seq 1 1000); do
-  # compara o shard antigo (2 shards) com o novo (3 shards)
-  if [ $((id % 2)) -ne $((id % 3)) ]; then mudou=$((mudou + 1)); fi
-done
-echo "IDs que trocaram de shard: $mudou de 1000"
-```
-
-Esperado: `667 de 1000`. Cerca de dois terços dos dados precisariam migrar: é a dor do re-sharding. Sharding por range tem outro problema: qual? (Dica: hotspots.) Bancos como Cassandra e DynamoDB fazem esse trabalho de forma transparente.
-
-2. **Partição de rede (CAP na prática).** Desconecte a réplica da rede, escreva no primary e leia dos dois lados:
-
-```sh
-docker network disconnect lab-etapa-05_default $(docker compose ps -q replica)
-docker compose exec primary psql -U postgres -c "INSERT INTO produtos VALUES (4,'Chaveiro');"
-docker compose exec primary psql -U postgres -tA -c "SELECT count(*) FROM produtos;"
-docker compose exec replica psql -U postgres -tA -c "SELECT count(*) FROM produtos;"
-```
-
-Esperado: o primary com uma linha a mais que a réplica. A réplica **respondeu** (disponibilidade) com dado possivelmente velho (sem consistência). Reconecte com `docker network connect lab-etapa-05_default $(docker compose ps -q replica)` e espere até cerca de 1 minuto: a conexão de replicação antiga pode ficar pendurada até o `wal_receiver_timeout` estourar (60 s por padrão), e a réplica ainda pode voltar com outro IP. Depois rode o `count(*)` de novo e confira que os números convergem. Para acompanhar, rode na réplica `docker compose exec replica psql -U postgres -c "SELECT status FROM pg_stat_wal_receiver;"` (quando a replicação volta, o status é `streaming`). Se a sua prioridade fosse consistência, o que a réplica deveria ter feito durante a partição? *Resposta esperada:* escolhendo consistência (CP), a réplica deveria recusar a leitura, devolvendo erro ou ficando fora de rota, enquanto não pudesse confirmar que está em dia com o primary: o preço é a disponibilidade durante a partição. O laboratório mostrou o outro lado, a escolha por disponibilidade (AP): a réplica respondeu com o que tinha, e os nós convergiram depois (consistência eventual).
-
-3. **Failover manual e o RTO.** Derrube o primary e promova a réplica:
-
-```sh
-docker compose stop primary
-time docker compose exec replica psql -U postgres -c "SELECT pg_promote();"
-docker compose exec replica psql -U postgres -c "SELECT pg_is_in_recovery();"
-docker compose exec replica psql -U postgres -c "INSERT INTO produtos VALUES (5,'Adesivo');"
-```
-
-Esperado: `pg_promote` devolve `t`, `pg_is_in_recovery` passa a `f` e o INSERT funciona. Você acaba de fazer um failover. Responda: que parte do RTO foi automática, e qual dependeu de você? Com replicação assíncrona, o que pode ter ficado para trás no momento da queda (isto é, qual RPO você aceitou)? Para recomeçar, rode `docker compose down -v` e suba tudo de novo. *Resposta esperada:* quase nada do RTO foi automático: perceber a queda, decidir promover e rodar o `pg_promote` dependeram de você (um serviço gerenciado como o RDS automatiza a detecção e a promoção). Quanto ao RPO, com replicação assíncrona as transações já confirmadas no primary que ainda não tinham chegado à réplica no instante da queda se perdem; no laboratório, com rede local, costuma ser pouco ou nada, mas não há garantia, e é essa janela que o RPO mede.
-
-4. **RPO e RTO.** O negócio define RPO de 5 minutos e RTO de 15. Replicação síncrona ou assíncrona? O failover pode ser manual? Justifique. *Resposta esperada:* a replicação assíncrona basta, porque o negócio aceita perder até 5 minutos de transações, desde que o atraso da réplica seja monitorado e fique dentro desse limite; a síncrona só seria necessária se o RPO fosse próximo de zero. O failover pode ser manual se a equipe conseguir detectar, decidir e promover com folga dentro dos 15 minutos (com plantão e um roteiro testado); automatizá-lo reduz o risco de estourar o RTO e de erro humano, ao custo de mais complexidade.
+Depois de promover uma réplica, não religue o primary antigo como se nada tivesse acontecido. Ele pode ter transações que a réplica nunca recebeu e passaria a aceitar escritas em paralelo com o novo primary. O caminho seguro é reconstruí-lo como réplica do novo primary.
 
 ### Anota aí
 
@@ -1397,11 +1622,11 @@ Esperado: `pg_promote` devolve `t`, `pg_is_in_recovery` passa a `f` e o INSERT f
 
 ### O problema
 
-Última aula. Você tem todas as peças (fundamentos, LB, padrões, CDN, banco), mas peças soltas não são uma arquitetura. Considere o caso do e-commerce fictício: um monolito tradicional, com aplicação e banco no mesmo servidor, caiu na Black Friday. Onde exatamente estava a falha? E, depois de reconstruir, como saber onde está o próximo gargalo? Esta etapa pede a visão de arquiteto: a planta baixa completa, cada peça justificada, e os instrumentos para enxergar o sistema funcionando.
+Você tem todas as peças (fundamentos, load balancer, padrões, CDN, banco), mas peças soltas não são uma arquitetura. Considere o caso de um e-commerce fictício: um monolito tradicional, com aplicação e banco no mesmo servidor, caiu na Black Friday. Onde exatamente estava a falha? E, depois de reconstruir, como saber onde está o próximo gargalo? Esta etapa pede a visão de arquiteto: a planta completa, cada peça justificada, e os instrumentos para enxergar o sistema funcionando.
 
 ### O conceito
 
-**Serverless.** Com o AWS Lambda, temos a máxima abstração: a pessoa desenvolvedora envia a função e o provedor provisiona, aplica patches e escala. São centenas de execuções por segundo, e volta a zero (inclusive o custo) quando a demanda some.
+**Serverless.** Com o AWS Lambda, temos a máxima abstração: a pessoa desenvolvedora envia a função e o provedor provisiona, aplica patches e escala. São centenas de execuções por segundo, e o sistema volta a zero (inclusive o custo) quando a demanda some.
 
 **Monolito escalável vs microsserviços:**
 
@@ -1413,7 +1638,7 @@ Esperado: `pg_promote` devolve `t`, `pg_is_in_recovery` passa a `f` e o INSERT f
 
 **Lei de Conway:** a arquitetura reflete a estrutura de comunicação da organização. Times pequenos e autônomos tendem a microsserviços; times centralizados tendem a monolitos.
 
-**Onde está o gargalo? Observabilidade.** O gargalo pode estar em CPU, memória, I/O de disco, uma query, uma API de terceiro, a latência de rede ou um cache mal configurado. Sem instrumentos, você chuta. Os três pilares:
+**Onde está o gargalo? Observabilidade.** O gargalo pode estar em CPU, memória, I/O de disco, uma query, uma API de terceiro, a latência de rede ou um cache mal configurado. Sem instrumentos, a investigação vira palpite. Os três pilares:
 
 | Pilar | O que é | Responde |
 |---|---|---|
@@ -1421,22 +1646,36 @@ Esperado: `pg_promote` devolve `t`, `pg_is_in_recovery` passa a `f` e o INSERT f
 | **Logs** | Eventos discretos com timestamp | **Por que** aconteceu |
 | **Traces** | Jornada de uma requisição pelos serviços (rastreamento distribuído) | **Onde** o tempo foi gasto |
 
-**Como os grandes fazem (segundo o material):** o Google tem cultura SRE (operações como problema de software, automação, error budgets e SLOs); a Amazon pratica "you build it, you run it" (cada time opera e escala o seu serviço); o Nubank é nativo da nuvem, com microsserviços, programação funcional e observabilidade robusta para crescimento explosivo (microsserviços, Clojure e Datomic para consistência em ambiente distribuído, com forte cultura de automação e testes num negócio regulado). A tendência SRE troca times de "Operações" por SRE, com SLOs, error budgets e autoridade para priorizar estabilidade quando o orçamento de erro estoura. A tendência Platform Engineering monta uma Internal Developer Platform (IDP) com CI/CD, IaC, observabilidade e segurança como serviço, reduzindo a carga cognitiva dos times de produto.
+O que costura os três é um identificador comum: o mesmo ID de requisição registrado em cada camada por onde ela passa. No laboratório, é o cabeçalho `X-Request-ID`.
 
-**O estudo de caso: refatoração do e-commerce.** O monolito com aplicação e banco no mesmo servidor caiu na Black Friday. Os pontos de falha: falta de LB, aplicação stateful, banco sobrecarregado, ausência de CDN. O redesenho, passo a passo, amarra cada etapa deste guia:
+**Como os grandes fazem (segundo o material):** o Google tem a cultura SRE (operações como problema de software, automação, error budgets e SLOs). A Amazon pratica "you build it, you run it": cada time opera e escala o seu serviço. O Nubank é nativo da nuvem, com microsserviços, Clojure e Datomic para consistência em ambiente distribuído, forte cultura de automação e testes num negócio regulado, e observabilidade robusta para crescimento explosivo. A tendência SRE troca times de "Operações" por SRE, com SLOs, error budgets e autoridade para priorizar estabilidade quando o orçamento de erro estoura. A tendência Platform Engineering monta uma Internal Developer Platform (IDP) com CI/CD, IaC, observabilidade e segurança como serviço, reduzindo a carga cognitiva dos times de produto.
+
+**SLO e error budget.** O SLO é a meta de confiabilidade (por exemplo, 99,9% de disponibilidade no mês). O que sobra até 100% é o orçamento de erro: enquanto há folga, o time pode arriscar mais (deploys frequentes, experimentos); quando o orçamento acaba, a prioridade passa a ser estabilidade.
+
+**O estudo de caso: refatoração do e-commerce.** O monolito com aplicação e banco no mesmo servidor caiu na Black Friday. Os pontos de falha: falta de load balancer, aplicação stateful, banco sobrecarregado, ausência de CDN. O redesenho, passo a passo, amarra cada etapa deste guia:
 
 | Etapa | Problema | Peça adicionada |
 |---|---|---|
 | 04 (CDN) | Assets estáticos pesando na origem, distância do usuário | CDN (CloudFront) servindo os assets |
-| 02 (LB) | Ponto único de falha | Load Balancer (ALB) na frente |
-| 01 e 03 (Escala e padrões) | Aplicação e banco no mesmo servidor; estado preso; tarefas lentas no caminho | Aplicação separada do banco, stateless, em ASG; e-mails e processos lentos desacoplados por fila (SQS) |
+| 02 (LB) | Ponto único de falha | Load balancer (ALB) na frente |
+| 01 e 03 (Escala e padrões) | Aplicação e banco no mesmo servidor; estado preso; tarefas lentas no caminho da resposta | Aplicação separada do banco, stateless, em ASG; e-mails e processos lentos desacoplados por fila (SQS) |
 | 05 (Banco) | Banco sobrecarregado | Banco em serviço gerenciado (RDS) com Read Replicas |
 
 Resultado: de uma arquitetura frágil a um sistema distribuído, resiliente e escalável.
 
+### Os conceitos-chave
+
+- **Serverless**: o provedor cuida de servidor e escala; o custo vai a zero sem demanda.
+- **Monolito escalável**: um processo só, stateless, replicado atrás de um load balancer.
+- **Microsserviços**: serviços por capacidade de negócio; escala granular com custo operacional alto.
+- **Lei de Conway**: a arquitetura espelha a organização.
+- **Métricas, logs e traces**: o quê, por quê e onde.
+- **ID de requisição**: o fio que liga a mesma requisição em todas as camadas.
+- **SLO e error budget**: a meta de confiabilidade e a folga que ela deixa.
+
 ### Exemplo comentado: a arquitetura completa, local
 
-Vamos montar a versão "depois" do caso: **borda (CDN) → load balancer → 3 réplicas stateless → Redis (estado e fila) → worker**. A parte de banco com réplicas de leitura você já construiu na Etapa 05 e ela se encaixa atrás da API da mesma forma; aqui o foco é a cadeia de requisição e a observabilidade, para o compose não ficar enorme.
+Vamos montar a versão "depois" do caso: **borda (CDN) → load balancer → 3 réplicas stateless → Redis (estado e fila) → worker**. A parte de banco com réplica de leitura você já construiu na Etapa 05; ela se encaixa atrás da API da mesma forma (exercício 5). Aqui o foco é a cadeia de requisição e a observabilidade, para o compose não ficar enorme.
 
 ```sh
 mkdir -p etapa-06/edge etapa-06/lb etapa-06/site/estatico && cd etapa-06
@@ -1488,15 +1727,16 @@ services:
 `edge/default.conf`:
 
 ```nginx
+# Mesma área de cache da Etapa 04
 proxy_cache_path /var/cache/nginx/edge levels=1:2 keys_zone=edge:10m max_size=100m inactive=10m;
 
 server {
     listen 80;
     location / {
         proxy_pass http://lb:80;                      # a "origem" da borda é o load balancer
-        proxy_cache edge;
-        proxy_cache_revalidate on;
-        add_header X-Cache $upstream_cache_status always;
+        proxy_cache edge;                             # cacheia o que vier com Cache-Control
+        proxy_cache_revalidate on;                    # revalida com If-None-Match ao expirar
+        add_header X-Cache $upstream_cache_status always;   # mostra HIT, MISS etc.
     }
 }
 ```
@@ -1532,7 +1772,9 @@ server {
 }
 ```
 
-`verificar.sh` confere uma propriedade de cada etapa do guia:
+### Exemplo comentado: o script de verificação
+
+`verificar.sh` confere uma propriedade de cada etapa do guia, com a stack no ar:
 
 ```bash
 #!/usr/bin/env bash
@@ -1560,7 +1802,17 @@ c=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$base/pedido?id=99")
 [ "$c" = "202" ] && ok "pedido aceito de forma assíncrona (202)" || falha "pedido devolveu $c"
 ```
 
+### Comandos essenciais
+
+- `bash verificar.sh`: confere as propriedades da arquitetura de uma vez.
+- `docker stats --no-stream`: métricas de CPU e memória de cada container, num instante.
+- `docker compose logs --no-color SERVIÇO | tail -n N`: as últimas linhas de log de um serviço.
+- `docker compose logs --no-color lb app | grep "$RID"`: segue um ID de requisição por duas camadas.
+- `docker run -d --name monolito -p 8090:8080 -e MODO=memoria lab-app`: sobe o "antes" para comparação.
+
 ### Mão na massa
+
+**Laboratório**
 
 **1. Sobe e verifica.**
 
@@ -1586,7 +1838,7 @@ docker stop $(docker compose ps -q app | head -n 1)
 for i in $(seq 1 20); do curl -s -o /dev/null -w "%{http_code}\n" "localhost:8080/"; done | sort | uniq -c
 ```
 
-Esperado: `20 200`. Suba de volta e atualize o Nginx, que resolve nomes só na partida e a réplica pode voltar com outro IP:
+Esperado: `20 200`. Suba de volta e atualize o Nginx, que resolve nomes só na partida (a réplica pode voltar com outro IP):
 
 ```sh
 docker compose up -d
@@ -1615,7 +1867,7 @@ curl -s -o /dev/null -w "%{http_code}\n" --max-time 2 localhost:8090/
 
 Esperado: `000`. Remova com `docker rm monolito`.
 
-**4. Observabilidade, os três pilares com o que temos.**
+**4. Observabilidade: os três pilares com o que temos.**
 
 *Métricas* (o quê):
 
@@ -1644,15 +1896,7 @@ docker compose logs --no-color lb app | grep "$RID"
 
 Esperado: duas linhas com o **mesmo** `rid`, uma do `lb` (com `upstream=` mostrando qual réplica foi escolhida) e outra do `app` (a réplica que atendeu). É um mini trace distribuído: o mesmo identificador costurando o caminho da requisição por duas camadas. Ferramentas reais de tracing fazem isso de forma automática e medem o tempo de cada trecho.
 
-**Limpeza:**
-
-```sh
-docker compose down -v
-docker rm -f monolito 2>/dev/null
-cd ..
-```
-
-### Exercícios
+**Exercícios**
 
 1. **Diagnóstico.** O e-commerce abaixo caiu na Black Friday. Liste os pontos de falha e, para cada um, a peça do guia que o resolve e em que etapa ela foi estudada:
    - aplicação e banco no mesmo servidor;
@@ -1661,11 +1905,27 @@ cd ..
    - e-mail de confirmação enviado antes de responder ao cliente;
    - um único servidor na frente de tudo.
 
-   *Resposta esperada:* aplicação e banco no mesmo servidor, separar os dois (aplicação em instâncias próprias, banco em serviço gerenciado com read replicas; Etapas 01, 03 e 05); carrinho em variável de sessão, aplicação stateless com o estado no Redis ou no banco (Etapa 03); imagens e JavaScript servidos pela aplicação, CDN na frente (Etapa 04); e-mail antes de responder, fila e workers, com o produtor respondendo na hora (Etapa 03); servidor único na frente, load balancer com uma frota de instâncias (Etapas 01 e 02).
-2. **Monolito ou microsserviços?** Uma startup com 6 pessoas, um único time, quer "ser como o Nubank". Use a Lei de Conway e a tabela de custos para argumentar a favor de um monolito escalável (stateless, em ASG) como ponto de partida. *Resposta esperada:* pela Lei de Conway, um time único e centralizado tende a produzir (e a operar bem) um monolito; microsserviços refletem times pequenos e autônomos, que a startup ainda não tem. A tabela mostra o preço dos microsserviços: complexidade operacional massiva, latência e novos pontos de falha na rede, depuração distribuída difícil. Um monolito stateless, em ASG, escala horizontalmente com simplicidade de desenvolvimento, teste, deploy e depuração, e pode ser dividido mais tarde, quando surgirem times e gargalos que justifiquem.
-3. **Gargalo ou pilar?** Você vê a latência do `/carrinho` triplicar. Qual pilar você consulta primeiro para saber *que* algo mudou, qual para saber *por quê* e qual para saber *onde* o tempo foi gasto? *Resposta esperada:* métricas para saber **que** algo mudou (e disparar o alerta), logs para saber **por quê** e traces para saber **onde** o tempo foi gasto, ao longo dos serviços por onde a requisição passou.
-4. **Orçamento de erro (conta).** Um SLO de 99,9% de disponibilidade em 30 dias deixa quantos minutos de indisponibilidade de orçamento? (Dica: 30 dias têm 43.200 minutos.) *Resposta:* 0,1% de 43.200 = 43,2 minutos.
-5. **Plano de upgrade.** Escreva o que você adicionaria ao `docker-compose.yml` para incluir o banco primary e a réplica da Etapa 05 atrás da API, e como a aplicação faria o write splitting. *Resposta esperada:* acrescentar ao compose os serviços `primary` e `replica` (com o `init-primary.sh`, o `replica.sh` e o healthcheck da Etapa 05) e passar à `app` os endereços dos dois por variáveis de ambiente. No write splitting, os comandos de escrita (INSERT, UPDATE, DELETE) vão para o `primary` e as leituras (SELECT) para a `replica`, de preferência com o cache-aside do Redis na frente. A aplicação de teste não fala com Postgres, então seria preciso acrescentar a ela um cliente de Postgres.
+   *Resposta esperada:* aplicação e banco no mesmo servidor: separar os dois, com a aplicação em instâncias próprias e o banco em serviço gerenciado com read replicas (Etapas 01, 03 e 05); carrinho em variável de sessão: aplicação stateless, com o estado no Redis ou no banco (Etapa 03); imagens e JavaScript servidos pela aplicação: CDN na frente (Etapa 04); e-mail antes de responder: fila e workers, com o produtor respondendo na hora (Etapa 03); servidor único na frente: load balancer com uma frota de instâncias (Etapas 01 e 02).
+2. **Monolito ou microsserviços?** Uma startup com 6 pessoas, um único time, quer "ser como o Nubank". Use a Lei de Conway e a tabela de custos para argumentar a favor de um monolito escalável (stateless, em ASG) como ponto de partida.
+   *Resposta esperada:* pela Lei de Conway, um time único e centralizado tende a produzir (e a operar bem) um monolito; microsserviços refletem times pequenos e autônomos, que a startup ainda não tem. A tabela mostra o preço dos microsserviços: complexidade operacional massiva, latência e novos pontos de falha na rede, depuração distribuída difícil. Um monolito stateless em ASG escala horizontalmente com simplicidade de desenvolvimento, teste, deploy e depuração, e pode ser dividido mais tarde, quando surgirem times e gargalos que justifiquem.
+3. **Gargalo ou pilar?** Você vê a latência do `/carrinho` triplicar. Qual pilar você consulta primeiro para saber *que* algo mudou, qual para saber *por quê* e qual para saber *onde* o tempo foi gasto?
+   *Resposta esperada:* métricas para saber **que** algo mudou (e disparar o alerta), logs para saber **por quê** e traces para saber **onde** o tempo foi gasto, ao longo dos serviços por onde a requisição passou.
+4. **Orçamento de erro (conta).** Um SLO de 99,9% de disponibilidade em 30 dias deixa quantos minutos de indisponibilidade de orçamento? (Dica: 30 dias têm 43.200 minutos.)
+   *Resposta esperada:* 0,1% de 43.200 = 43,2 minutos.
+5. **Plano de upgrade.** Escreva o que você adicionaria ao `docker-compose.yml` para incluir o banco primary e a réplica da Etapa 05 atrás da API, e como a aplicação faria o write splitting.
+   *Resposta esperada:* acrescentar ao compose os serviços `primary` e `replica` (com o `init-primary.sh`, o `replica.sh` e o healthcheck da Etapa 05) e passar à `app` os endereços dos dois por variáveis de ambiente. No write splitting, os comandos de escrita (INSERT, UPDATE, DELETE) vão para o `primary` e as leituras (SELECT) para a `replica`, de preferência com o cache-aside do Redis na frente. A aplicação de teste não fala com Postgres, então seria preciso acrescentar a ela um cliente de Postgres.
+
+**Limpeza:**
+
+```sh
+docker compose down -v
+docker rm -f monolito 2>/dev/null
+cd ..
+```
+
+### Dica
+
+Gere o ID de requisição na primeira camada que recebe o tráfego e repasse-o em todas as chamadas seguintes, registrando-o em todo log. Sem esse fio comum, logs de camadas diferentes são pilhas separadas que você precisa casar pelo horário, o que não funciona sob carga.
 
 ### Anota aí
 
@@ -1690,15 +1950,16 @@ Marque só o que você consegue fazer **sem consultar o texto**.
 - [ ] Diferencio L4 e L7 e dou um uso de cada.
 - [ ] Explico round-robin, least connections e IP hash, com uma desvantagem de cada.
 - [ ] Descrevo health check, failover e connection draining.
-- [ ] Executo e explico um canary e uma virada blue/green.
-- [ ] Consigo configurar um `upstream` no Nginx e recarregar a configuração.
+- [ ] Executo e explico um canary e uma virada blue/green, com rollback.
+- [ ] Configuro um `upstream` no Nginx, valido com `nginx -t` e recarrego a configuração.
 
 **Etapa 03: Padrões de escala horizontal**
 
 - [ ] Explico por que stateful atrapalha o balanceamento e como o Redis resolve.
 - [ ] Reproduzo o problema do carrinho em memória e a correção.
+- [ ] Explico por que sticky session é um remendo e não uma solução.
 - [ ] Explico o padrão produtor, fila e worker, e por que os workers escalam pelo tamanho da fila.
-- [ ] Escrevo um retry com backoff exponencial e explico o papel do fallback.
+- [ ] Escrevo um retry com backoff exponencial e explico o papel do fallback e do circuit breaker.
 - [ ] Sei o que são sidecar, ambassador, ReplicaSet e ASG.
 
 **Etapa 04: CDNs**
@@ -1707,11 +1968,11 @@ Marque só o que você consegue fazer **sem consultar o texto**.
 - [ ] Leio `Cache-Control` e `ETag` com `curl` e provoco um `304`.
 - [ ] Diferencio HIT, MISS, EXPIRED e REVALIDATED.
 - [ ] Calculo o cache hit ratio e sei por que invalidar demais é ruim.
-- [ ] Decido o que cachear e o que não cachear numa borda.
+- [ ] Decido o que cachear, por quanto tempo, e o que nunca vai para uma borda compartilhada.
 
 **Etapa 05: Banco de dados**
 
-- [ ] Explico cache-aside e implemento o fluxo com Redis.
+- [ ] Explico cache-aside e implemento o fluxo com Redis, incluindo a invalidação ao escrever.
 - [ ] Explico primary-replica, replicação assíncrona e write splitting.
 - [ ] Demonstro consistência eventual com uma réplica.
 - [ ] Comparo sharding por range e por hash e explico a dor do re-sharding.
@@ -1722,8 +1983,8 @@ Marque só o que você consegue fazer **sem consultar o texto**.
 - [ ] Diagnostico os pontos de falha de um monolito e redesenho a arquitetura justificando cada peça.
 - [ ] Comparo monolito escalável e microsserviços e cito a Lei de Conway.
 - [ ] Associo métricas, logs e traces às perguntas "o quê", "por quê" e "onde".
-- [ ] Rodo e interpreto a verificação da arquitetura completa.
-- [ ] Explico SLO e error budget.
+- [ ] Rodo e interpreto a verificação da arquitetura completa e sigo um ID de requisição pelos logs.
+- [ ] Explico SLO e error budget e calculo o orçamento de um SLO.
 
 ---
 
@@ -1731,15 +1992,22 @@ Marque só o que você consegue fazer **sem consultar o texto**.
 
 **Precisões e correções ao material bruto:**
 
-1. **Teorema CAP.** O texto diz que o sistema "garante só duas de três" propriedades. A leitura mais precisa é que, **durante uma partição de rede**, é preciso escolher entre consistência e disponibilidade. Sem partição, um sistema pode oferecer as duas. Por isso a frase "a escolha real é CP ou AP" do próprio material é a que vale. Classificar bancos como "CP" ou "AP" também é uma simplificação: muitos permitem ajustar o comportamento por configuração.
-2. **Hystrix.** O material cita a biblioteca Hystrix como a que popularizou o Circuit Breaker. É um fato histórico correto, mas a biblioteca está em modo de manutenção (a própria Netflix deixou de desenvolvê-la) e hoje se usam outras alternativas, como o Resilience4j. O padrão continua válido; a biblioteca é que ficou como referência histórica.
-3. **Cabeçalho `X-Cache`.** O material trata `X-Cache` (Hit/Miss) como algo que a CDN simplesmente envia. Esse cabeçalho **não faz parte de um padrão HTTP**: é uma convenção de cada provedor e o formato do valor varia entre eles. O que é padronizado é o `Cache-Control`. No laboratório, definimos o `X-Cache` nós mesmos na borda.
+1. **Teorema CAP.** O material diz que o sistema "garante só duas de três" propriedades. A leitura mais precisa é que, **durante uma partição de rede**, é preciso escolher entre consistência e disponibilidade; sem partição, um sistema pode oferecer as duas. Por isso a frase "a escolha real é CP ou AP" do próprio material é a que vale, e o texto da Etapa 05 foi escrito nesse sentido. Classificar bancos como "CP" ou "AP" também é uma simplificação: muitos permitem ajustar o comportamento por configuração.
+2. **Hystrix.** O material cita a biblioteca Hystrix como a que popularizou o Circuit Breaker. É um fato histórico correto, mas a biblioteca está em modo de manutenção (a própria Netflix deixou de desenvolvê-la) e o repositório do Hystrix recomenda alternativas como o Resilience4j. O padrão continua válido; a biblioteca ficou como referência histórica.
+3. **Cabeçalho `X-Cache`.** O material trata `X-Cache` (Hit/Miss) como algo que a CDN simplesmente envia. Esse cabeçalho **não faz parte de um padrão HTTP**: é uma convenção de cada provedor, e o formato do valor varia entre eles. O que é padronizado é o `Cache-Control`. No laboratório, o `X-Cache` é definido por nós na borda.
 4. **ReplicaSet vs Deployment.** O material apresenta o ReplicaSet como unidade de escala, o que está correto. Na prática, costuma-se criar um **Deployment**, que gerencia ReplicaSets e acrescenta atualizações graduais e rollback. O ReplicaSet continua sendo o mecanismo que mantém o número de cópias.
-5. **Backoff exponencial.** O material cita retry com exponential backoff. Em sistemas reais, costuma-se somar um pequeno atraso aleatório (jitter) para que muitos clientes não repitam as tentativas todos no mesmo instante.
+5. **Backoff exponencial.** Em sistemas reais, costuma-se somar ao backoff um pequeno atraso aleatório (jitter), para que muitos clientes não repitam as tentativas todos no mesmo instante.
 
-**Limites dos laboratórios (onde a analogia local termina):**
+**Mudanças em relação à versão anterior do guia:**
 
-- A aplicação de teste **modela** a capacidade de um servidor com um semáforo e um `sleep`. Os números das experiências da Etapa 01 são previsíveis por construção; servem para ver a lógica, não para medir hardware real.
+- Cada etapa passou a ter as seções "Os conceitos-chave", "Comandos essenciais" e "Dica". Os YAML de leitura (Ingress e ReplicaSet) e os scripts de apoio (`cache-aside.sh`, `verificar.sh`) viraram exemplos comentados próprios, e os exercícios foram para dentro de "Mão na massa".
+- Ganharam resposta esperada os exercícios que não tinham: o retry com backoff e a sticky session da Etapa 03, a leitura do ReplicaSet e a pergunta sobre sharding por range da Etapa 05.
+- No exercício de sticky session (Etapa 03), o teste usa um usuário novo (`bia`), porque o carrinho da `ana` já tem itens espalhados nas memórias das réplicas desde o passo 1, e ganhou o passo de desfazer o `ip_hash`.
+- No passo 5 da Etapa 03, foi acrescentado o aviso de esperar a fila do passo 4 esvaziar antes de medir; sem isso, a medição com 1 worker soma pedidos antigos e passa dos 12 s esperados.
+
+**Limites dos laboratórios (onde a equivalência local termina):**
+
+- A aplicação de teste **modela** a capacidade de um servidor com um semáforo e um `sleep`. Os números da Etapa 01 são previsíveis por construção; servem para ver a lógica, não para medir hardware real.
 - O Nginx de código aberto faz **health check passivo** (reage a falhas reais). O ALB faz sondagem ativa em intervalo configurável, com *unhealthy threshold* e *healthy threshold*. O Nginx também resolve os nomes dos servidores só na partida, e por isso o `reload` depois de mudar a frota; no ASG, o registro e a remoção de instâncias no target group são automáticos.
 - Os blocos `upstream` usam `zone` (memória compartilhada) para que os vários processos worker do Nginx dividam o mesmo estado de round-robin. Sem ela, cada worker balanceia por conta própria e contagens exatas como 10/10/10 podem sair irregulares.
 - Os comandos `sed -i` com `\n` são do GNU sed. No macOS (BSD sed), use `gsed` (`brew install gnu-sed`) ou edite os arquivos à mão.
@@ -1748,9 +2016,7 @@ Marque só o que você consegue fazer **sem consultar o texto**.
 - O Postgres do laboratório usa replicação por streaming **assíncrona**, e o failover é manual. Um serviço gerenciado como o RDS automatiza a detecção e a promoção; o RTO real dele depende dessa automação.
 - Em Docker Compose, `deploy.replicas` serve para réplicas locais. Em produção, o equivalente é o ReplicaSet/Deployment (Kubernetes) ou o ASG (AWS), com autoscaling de verdade.
 
----
-
-## Referências do material
+**Referências do material:**
 
 - Beyer et al., *The Site Reliability Workbook* (2018) e *Site Reliability Engineering* (2016).
 - Kleppmann, *Designing Data-Intensive Applications* (2017).

@@ -2,7 +2,7 @@
 """Regenera os dados dos guias no formato lente de F1 + etapas técnicas (src/data/<guia>.ts e
 <guia>.en.ts) a partir de relatorios/<pasta>/final.md e final.en.md.
 
-Uso: python3 scripts/build-lens-guide.py [basico|avancado|servidores-web|containers|all] [pt|en]
+Uso: python3 scripts/build-lens-guide.py [basico|avancado|servidores-web|containers|escalabilidade|all] [pt|en]
      (sem argumentos: todos os guias, nos dois idiomas)
 
 Mantém o bloco de PLATFORMS que já existe no arquivo de dados do guia básico (ele não vem do
@@ -155,6 +155,30 @@ GUIDES = {
                 ("Troubleshooting", "diagnostics"),
                 ("Health and logs", "observability"),
                 ("Capstone", "defensive stack"),
+            ],
+        },
+    },
+    "escalabilidade": {
+        "folder": "relatorios/escalabilidade",
+        "data": "escalabilidade",
+        "keep_platforms": False,
+        "about": "// Conteúdo das 6 aulas de Escalabilidade nos servidores (DevOps e Arquitetura Cloud, Fase 2).",
+        "meta": {
+            "pt": [
+                ("Fundamentos", "desempenho x escala"),
+                ("Load balancers", "algoritmos + failover"),
+                ("Escala horizontal", "stateless + filas"),
+                ("CDN", "cache na borda"),
+                ("Banco de dados", "réplicas + cache + CAP"),
+                ("Arquitetura completa", "observabilidade"),
+            ],
+            "en": [
+                ("Foundations", "performance x scale"),
+                ("Load balancers", "algorithms + failover"),
+                ("Horizontal scale", "stateless + queues"),
+                ("CDN", "edge caching"),
+                ("Databases", "replicas + cache + CAP"),
+                ("Full architecture", "observability"),
             ],
         },
     },

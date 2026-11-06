@@ -40,35 +40,6 @@ type LessonLike = {
   tip: string;
 };
 
-// O guia de Escalabilidade tem formato próprio (pergunta, sintoma, analogias, trade-offs);
-// aqui ele é traduzido para a forma que o índice já entende.
-type ScaleLessonLike = Omit<LessonLike, "lead" | "pointsTitle" | "points" | "takeaway" | "tip"> & {
-  question: string;
-  symptom: string;
-  pitScene: string;
-  answer: string;
-  analogies: { term: string; f1: string }[];
-  tradeoffs: { option: string; gain: string; cost: string }[];
-  rule: string;
-};
-
-function fromScaleLessons(mod: { LESSONS: ScaleLessonLike[] }): { LESSONS: LessonLike[] } {
-  return {
-    LESSONS: mod.LESSONS.map((l) => ({
-      id: l.id,
-      num: l.num,
-      title: l.title,
-      tag: l.tag,
-      lead: `${l.question} ${l.answer}`,
-      concept: [...l.concept, l.pitScene, ...l.analogies.map((a) => `${a.term}: ${a.f1}`)],
-      pointsTitle: l.symptom,
-      points: l.tradeoffs.map((t) => ({ t: t.option, d: `${t.gain} ${t.cost}` })),
-      takeaway: l.rule,
-      tip: "",
-    })),
-  };
-}
-
 type GuideConfig = {
   slug: SearchDoc["guideSlug"];
   title: string;
@@ -112,11 +83,11 @@ const GUIDES_PT: GuideConfig[] = [
   },
   {
     slug: "escalabilidade",
-    title: "Escalabilidade nos servidores: seis perguntas antes do pico",
+    title: "Escalabilidade nos servidores: do primeiro servidor ao pico",
     overview:
-      "6 perguntas: desempenho x escala, load balancers, aplicações stateless, filas e workers, CDN, réplicas de banco, CAP e observabilidade, com trade-offs e laboratórios.",
+      "6 etapas: desempenho x escala, load balancers, aplicações stateless, filas e workers, CDN, réplicas de banco, CAP e observabilidade, com laboratórios locais.",
     overviewTag: "visão geral",
-    loader: () => import("@/data/escalabilidade").then(fromScaleLessons),
+    loader: () => import("@/data/escalabilidade"),
   },
   {
     slug: "cultura-devops",
@@ -187,11 +158,11 @@ const GUIDES_EN: GuideConfig[] = [
   },
   {
     slug: "escalabilidade",
-    title: "Server Scalability: six questions before the peak",
+    title: "Server scalability: from the first server to the peak",
     overview:
-      "6 questions: performance vs scale, load balancers, stateless apps, queues and workers, CDNs, database replicas, CAP, and observability, with trade-offs and labs.",
+      "6 stages: performance vs scale, load balancers, stateless apps, queues and workers, CDNs, database replicas, CAP, and observability, with local labs.",
     overviewTag: "overview",
-    loader: () => import("@/data/escalabilidade.en").then(fromScaleLessons),
+    loader: () => import("@/data/escalabilidade.en"),
   },
   {
     slug: "cultura-devops",

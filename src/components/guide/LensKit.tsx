@@ -29,6 +29,9 @@ export type TechLesson = {
   commands: TechCommand[];
   handsOnIntro?: string;
   handsOn: string[]; // podem conter blocos ```sh
+  // Laboratório longo: handsOn vira uma sequência de blocos (parágrafo, ```código```,
+  // tabela markdown, "- " e "N. ") renderizada em ordem, em vez de uma lista de passos.
+  handsOnRich?: boolean;
   tip: string;
   takeaway: string;
 };
@@ -100,19 +103,19 @@ function RichText({ text }: { text: string }) {
   return <>{out}</>;
 }
 
-/** Parágrafos e listas: itens "- " viram <ul>, itens "1. " viram <ol> e itens cercados
- * por ``` viram bloco de código. */
+/** Parágrafos e listas: itens "- " viram <ul>, itens "N. " viram <ol> (mantendo o número),
+ * itens cercados por ``` viram bloco de código e itens que começam com "|" viram tabela. */
 function Paragraphs({ items }: { items: string[] }) {
-  type List = { ordered: boolean; items: string[] };
+  type List = { ordered: boolean; start: number; items: string[] };
   const groups: (string | List)[] = [];
   for (const item of items) {
     const bullet = item.startsWith("- ");
-    const numbered = /^\d+\. /.test(item);
+    const numbered = item.match(/^(\d+)\. /);
     if (bullet || numbered) {
       const text = item.replace(/^(- |\d+\. )/, "");
       const last = groups[groups.length - 1];
-      if (typeof last === "object" && last.ordered === numbered) last.items.push(text);
-      else groups.push({ ordered: numbered, items: [text] });
+      if (typeof last === "object" && last.ordered === !!numbered) last.items.push(text);
+      else groups.push({ ordered: !!numbered, start: numbered ? +numbered[1] : 1, items: [text] });
     } else {
       groups.push(item);
     }
@@ -123,6 +126,9 @@ function Paragraphs({ items }: { items: string[] }) {
         if (typeof g === "string" && g.startsWith("```")) {
           return <RichText key={i} text={g} />;
         }
+        if (typeof g === "string" && g.startsWith("|")) {
+          return <MdTable key={i} text={g} />;
+        }
         if (typeof g === "string") {
           return (
             <p key={i}>
@@ -132,16 +138,59 @@ function Paragraphs({ items }: { items: string[] }) {
         }
         const Tag = g.ordered ? "ol" : "ul";
         return (
-          <Tag className="lens-list" key={i}>
+          <Tag
+            className="lens-list"
+            key={i}
+            start={g.ordered && g.start !== 1 ? g.start : undefined}
+          >
             {g.items.map((li, j) => (
-              <li key={j}>
-                <Md text={li} />
-              </li>
+              <li key={j}>{li.includes("```") ? <RichText text={li} /> : <Md text={li} />}</li>
             ))}
           </Tag>
         );
       })}
     </>
+  );
+}
+
+/** Tabela markdown simples (cabeçalho, separador e linhas). */
+function MdTable({ text }: { text: string }) {
+  const rows = text
+    .split("\n")
+    .map((r) =>
+      r
+        .trim()
+        .replace(/^\||\|$/g, "")
+        .split("|")
+        .map((c) => c.trim()),
+    )
+    .filter((cells) => !cells.every((c) => /^:?-+:?$/.test(c)));
+  const [head, ...body] = rows;
+  return (
+    <div className="lens-scroll">
+      <table className="lens-table">
+        <thead>
+          <tr>
+            {head.map((c, i) => (
+              <th key={i}>
+                <Md text={c} />
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {body.map((r, i) => (
+            <tr key={i}>
+              {r.map((c, j) => (
+                <td key={j}>
+                  <Md text={c} />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -338,13 +387,19 @@ export function TechLessonSection({
           <Md text={lesson.handsOnIntro} />
         </p>
       )}
-      <ol className="handson">
-        {lesson.handsOn.map((step, i) => (
-          <li key={i}>
-            <RichText text={step} />
-          </li>
-        ))}
-      </ol>
+      {lesson.handsOnRich ? (
+        <div className="handson-lab">
+          <Paragraphs items={lesson.handsOn} />
+        </div>
+      ) : (
+        <ol className="handson">
+          {lesson.handsOn.map((step, i) => (
+            <li key={i}>
+              <RichText text={step} />
+            </li>
+          ))}
+        </ol>
+      )}
 
       <div className="callout blue">
         <Info className="co-ic" size={17} aria-hidden="true" />

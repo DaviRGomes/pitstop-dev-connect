@@ -93,7 +93,7 @@ def blocks(lines):
         indented = line[:1] in (" ", "\t") and s
         if indented and out and out[-1][0] in ("li", "ol") and not para:
             # continuação de um item de lista: texto ou bloco de código recuado
-            kind, txt = out[-1]
+            kind, txt, *rest = out[-1]
             if s.startswith("```"):
                 lang = s[3:].strip() or "sh"
                 pad = len(line) - len(line.lstrip())
@@ -105,7 +105,7 @@ def blocks(lines):
                 txt += "\n```" + lang + "\n" + "\n".join(code) + "\n```\n"
             else:
                 txt += ("" if txt.endswith("\n") else " ") + s
-            out[-1] = (kind, txt)
+            out[-1] = (kind, txt, *rest)
             i += 1
             continue
         if s.startswith("```"):
@@ -140,7 +140,7 @@ def blocks(lines):
             out.append(("li", s[2:].strip()))
         elif re.match(r"^\d+\. ", s):
             flush()
-            out.append(("ol", re.sub(r"^\d+\.\s+", "", s)))
+            out.append(("ol", re.sub(r"^\d+\.\s+", "", s), int(re.match(r"^(\d+)", s).group(1))))
         else:
             para.append(line)
         i += 1
@@ -355,14 +355,28 @@ def parse_stage(num, title, lines, h, warn):
             warn(f"Etapa {num}: comando fora do padrão: {b[1][:50]}")
 
     ho = need("handsOn")
-    intro = " ".join(b[1] for b in ho if b[0] == "p" and not any(x[0] == "ol" for x in ho[: ho.index(b)]))
-    steps = [b[1] for b in ho if b[0] in ("ol", "li")]
-    after = [b[1] for b in ho if b[0] == "p" and any(x[0] == "ol" for x in ho[: ho.index(b)])]
-    if after:
-        steps[-1] = steps[-1] + " " + " ".join(after)
-    for b in ho:
-        if b[0] == "code":
-            warn(f"Etapa {num}: código dentro de Mão na massa ignorado")
+    rich = any(b[0] == "code" for b in ho)
+    if rich:
+        # Laboratório com código entre os passos: a seção vira uma sequência de blocos
+        # (parágrafo, ```código```, tabela, "- " e "N. "), renderizada na ordem pelo LensKit.
+        intro, steps = "", []
+        for b in ho:
+            if b[0] in ("p", "quote"):
+                steps.append(b[1])
+            elif b[0] == "li":
+                steps.append("- " + b[1])
+            elif b[0] == "ol":
+                steps.append(f"{b[2]}. " + b[1])
+            elif b[0] == "code":
+                steps.append(f"```{b[1]}\n{b[2]}\n```")
+            elif b[0] == "table":
+                steps.append("\n".join(b[1]))
+    else:
+        intro = " ".join(b[1] for b in ho if b[0] == "p" and not any(x[0] == "ol" for x in ho[: ho.index(b)]))
+        steps = [b[1] for b in ho if b[0] in ("ol", "li")]
+        after = [b[1] for b in ho if b[0] == "p" and any(x[0] == "ol" for x in ho[: ho.index(b)])]
+        if after:
+            steps[-1] = steps[-1] + " " + " ".join(after)
 
     tip = " ".join(b[1] if b[0] == "p" else "• " + b[1] for b in need("tip") if b[0] in ("p", "li"))
     tk = need("takeaway")
@@ -380,6 +394,7 @@ def parse_stage(num, title, lines, h, warn):
         "examples": examples,
         "commands": commands,
         "handsOn": steps,
+        **({"handsOnRich": True} if rich else {}),
         "tip": tip,
         "takeaway": takeaway,
     }

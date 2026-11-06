@@ -1619,6 +1619,11 @@ a.sc-node:hover { border-color: var(--senna-yellow); transform: translateY(-2px)
 .lens-ex-intro { font-size: .92rem; color: var(--muted); margin: 10px 0; }
 .lens-inline-code { margin: 10px 0; }
 .lens-inline-code .code { border-radius: 10px; padding: 12px 14px; }
+.handson-lab { max-width: 76ch; }
+.handson-lab > p { color: var(--body); font-size: .95rem; margin: 0 0 10px; }
+.handson-lab > .lens-scroll { margin: 4px 0 14px; }
+.handson-lab .lens-inline-code { margin: 6px 0 14px; }
+.handson-lab .lens-table td:nth-child(2) { color: var(--body); }
 .lens-check h4 { margin: 0 0 10px; font-size: .98rem; }
 .lens-check ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
 .lens-check li { display: flex; gap: 8px; align-items: flex-start; font-size: .89rem; color: var(--body); }
