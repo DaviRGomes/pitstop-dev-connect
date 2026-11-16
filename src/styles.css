@@ -143,6 +143,26 @@
   }
 }
 
+/* Fontes servidas pelo próprio site (public/fonts, subconjunto latino, licença
+   OFL — ver public/fonts/LICENSES.md). Inter e JetBrains Mono são variáveis:
+   um arquivo cobre todos os pesos. A Saira 700 é pré-carregada no __root. */
+@font-face {
+  font-family: "Inter"; font-style: normal; font-weight: 400 700; font-display: swap;
+  src: url("/fonts/inter-latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono"; font-style: normal; font-weight: 400 500; font-display: swap;
+  src: url("/fonts/jetbrains-mono-latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Saira Condensed"; font-style: normal; font-weight: 600; font-display: swap;
+  src: url("/fonts/saira-condensed-600-latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Saira Condensed"; font-style: normal; font-weight: 700; font-display: swap;
+  src: url("/fonts/saira-condensed-700-latin.woff2") format("woff2");
+}
+
 /* ============================================================
    pitstop.dev.br — tema "Ayrton Senna + telemetria de software"
    ============================================================ */
@@ -170,7 +190,7 @@
   --text: #E9ECF3;
   --body: #C7CEDD;
   --muted: #8B93A6;
-  --dim: #5E6C8C;
+  --dim: #7C88A6; /* 5.5:1 no --ink e 4.65:1 no --panel (AA) */
   --code-fg: #D9E0EF;
 
   --mono: "JetBrains Mono", Consolas, monospace;
@@ -441,6 +461,36 @@ strong, b { color: var(--text); font-weight: 600; }
 .tk-cmd { color: var(--code-fg); }
 .tk-output { color: var(--dim); }
 .code-note { font-size: .82rem; color: var(--muted); margin-top: 10px; }
+
+/* Botão de copiar: canto do bloco de código e fim de cada linha de comando */
+.code-wrap { position: relative; }
+.code-wrap .code { padding-right: 96px; }
+.copy-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: .66rem; letter-spacing: .06em;
+  color: var(--muted); background: var(--ink-2);
+  border: 1px solid var(--line-strong); border-radius: 7px;
+  padding: 4px 9px; cursor: pointer;
+  transition: color .15s ease, border-color .15s ease;
+}
+.code-wrap > .copy-btn { position: absolute; top: 10px; right: 10px; z-index: 1; }
+.copy-btn:hover { color: var(--text); border-color: var(--senna-yellow); }
+.copy-btn.is-ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 50%, transparent); }
+.copy-btn svg { flex: 0 0 auto; }
+.cmd .cmd-text { flex: 1; }
+.copy-btn.is-inline { margin-left: 12px; flex: 0 0 auto; position: sticky; right: 0; padding: 3px 7px; }
+/* rótulo some da tela mas continua lido pelo leitor de tela (aria-live) */
+.copy-btn.is-inline .copy-btn-label {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip-path: inset(50%); white-space: nowrap;
+}
+@media (max-width: 480px) {
+  .code-wrap .code { padding-right: 52px; }
+  .code-wrap > .copy-btn .copy-btn-label {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip-path: inset(50%); white-space: nowrap;
+  }
+}
 
 .cmd-list { display: flex; flex-direction: column; gap: 9px; }
 .cmd {

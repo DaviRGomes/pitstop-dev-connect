@@ -9,6 +9,9 @@ export const getRouter = () => {
     routeTree,
     context: { queryClient },
     scrollRestoration: true,
+    // Começa a baixar o código e os dados da rota quando o mouse para sobre o
+    // link (ou o dedo toca), então o guia abre quase na hora no clique.
+    defaultPreload: "intent",
     defaultPreloadStaleTime: 0,
   });
 

@@ -1,7 +1,12 @@
 import { Fragment, useState, type ReactNode } from "react";
 import { CheckSquare, Flag, Info, Terminal } from "lucide-react";
 import { Icon } from "@/components/Icon";
-import { CodeBlock, type GuideExample, type GuidePoint } from "@/components/guide/GuideKit";
+import {
+  CodeBlock,
+  CopyButton,
+  type GuideExample,
+  type GuidePoint,
+} from "@/components/guide/GuideKit";
 
 // Layout do guia de Kubernetes (PT e EN): a lente geral de F1 abre o guia (LensSection) e
 // cada etapa ensina o tópico só de forma técnica (TechLessonSection). A F1 aparece uma vez,
@@ -368,7 +373,7 @@ export function TechLessonSection({
         {lesson.commands.map((c) => (
           <div className="cmd" key={c.cmd}>
             <span className="tk-prompt">$</span>
-            <span>
+            <span className="cmd-text">
               {c.cmd}
               {c.note && (
                 <span className="tk-comment">
@@ -377,6 +382,7 @@ export function TechLessonSection({
                 </span>
               )}
             </span>
+            <CopyButton text={c.cmd} className="is-inline" />
           </div>
         ))}
       </div>

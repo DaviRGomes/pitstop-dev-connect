@@ -1,5 +1,6 @@
-import { useMemo, useState, type ReactNode } from "react";
-import { Flag, Info, Terminal } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useRouterState } from "@tanstack/react-router";
+import { Check, Copy, Flag, Info, Terminal } from "lucide-react";
 import { Icon } from "@/components/Icon";
 import { helmetImg } from "@/assets/brand/paths";
 
@@ -72,10 +73,67 @@ function ShLine({ line }: { line: string }) {
   return <div className="code-line tk-output">{line || " "}</div>;
 }
 
+/** O que vai para a área de transferência: em blocos de terminal com linhas "$",
+ * só os comandos (sem o "$", sem comentário e sem a saída); no resto, o bloco inteiro. */
+function copyableCode(example: Pick<GuideExample, "lang" | "code">) {
+  if (example.lang !== "sh") return example.code;
+  const cmds = example.code
+    .split("\n")
+    .filter((l) => l.startsWith("$"))
+    .map((l) => {
+      const hashIdx = l.indexOf(" # ");
+      return (hashIdx >= 0 ? l.slice(1, hashIdx) : l.slice(1)).trim();
+    });
+  return cmds.length ? cmds.join("\n") : example.code;
+}
+
+/** Botão de copiar dos blocos de código e comandos. O rótulo segue o idioma da página. */
+export function CopyButton({ text, className = "" }: { text: string; className?: string }) {
+  const en = useRouterState({ select: (s) => s.location.pathname.startsWith("/en") });
+  const [state, setState] = useState<"idle" | "ok" | "fail">("idle");
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(timer.current), []);
+
+  const onCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setState("ok");
+    } catch {
+      setState("fail");
+    }
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => setState("idle"), 1800);
+  };
+
+  const label =
+    state === "ok"
+      ? en ? "Copied" : "Copiado"
+      : state === "fail"
+        ? en ? "Copy failed" : "Não copiou"
+        : en ? "Copy" : "Copiar";
+
+  return (
+    <button
+      type="button"
+      className={`copy-btn ${state === "ok" ? "is-ok" : ""} ${className}`}
+      onClick={onCopy}
+      aria-label={state === "idle" ? `${label} ${en ? "code" : "código"}` : label}
+      title={label}
+    >
+      {state === "ok" ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
+      <span className="copy-btn-label" aria-live="polite">
+        {label}
+      </span>
+    </button>
+  );
+}
+
 export function CodeBlock({ example }: { example: GuideExample }) {
   const lines = useMemo(() => example.code.split("\n"), [example.code]);
   return (
-    <div>
+    <div className="code-wrap">
+      {/* fora do .code: o bloco rola na horizontal e o botão fica parado no canto */}
+      <CopyButton text={copyableCode(example)} />
       <div className="code">
         <pre>
           {lines.map((l, i) =>
@@ -116,10 +174,11 @@ export function CommandList({ commands }: { commands: GuideCommand[] }) {
       {commands.map((c) => (
         <div className="cmd" key={c.cmd}>
           <span className="tk-prompt">$</span>
-          <span>
+          <span className="cmd-text">
             {c.cmd}
             {c.note && <span className="tk-comment"> # {c.note}</span>}
           </span>
+          <CopyButton text={c.cmd} className="is-inline" />
         </div>
       ))}
     </div>

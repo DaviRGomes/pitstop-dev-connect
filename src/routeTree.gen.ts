@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as EnIndexRouteImport } from './routes/en.index'
 import { Route as RelatoriosServidoresWebRouteImport } from './routes/relatorios.servidores-web'
@@ -30,6 +31,11 @@ import { Route as EnRelatoriosAwsAzureRouteImport } from './routes/en.relatorios
 import { Route as EnRelatoriosArquiteturaCloudRouteImport } from './routes/en.relatorios.arquitetura-cloud'
 import { Route as EnRelatoriosArquiteturaAplicacoesRouteImport } from './routes/en.relatorios.arquitetura-aplicacoes'
 
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -143,6 +149,7 @@ const EnRelatoriosArquiteturaAplicacoesRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/relatorios/arquitetura-aplicacoes': typeof RelatoriosArquiteturaAplicacoesRoute
   '/relatorios/arquitetura-cloud': typeof RelatoriosArquiteturaCloudRoute
   '/relatorios/aws-azure': typeof RelatoriosAwsAzureRoute
@@ -165,6 +172,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/relatorios/arquitetura-aplicacoes': typeof RelatoriosArquiteturaAplicacoesRoute
   '/relatorios/arquitetura-cloud': typeof RelatoriosArquiteturaCloudRoute
   '/relatorios/aws-azure': typeof RelatoriosAwsAzureRoute
@@ -188,6 +196,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/relatorios/arquitetura-aplicacoes': typeof RelatoriosArquiteturaAplicacoesRoute
   '/relatorios/arquitetura-cloud': typeof RelatoriosArquiteturaCloudRoute
   '/relatorios/aws-azure': typeof RelatoriosAwsAzureRoute
@@ -212,6 +221,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/sitemap.xml'
     | '/relatorios/arquitetura-aplicacoes'
     | '/relatorios/arquitetura-cloud'
     | '/relatorios/aws-azure'
@@ -234,6 +244,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/sitemap.xml'
     | '/relatorios/arquitetura-aplicacoes'
     | '/relatorios/arquitetura-cloud'
     | '/relatorios/aws-azure'
@@ -256,6 +267,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/sitemap.xml'
     | '/relatorios/arquitetura-aplicacoes'
     | '/relatorios/arquitetura-cloud'
     | '/relatorios/aws-azure'
@@ -279,6 +291,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   RelatoriosArquiteturaAplicacoesRoute: typeof RelatoriosArquiteturaAplicacoesRoute
   RelatoriosArquiteturaCloudRoute: typeof RelatoriosArquiteturaCloudRoute
   RelatoriosAwsAzureRoute: typeof RelatoriosAwsAzureRoute
@@ -302,6 +315,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -447,6 +467,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   RelatoriosArquiteturaAplicacoesRoute: RelatoriosArquiteturaAplicacoesRoute,
   RelatoriosArquiteturaCloudRoute: RelatoriosArquiteturaCloudRoute,
   RelatoriosAwsAzureRoute: RelatoriosAwsAzureRoute,
