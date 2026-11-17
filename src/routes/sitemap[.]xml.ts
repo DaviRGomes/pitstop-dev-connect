@@ -21,7 +21,8 @@ type Page = { pt: string; en: string };
 
 function pages(): Page[] {
   return [
-    { pt: "/", en: "/en/" },
+    // "/en" sem barra: é o endereço que o app usa; "/en/" redireciona (307) para ele.
+    { pt: "/", en: "/en" },
     ...GUIDE_SLUGS.filter(isGuideVisible).map((slug) => ({
       pt: `/relatorios/${slug}`,
       en: `/en/relatorios/${slug}`,
