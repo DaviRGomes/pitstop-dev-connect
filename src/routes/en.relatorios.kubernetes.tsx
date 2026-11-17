@@ -17,7 +17,7 @@ export const Route = createFileRoute("/en/relatorios/kubernetes")({
   head: () =>
     reportHead({
       locale: "en",
-      title: "Kubernetes explicado com exemplos reais | pitstop.dev",
+      title: "Kubernetes explained with real examples | pitstop.dev",
       description:
         "A Kubernetes guide from scratch: concepts, annotated YAML, commands and hands-on exercises, with a general Formula 1 lens that shows the cluster as a team.",
       ptPath: "/relatorios/kubernetes",
