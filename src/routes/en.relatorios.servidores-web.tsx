@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { guardDraft } from "@/lib/drafts";
 import { CHECKLIST, INTRO, LENS, LESSONS, NOTES } from "@/data/servidoresweb.en";
 import { GuideProgress, GuideRail } from "@/components/guide/GuideKit";
 import {
@@ -13,6 +14,7 @@ import { f1Logo } from "@/assets/brand/paths";
 import { reportHead } from "@/lib/seo";
 
 export const Route = createFileRoute("/en/relatorios/servidores-web")({
+  beforeLoad: guardDraft("servidores-web"),
   head: () =>
     reportHead({
       locale: "en",
